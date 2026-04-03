@@ -1,12 +1,13 @@
 import { defineChain } from "viem";
-import { sepolia as sepoliaChain, arbitrumSepolia as arbitrumSepoliaChain } from "viem/chains";
-import { ARC_TESTNET_CHAIN_ID } from "@slabfinance/shared";
+import { sepolia as sepoliaChain } from "viem/chains";
+import { ARC_TESTNET_CHAIN_ID, testnetConfig } from "@slabfinance/shared";
 
-export const sepolia = sepoliaChain;
-
-export const arbitrumSepolia = arbitrumSepoliaChain;
-
-const arcRpcOverride = import.meta.env.VITE_ARC_TESTNET_RPC_URL;
+export const sepolia = defineChain({
+  ...sepoliaChain,
+  rpcUrls: {
+    default: { http: [testnetConfig.source.rpcUrl] },
+  },
+});
 
 const arcTestnetBase = defineChain({
   id: ARC_TESTNET_CHAIN_ID,
@@ -18,24 +19,17 @@ const arcTestnetBase = defineChain({
   },
   rpcUrls: {
     default: {
-      http: ["https://rpc.testnet.arc.network"],
+      http: [testnetConfig.hub.rpcUrl],
     },
   },
   blockExplorers: {
     default: {
       name: "ArcScan",
-      url: "https://testnet.arcscan.app",
+      url: testnetConfig.hub.blockExplorer,
     },
   },
 });
 
-export const arcTestnet = arcRpcOverride
-  ? defineChain({
-      ...arcTestnetBase,
-      rpcUrls: {
-        default: { http: [arcRpcOverride] },
-      },
-    })
-  : arcTestnetBase;
+export const arcTestnet = arcTestnetBase;
 
 export { ARC_TESTNET_CHAIN_ID };

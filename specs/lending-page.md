@@ -6,7 +6,7 @@ This document specifies the **Lending** experience: a single place where users i
 
 ## 1. Goals
 
-- **One mental model:** “Lending” = supply liquidity, take a loan, or pay back — all on the **hub chain** (Arc Testnet or Arbitrum Sepolia per `VITE_HUB_NETWORK`).
+- **One mental model:** “Lending” = supply liquidity, take a loan, or pay back — all on the **hub chain** (Arc Testnet; see `shared/config/testnet.ts`).
 - **Clear prerequisites:** Borrowing is only possible when the user has **eligible collateral** registered on the hub from **locked NFTs on the source chain** (Ethereum Sepolia) and the oracle has priced those positions.
 - **Safe UX:** Show **available credit**, **outstanding debt**, **principal vs interest**, and **health factor** when relevant; never let the user submit a borrow above `availableCredit` or a repay above total debt.
 

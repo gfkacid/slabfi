@@ -13,7 +13,7 @@ The repo is a **pnpm workspace** with these main areas:
 | [`backend/`](backend/) | **NestJS** REST API — protocol stats, positions, auctions, collateral, activity (reads **MySQL** populated by the indexer) |
 | [`indexer/`](indexer/) | **TypeScript** service — polls hub + source chains, writes events and snapshots to **MySQL** |
 | [`prisma/`](prisma/) | Shared **Prisma** schema for backend + indexer |
-| [`shared/`](shared/) | **`@slabfinance/shared`** — shared TypeScript **types** and **constants** (ABIs, chain id, status labels, enums) consumed by the frontend build and the backend |
+| [`shared/`](shared/) | **`@slabfinance/shared`** — types, constants (ABIs, chain id, status labels), and **[`shared/config/testnet.ts`](shared/config/testnet.ts)** (hub Arc Testnet + source Ethereum Sepolia: RPCs, CCIP, contract addresses) |
 | [`specs/`](specs/) | Product **specs** — e.g. [vault-deposits.md](specs/vault-deposits.md), [lending-page.md](specs/lending-page.md), [liquidation-auctions.md](specs/liquidation-auctions.md) |
 
 Root files:
@@ -21,7 +21,7 @@ Root files:
 - [`pnpm-workspace.yaml`](pnpm-workspace.yaml) — workspace package list
 - [`package.json`](package.json) — root scripts (`pnpm dev:frontend`, `pnpm dev:backend`, `pnpm dev:indexer`, `pnpm db:generate`, `pnpm db:push`, `pnpm db:migrate`, `pnpm db:studio`, `pnpm run build`, `pnpm run lint`)
 - [`tsconfig.base.json`](tsconfig.base.json) — base TS options for packages
-- [`.env.example`](.env.example) — template for **frontend** (`VITE_*`) and **deploy/script** variables
+- [`.env.example`](.env.example) — secrets and local-only settings (`DATABASE_URL`, `DEPLOYER_PRIVATE_KEY`, `VITE_WALLETCONNECT_PROJECT_ID`, indexer tuning)
 
 **Install and run:**
 
@@ -29,7 +29,7 @@ Root files:
 pnpm install
 pnpm dev:frontend   # Vite dev server (default http://localhost:3000)
 pnpm dev:backend  # Nest dev server (default http://localhost:3001)
-pnpm dev:indexer  # Chain indexer → MySQL (set `DATABASE_URL` and indexer env vars)
+pnpm dev:indexer  # Chain indexer → MySQL (set `DATABASE_URL`; contract addresses in shared/config/testnet.ts)
 ```
 
 The Vite app reads environment variables from **`frontend/.env`** (not the repo root). Copy or symlink from the root example:
@@ -75,80 +75,40 @@ There is **no Docker Compose** in this repository. Use a local or hosted **MySQL
 
 ## Environment Setup
 
-1. Copy the example env file (for local dev, put values in **`frontend/.env`** so Vite can read them):
+1. Copy the example env file (Vite reads **`frontend/.env`** when developing the SPA):
 
    ```bash
    cp .env.example frontend/.env
    ```
 
-2. Set variables as needed. Split by concern:
+2. Set **`VITE_WALLETCONNECT_PROJECT_ID`**, **`DATABASE_URL`**, and (for deploys) **`DEPLOYER_PRIVATE_KEY`**. Optional: **`VITE_EXTERNAL_PRICE_API_BASE`**, **`PORT`**, **`INDEXER_POLL_INTERVAL_MS`**, **`INDEXER_LOG_CHUNK_SIZE`**.
 
-### Deploy / scripts (root `.env` or shell)
+### Chain and contract configuration
 
-These are used by Foundry scripts and `cast`, not by the Vite bundle.
+**Hub chain:** Arc Testnet. **Source chain:** Ethereum Sepolia.
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | **MySQL** connection string for the Nest API and indexer (e.g. `mysql://user:pass@127.0.0.1:3306/slabfinance`) |
-| `DEPLOYER_PRIVATE_KEY` | Private key of the deployer wallet (hex, no 0x) |
-| `ARC_TESTNET_RPC` | `https://rpc.testnet.arc.network` |
-| `SEPOLIA_RPC` | `https://rpc.sepolia.org` |
-| `CCIP_ROUTER_ARC` | `0xdE4E7FED43FAC37EB21aA0643d9852f75332eab8` |
-| `CCIP_ROUTER_SEPOLIA` | `0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59` |
-| `ARC_CHAIN_SELECTOR` | `3034092155422581607` |
-| `SEPOLIA_CHAIN_SELECTOR` | `16015286601757825753` |
-| `CCIP_ROUTER_HUB` | Optional. If set, `Deploy_Hub.s.sol` uses this instead of `CCIP_ROUTER_ARC` (use for non-Arc hubs) |
-| `HUB_CHAIN_SELECTOR` | Optional. Overrides `ARC_CHAIN_SELECTOR` when deploying the Sepolia adapter so it targets the correct hub |
-| `CRE_FORWARDER_ADDRESS` | Optional. KeystoneForwarder (or mock) passed to `OracleConsumer.initialize`; defaults to `0x0000000000000000000000000000000000000001` if unset |
+RPC URLs, CCIP routers and selectors, CRE forwarder placeholder, and **all deployed contract addresses** for the frontend, indexer, and backend live in **[`shared/config/testnet.ts`](shared/config/testnet.ts)**. After deploying, paste addresses there (or copy the snippet from `DEPLOYMENTS.md` when using [`scripts/deploy-all.sh`](scripts/deploy-all.sh)).
 
-### Frontend (`frontend/.env` — `VITE_*` only)
-
-Vite exposes only variables prefixed with `VITE_`. The React app resolves the hub from **`VITE_HUB_NETWORK`**.
+Forge scripts receive RPCs and CCIP values via **`scripts/print-deploy-env.ts`** (invoked automatically by `deploy-all.sh`).
 
 | Variable | Description |
 |----------|-------------|
 | `VITE_WALLETCONNECT_PROJECT_ID` | WalletConnect Cloud project ID (Reown AppKit) |
-| `VITE_HUB_NETWORK` | `arc` (default) or `arbitrumSepolia` — which chain the app treats as the lending hub |
-| `VITE_ARC_TESTNET_RPC_URL` | Optional override for Arc RPC (default in code: `https://rpc.testnet.arc.network`) |
-| `VITE_SEPOLIA_RPC_URL` | Optional; Sepolia chain config comes from Viem — use for custom RPC if you extend config |
-| `VITE_LENDING_POOL_ADDRESS` | Hub lending pool |
-| `VITE_COLLATERAL_REGISTRY_ADDRESS` | Hub collateral registry |
-| `VITE_ORACLE_CONSUMER_ADDRESS` | Hub oracle consumer |
-| `VITE_HEALTH_FACTOR_ENGINE_ADDRESS` | Hub health factor engine |
-| `VITE_LIQUIDATION_MANAGER_ADDRESS` | Hub **AuctionLiquidationManager** (env name unchanged) |
-| `VITE_USDC_ADDRESS` | Hub USDC |
-| `VITE_COLLATERAL_ADAPTER_ADDRESS` | Sepolia collateral adapter |
-| `VITE_SLAB_FINANCE_COLLECTIBLE_ADDRESS` | Sepolia demo collectible NFT contract address |
 | `VITE_EXTERNAL_PRICE_API_BASE` | Optional. Base URL for **EXTERNAL_PRICE_API** (see [PRD.md](PRD.md) §5.1 and [specs/vault-deposits.md](specs/vault-deposits.md)) when the lock UI fetches card valuations off-chain |
-
-Optional reference entries in [`.env.example`](.env.example) (`VITE_CCIP_*`, selectors) mirror deploy docs; the current SPA does not read them unless you wire them in code.
+| `DATABASE_URL` | MySQL for Nest + indexer |
+| `DEPLOYER_PRIVATE_KEY` | Used by Foundry scripts (`deploy-all.sh`); never commit real keys |
+| `PORT` | Backend HTTP port (default in code: `3001`) |
+| `INDEXER_POLL_INTERVAL_MS` / `INDEXER_LOG_CHUNK_SIZE` | Indexer polling tuning |
 
 ### Lending pool ABI surface (target vs. repo)
 
 The protocol spec in [PRD.md](PRD.md) defines an open **USDC vault** with **`deposit` / `withdraw`**, **share** accounting, and **utilization-based** **`currentBorrowAPR` / `currentSupplyAPR`**. The deployed `LendingPool` in this repo may still expose older names (for example `depositLiquidity`, `totalReserves`, fixed `annualInterestRateBPS`) until contracts are upgraded to match the PRD. After alignment, extend [`shared/constants/abis.ts`](shared/constants/abis.ts) and hooks to include the new view and write methods.
 
-## Hub chain selection
+The SPA uses **Arc Testnet** for lending and **Ethereum Sepolia** for locking NFTs (see [`frontend/src/lib/hub.ts`](frontend/src/lib/hub.ts), [`frontend/src/lib/chains.ts`](frontend/src/lib/chains.ts)). Chain metadata and addresses come from **`testnetConfig`** in **`@slabfinance/shared`**.
 
-The frontend resolves the hub from **`VITE_HUB_NETWORK`** (see [`frontend/src/lib/hub.ts`](frontend/src/lib/hub.ts)):
+**Fund CCIP outbound fees:** On Arc, send native USDC to `CCIPMessageRouter`. On Ethereum Sepolia, pay CCIP fees in ETH (or a supported fee token per [Chainlink CCIP docs](https://docs.chain.link/ccip)).
 
-- **`arc`** (default) — Arc Testnet (chain id `5042002`), native gas is USDC.
-- **`arbitrumSepolia`** — Arbitrum Sepolia (chain id `421614`), native gas is ETH.
-
-Contract addresses use the same **`VITE_*`** hub and Sepolia keys for either hub; after deploying, paste addresses into **`frontend/.env`** and set **`VITE_HUB_NETWORK`** to match.
-
-Shared enums and hub typing live in **`@slabfinance/shared`** ([`shared/types/hub.ts`](shared/types/hub.ts)).
-
-**Arbitrum Sepolia CCIP (reference):** router `0x2a9C5afB0d0e4BAb2BCdaE109EC4b0c4Be15a165`, chain selector `3478487238524512106`. RPC: `https://sepolia-rollup.arbitrum.io/rpc`. There is a CCIP lane between Ethereum Sepolia and Arbitrum Sepolia.
-
-**Deploy hub on Arbitrum Sepolia:**
-
-1. Set `CCIP_ROUTER_HUB` to the Arbitrum Sepolia CCIP router (do not set `CCIP_ROUTER_ARC`).
-2. Run `forge script script/Deploy_Hub.s.sol --rpc-url https://sepolia-rollup.arbitrum.io/rpc --broadcast`.
-3. Deploy Sepolia source with `HUB_CCIP_ROUTER_ADDRESS` and `HUB_CHAIN_SELECTOR=3478487238524512106` (or rely on `HUB_CHAIN_SELECTOR` only).
-
-**Fund CCIP outbound fees:** On Arc, send native USDC to `CCIPMessageRouter`. On Arbitrum Sepolia, send native ETH (or use a supported CCIP fee token per [Chainlink CCIP docs](https://docs.chain.link/ccip)).
-
-For `cast` examples below, substitute `--rpc-url` with your hub RPC (`$ARC_TESTNET_RPC` on Arc, or Arbitrum Sepolia RPC when the hub is Arbitrum).
+For `cast` examples below, use the hub RPC from **`shared/config/testnet.ts`** (`hub.rpcUrl`) or export it via `eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"` from the `contracts/` directory (sets `ARC_TESTNET_RPC`).
 
 ## Deployment Order
 
@@ -158,12 +118,13 @@ Hub contracts must be deployed before source chain contracts (the adapter needs 
 
 ```bash
 cd contracts
-forge script script/Deploy_Hub.s.sol --rpc-url $ARC_TESTNET_RPC --broadcast
+eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
+forge script script/Deploy_Hub.s.sol --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir
 ```
 
 This deploys:
 
-- MockUSDC (1M minted); `OracleConsumer` initialized with `CRE_FORWARDER_ADDRESS` (defaults to `0x1` if unset — use real KeystoneForwarder + [`cre/price-oracle/`](cre/price-oracle/) for production paths)
+- MockUSDC (1M minted); `OracleConsumer` initialized with `CRE_FORWARDER_ADDRESS` from **`shared/config/testnet.ts`** (`cre.forwarderAddress`, exported by `print-deploy-env.ts` — use real KeystoneForwarder + [`cre/price-oracle/`](cre/price-oracle/) for production paths)
 - OracleConsumer, CollateralRegistry, LendingPool, AuctionLiquidationManager, HealthFactorEngine (UUPS proxies)
 - CCIPMessageRouter, ChainlinkAutomationKeeper
 - May seed initial USDC liquidity (implementation-specific). Anyone can add liquidity afterward via the pool’s public **`deposit`** once that function exists on chain.
@@ -172,11 +133,17 @@ This deploys:
 
 ### Step 2: Deploy Source Chain (Ethereum Sepolia)
 
-Set `HUB_CCIP_ROUTER_ADDRESS` to the CCIPMessageRouter address from Step 1.
+Set `HUB_CCIP_ROUTER_ADDRESS` to the CCIPMessageRouter address from Step 1 and `HUB_CHAIN_SELECTOR` to the Arc CCIP selector (same as `ARC_CHAIN_SELECTOR` from `testnetConfig`).
 
 ```bash
+eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
 export HUB_CCIP_ROUTER_ADDRESS=<CCIPMessageRouter_address_from_step_1>
-forge script script/Deploy_Sepolia.s.sol --rpc-url $SEPOLIA_RPC --broadcast
+export HUB_CHAIN_SELECTOR=$ARC_CHAIN_SELECTOR
+export SOURCE_CCIP_ROUTER=$CCIP_ROUTER_SEPOLIA
+export SOURCE_CHAIN_SELECTOR=$SEPOLIA_CHAIN_SELECTOR
+export DEPLOYMENT_OUTPUT_FILE=deployments/eth-sepolia.json
+export SOURCE_NETWORK_NAME=ethereum-sepolia
+forge script script/Deploy_SourceChain.s.sol:DeploySourceChain --rpc-url "$SEPOLIA_RPC" --broadcast --via-ir
 ```
 
 This deploys:
@@ -227,28 +194,18 @@ cast send $ORACLE_CONSUMER_ADDRESS \
 
 (Price is 8 decimals: 15000000000 = $150.00.) Repeat for token IDs 2 and 3 if needed.
 
-### Step 6: Configure the frontend
+### Step 6: Configure the app
 
-Add the deployed addresses to **`frontend/.env`** (Vite prefix **`VITE_`**):
+Add the deployed addresses to **[`shared/config/testnet.ts`](shared/config/testnet.ts)** under `hub.contracts` and `source.contracts` (including `nftVault` for the indexer). Set **`VITE_WALLETCONNECT_PROJECT_ID`** in `.env` / `frontend/.env`.
 
-```
-VITE_LENDING_POOL_ADDRESS=
-VITE_COLLATERAL_REGISTRY_ADDRESS=
-VITE_ORACLE_CONSUMER_ADDRESS=
-VITE_HEALTH_FACTOR_ENGINE_ADDRESS=
-VITE_LIQUIDATION_MANAGER_ADDRESS=   # AuctionLiquidationManager proxy
-VITE_USDC_ADDRESS=
-VITE_COLLATERAL_ADAPTER_ADDRESS=
-VITE_SLAB_FINANCE_COLLECTIBLE_ADDRESS=
-```
-
-Also set **`VITE_WALLETCONNECT_PROJECT_ID`** and **`VITE_HUB_NETWORK`** as needed.
-
-Restart `pnpm dev:frontend` after changing env files.
+Restart `pnpm dev:frontend` after changing config or env files.
 
 ## Post-Deployment Verification
 
+Export `ARC_TESTNET_RPC` (and addresses) from **`shared/config/testnet.ts`** via `print-deploy-env.ts`, or paste the hub RPC from that file into `--rpc-url`.
+
 ```bash
+eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
 # Check pool size (use totalAssets() when implemented; else totalReserves() or USDC balance + borrows per PRD)
 cast call $LENDING_POOL_ADDRESS "totalAssets()" --rpc-url $ARC_TESTNET_RPC
 
@@ -328,7 +285,7 @@ Metadata fields: `cardName`, `cardImage`, `setName`, `cardNumber`, `cardRarity`,
 4. Use **EXTERNAL_PRICE_API** (or mock) in the lock flow to show value and borrow preview; approve the CollateralAdapter to transfer your NFT, then call `lockAndNotify(tokenId, hubOwner)`. Pay the CCIP fee (ETH on Sepolia).
 5. Wait for CCIP delivery (~few minutes). Check [CCIP Explorer](https://ccip.chain.link).
 6. Set oracle price for the token if not already set (`setMockPrice` or the [`cre/price-oracle/`](cre/price-oracle/) CRE workflow after configuring the forwarder).
-7. Switch to your configured hub chain (Arc Testnet or Arbitrum Sepolia). Call `LendingPool.borrow(amount)`.
+7. Switch to **Arc Testnet** (hub). Call `LendingPool.borrow(amount)`.
 8. To unlock: repay full debt with `LendingPool.repay(amount)`, then call `CollateralRegistry.initiateUnlock(collateralId)`.
 9. Wait for UnlockCommand CCIP delivery. NFT is released to your address on Sepolia.
 10. (LP path) **`withdraw(shares)`** when the pool has enough idle USDC.

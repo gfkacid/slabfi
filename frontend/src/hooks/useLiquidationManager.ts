@@ -96,9 +96,9 @@ export function useActiveAuctionRows() {
   }, [ids, details]);
 
   return {
+    ...rest,
     data: rows,
     isLoading: rest.isLoading || Boolean(ids?.length && detailsLoading),
-    ...rest,
   };
 }
 

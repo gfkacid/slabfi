@@ -1,33 +1,25 @@
 import type { Address } from "viem";
+import { hubContractsFromConfig, testnetConfig } from "@slabfinance/shared";
 
 export function hubChainId(): string {
-  return process.env.BACKEND_HUB_CHAIN_ID ?? process.env.INDEXER_HUB_CHAIN_ID ?? "5042002";
+  return String(testnetConfig.hub.chainId);
 }
 
 export function hubRpcUrl(): string | undefined {
-  return (
-    process.env.BACKEND_HUB_RPC_URL ||
-    process.env.INDEXER_HUB_RPC_URL ||
-    process.env.ARC_TESTNET_RPC ||
-    undefined
-  );
+  return testnetConfig.hub.rpcUrl;
 }
 
 export function lendingPoolAddress(): Address | undefined {
-  const a = process.env.BACKEND_LENDING_POOL_ADDRESS || process.env.INDEXER_LENDING_POOL_ADDRESS;
-  return a ? (a as Address) : undefined;
+  const a = hubContractsFromConfig().lendingPool;
+  return a && a.length >= 10 ? a : undefined;
 }
 
 export function collateralRegistryAddress(): Address | undefined {
-  const a =
-    process.env.BACKEND_COLLATERAL_REGISTRY_ADDRESS ||
-    process.env.INDEXER_COLLATERAL_REGISTRY_ADDRESS;
-  return a ? (a as Address) : undefined;
+  const a = hubContractsFromConfig().collateralRegistry;
+  return a && a.length >= 10 ? a : undefined;
 }
 
 export function healthFactorEngineAddress(): Address | undefined {
-  const a =
-    process.env.BACKEND_HEALTH_FACTOR_ENGINE_ADDRESS ||
-    process.env.INDEXER_HEALTH_FACTOR_ENGINE_ADDRESS;
-  return a ? (a as Address) : undefined;
+  const a = hubContractsFromConfig().healthFactorEngine;
+  return a && a.length >= 10 ? a : undefined;
 }

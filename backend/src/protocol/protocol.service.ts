@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { testnetConfig } from "@slabfinance/shared";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -6,7 +7,7 @@ export class ProtocolService {
   constructor(private readonly prisma: PrismaService) {}
 
   private hubChainId(): string {
-    return process.env.BACKEND_HUB_CHAIN_ID ?? process.env.INDEXER_HUB_CHAIN_ID ?? "5042002";
+    return String(testnetConfig.hub.chainId);
   }
 
   async stats() {

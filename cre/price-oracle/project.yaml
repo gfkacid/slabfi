@@ -1,10 +1,10 @@
-# CRE CLI project targets (RPCs for simulation / deploy). Override URLs for your hub chain.
+# CRE CLI RPCs — keep in sync with shared/config/testnet.ts (source chain = Ethereum Sepolia).
 staging-settings:
   rpcs:
     - chain-name: ethereum-testnet-sepolia
-      url: https://ethereum-sepolia-rpc.publicnode.com
+      url: https://rpc.sepolia.org
 
 production-settings:
   rpcs:
     - chain-name: ethereum-testnet-sepolia
-      url: https://ethereum-sepolia-rpc.publicnode.com
+      url: https://rpc.sepolia.org

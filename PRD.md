@@ -1194,7 +1194,7 @@ For the hackathon, the deployer EOA can hold `DEFAULT_ADMIN_ROLE`. Post-hackatho
 ### 11.2 Multi-Chain Wallet Session
 
 The frontend requires the user to be connected to **two chains** over the session:
-- **Hub** (e.g. Arc Testnet or Arbitrum Sepolia): for **Lending** actions — deposit, borrow, repay — and dashboard reads
+- **Hub** (Arc Testnet): for **Lending** actions — deposit, borrow, repay — and dashboard reads
 - **Source** (Ethereum Sepolia): for **locking** NFTs as collateral
 
 Reown AppKit supports multi-chain sessions natively. On first visit, the user connects their hub wallet. Before the "Lock Collateral" flow, the app prompts to switch to or connect the source chain wallet (can be the same seed or different). The hub owner address is passed as **`hubOwner`** to `lockAndNotify` on the adapter.
@@ -1379,8 +1379,8 @@ forge script script/Deploy_Hub.s.sol --rpc-url $ARC_TESTNET_RPC --broadcast
 # - CCIP_MESSAGE_ROUTER_ADDRESS (hub)
 # - AUTOMATION_KEEPER_ADDRESS
 
-# 2. Deploy source chain contracts (Polygon testnet)
-forge script script/Deploy_Sepolia.s.sol --rpc-url $SEPOLIA_RPC --broadcast
+# 2. Deploy source chain contracts (Ethereum Sepolia)
+forge script script/Deploy_SourceChain.s.sol:DeploySourceChain --rpc-url $SEPOLIA_RPC --broadcast
 # Requires: CCIP_MESSAGE_ROUTER_ADDRESS from step 1
 
 # Captures and exports:

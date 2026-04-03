@@ -31,7 +31,7 @@ The only CCIP lane available for Arc Testnet at the moment is Arc ↔ Ethereum S
 ## Quick Start
 
 1. Clone the repo and run `pnpm install` at the repo root.
-2. Copy `.env.example` to `frontend/.env` (or symlink) and fill in `VITE_WALLETCONNECT_PROJECT_ID` and deployed contract addresses (`VITE_*`).
+2. Copy `.env.example` to `frontend/.env` (or symlink) and set `VITE_WALLETCONNECT_PROJECT_ID`. Deployed contract addresses and chain RPCs live in [`shared/config/testnet.ts`](shared/config/testnet.ts).
 3. Run `pnpm dev:frontend` and connect your wallet to Arc Testnet and Sepolia.
 4. Get testnet USDC on Arc (faucet) and demo collectible NFTs on Sepolia (mint via admin or receive from deployer).
 5. Lock an NFT on Sepolia, then borrow USDC on Arc.

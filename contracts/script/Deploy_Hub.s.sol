@@ -15,9 +15,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 contract DeployHub is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        address ccipRouter = vm.envExists("CCIP_ROUTER_HUB")
-            ? vm.envAddress("CCIP_ROUTER_HUB")
-            : vm.envAddress("CCIP_ROUTER_ARC");
+        address ccipRouter = vm.envAddress("CCIP_ROUTER_ARC");
 
         vm.startBroadcast(deployerPrivateKey);
         address deployer = vm.addr(deployerPrivateKey);

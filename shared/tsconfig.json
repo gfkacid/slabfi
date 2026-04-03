@@ -10,5 +10,5 @@
     "module": "CommonJS",
     "moduleResolution": "node"
   },
-  "include": ["constants/**/*.ts", "types/**/*.ts", "index.ts"]
+  "include": ["config/**/*.ts", "constants/**/*.ts", "types/**/*.ts", "index.ts"]
 }
