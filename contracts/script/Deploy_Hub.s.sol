@@ -9,7 +9,6 @@ import {LendingPool} from "../src/hub/LendingPool.sol";
 import {AuctionLiquidationManager} from "../src/hub/AuctionLiquidationManager.sol";
 import {CCIPMessageRouter} from "../src/hub/CCIPMessageRouter.sol";
 import {ChainlinkAutomationKeeper} from "../src/hub/ChainlinkAutomationKeeper.sol";
-import {MockFdcVerification} from "../src/mocks/MockFdcVerification.sol";
 import {MockUSDC} from "../src/mocks/MockUSDC.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -23,14 +22,15 @@ contract DeployHub is Script {
         vm.startBroadcast(deployerPrivateKey);
         address deployer = vm.addr(deployerPrivateKey);
 
-        MockFdcVerification fdcMock = new MockFdcVerification();
+        // Placeholder forwarder for hackathon; production: set CRE KeystoneForwarder via setForwarderAddress
+        address creForwarder = vm.envOr("CRE_FORWARDER_ADDRESS", address(1));
         MockUSDC usdc = new MockUSDC();
         usdc.mint(deployer, 1_000_000e18);
 
         OracleConsumer oracleImpl = new OracleConsumer();
         ERC1967Proxy oracleProxy = new ERC1967Proxy(
             address(oracleImpl),
-            abi.encodeWithSelector(OracleConsumer.initialize.selector, address(fdcMock))
+            abi.encodeWithSelector(OracleConsumer.initialize.selector, creForwarder)
         );
         OracleConsumer oracle = OracleConsumer(address(oracleProxy));
 
@@ -120,7 +120,7 @@ contract DeployHub is Script {
         string memory outPath = vm.envOr("HUB_DEPLOYMENT_OUTPUT", string("deployments/hub.json"));
         string memory json = vm.serializeString("hub", "network", "arc-testnet");
         json = vm.serializeAddress(json, "ccipRouterOnChain", ccipRouter);
-        json = vm.serializeAddress(json, "mockFdcVerification", address(fdcMock));
+        json = vm.serializeAddress(json, "creForwarderAddress", creForwarder);
         json = vm.serializeAddress(json, "mockUsdc", address(usdc));
         json = vm.serializeAddress(json, "oracleConsumer", address(oracle));
         json = vm.serializeAddress(json, "oracleConsumerImplementation", address(oracleImpl));

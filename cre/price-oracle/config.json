@@ -1,0 +1,13 @@
+{
+  "schedule": "0 0 */23 * * *",
+  "apiUrl": "https://api.example.com/v1/cards/1/quote",
+  "evms": [
+    {
+      "oracleConsumerAddress": "0x0000000000000000000000000000000000000000",
+      "chainSelectorName": "ethereum-testnet-sepolia",
+      "gasLimit": "500000",
+      "collection": "0x0000000000000000000000000000000000000000",
+      "tokenId": "1"
+    }
+  ]
+}

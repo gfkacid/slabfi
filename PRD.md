@@ -15,7 +15,7 @@
    - 4.2 [Source Chain Contracts](#42-source-chain-contracts)
    - 4.3 [Contract Interface Catalogue](#43-contract-interface-catalogue)
 5. [Oracle System](#5-oracle-system)
-   - 5.1 [Flare FDC Price Attestation](#51-flare-fdc-price-attestation)
+   - 5.1 [Chainlink CRE Price Workflow](#51-chainlink-cre-price-workflow)
    - 5.2 [Chainlink Functions Cross-Reference](#52-chainlink-functions-cross-reference)
    - 5.3 [Staleness & Health Factor Model](#53-staleness--health-factor-model)
    - 5.4 [Volatility-Adjusted LTV](#54-volatility-adjusted-ltv)
@@ -39,13 +39,13 @@
 
 ### 1.1 Summary
 
-Slab.Finance is a cross-chain lending protocol that accepts tokenized physical collectibles (e.g. TCG cards on a source chain) as collateral in exchange for USDC loans. **Liquidity providers deposit USDC** into a hub vault; **borrow APR** adjusts with **vault utilization**. The protocol's liquidity and accounting live on **Arc** (Circle's L1), while collateral can be locked across multiple source chains. Chainlink CCIP carries collateral proof messages between source chains and Arc. Card **USD value** and **suggested LTV** come from **`EXTERNAL_PRICE_API`** (see §5.1); on-chain prices are ingested via Flare FDC Web2Json attestations against that API, with Chainlink Functions as a secondary validation layer.
+Slab.Finance is a cross-chain lending protocol that accepts tokenized physical collectibles (e.g. TCG cards on a source chain) as collateral in exchange for USDC loans. **Liquidity providers deposit USDC** into a hub vault; **borrow APR** adjusts with **vault utilization**. The protocol's liquidity and accounting live on **Arc** (Circle's L1), while collateral can be locked across multiple source chains. Chainlink CCIP carries collateral proof messages between source chains and Arc. Card **USD value** and **suggested LTV** come from **`EXTERNAL_PRICE_API`** (see §5.1); on-chain prices are ingested via **Chainlink CRE** workflows that fetch that API under DON consensus and deliver signed reports to **`OracleConsumer`** through **KeystoneForwarder**, with Chainlink Functions as a secondary validation layer.
 
 ### 1.2 Design Principles
 
 - **Extensibility first.** Every source chain integration is encapsulated behind a `ICollateralAdapter` interface. Adding a new chain or tokenization partner is a new adapter deployment, not a protocol upgrade.
 - **Oracle conservatism.** Because collectible prices update infrequently, the system is designed to be safe under stale data: conservative LTV tiers, two-zone health factors, and **per-card liquidation auctions** with anti-sniping (see §7).
-- **Minimal trust surface.** Price data is attested by Flare's decentralized network, not pushed by an admin key. Cross-chain messages are carried by CCIP, not a custom relayer.
+- **Minimal trust surface.** Price data is delivered via Chainlink CRE (consensus-verified HTTP + signed on-chain reports), not pushed by an arbitrary admin key. Cross-chain messages are carried by CCIP, not a custom relayer.
 - **Human-readable transactions.** All user-facing contract functions are covered by ERC-7730 Clear Signing descriptors so hardware wallet users see plain-English summaries, not hex calldata.
 - **USDC-native.** All loans, repayments, and liquidations are denominated in USDC via Circle's native stablecoin on Arc.
 
@@ -53,7 +53,7 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 
 - Hub chain contracts on Arc testnet
 - Source chain contracts on Polygon (or testnet) for the initial NFT collection
-- Flare FDC integration attesting **EXTERNAL_PRICE_API** (or mock relay)
+- Chainlink CRE workflow pushing **EXTERNAL_PRICE_API** results to `OracleConsumer` (or `setMockPrice` for dev)
 - Chainlink CCIP for lock/unlock messages
 - Chainlink Automation for post-oracle health factor sweep
 - Chainlink Functions for price cross-reference (circuit breaker)
@@ -81,17 +81,17 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 | **Health Factor (HF)** | Ratio of weighted collateral value to outstanding debt. HF < 1.0 = undercollateralized |
 | **LTV** | Loan-to-Value ratio. The max fraction of collateral value that can be borrowed |
 | **Effective LTV** | Max borrow as a fraction of collateral value: tier / API-suggested LTV, clamped on-chain, then volatility haircut (§5.4) |
-| **EXTERNAL_PRICE_API** | HTTP API returning `priceUSD`, `ltvBPS`, and metadata for a `(collection, tokenId)` before lock and for FDC attestation |
+| **EXTERNAL_PRICE_API** | HTTP API returning `priceUSD`, `ltvBPS`, and metadata for a `(collection, tokenId)` before lock and for the CRE price workflow |
 | **Vault share** | Pro-rata claim on `LendingPool` USDC (assets + accrued borrow interest), minted on `deposit`, burned on `withdraw` |
 | **Utilization** | `totalBorrowed / totalAssets` — drives dynamic borrow and supply APR |
 | **Oracle Price** | The latest attested daily market price for a specific card (token ID) in USD |
 | **Price Epoch** | The daily window during which an oracle price is considered fresh (0–24h) |
-| **Attestation** | A Flare FDC proof that a specific Web2 API returned a specific value at a specific time |
+| **Attestation** | The timestamped price record on `OracleConsumer` after a CRE-signed report (or mock) |
 | **Liquidation auction** | Per-card USDC auction when HF &lt; 1; anti-sniping extends the deadline; settlement via `claim` (see §7 and [specs/liquidation-auctions.md](specs/liquidation-auctions.md)) |
 | **Nullifier** | A World ID commitment; not used in this protocol but referenced for future sybil-resistance |
 | **CCIP** | Chainlink Cross-Chain Interoperability Protocol — the message transport layer |
-| **FDC** | Flare Data Connector — Flare's protocol for attesting off-chain data on-chain |
-| **FTSO** | Flare Time Series Oracle — Flare's on-chain price feed for liquid assets (used for USDC/USD) |
+| **CRE** | Chainlink Runtime Environment — workflows, triggers, and DON consensus for off-chain + on-chain orchestration |
+| **KeystoneForwarder** | Chainlink contract that validates signed CRE reports and calls `IReceiver.onReport` on the consumer |
 | **ERC-7730** | An Ethereum standard for machine-readable transaction metadata enabling clear signing |
 | **Position** | A single borrower's aggregate loan state: all their locked collateral + outstanding debt |
 
@@ -129,10 +129,10 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 │  │  HealthFactorEngine │◄────│  OracleConsumer           │                  │
 │  │  - computeHF()      │     │  - latestPrices[]         │                  │
 │  │  - flagPositions()  │     │  - priceHistory[]         │                  │
-│  └──────────┬──────────┘     │  - acceptAttestation()   │                  │
+│  └──────────┬──────────┘     │  - onReport() (CRE)      │                  │
 │             │                └────────────┬─────────────┘                  │
 │             ▼                             │                                  │
-│  ┌─────────────────────┐         Flare FDC Attestation                     │
+│  ┌─────────────────────┐         Chainlink CRE price report               │
 │  │  LendingPool        │         Chainlink Functions                        │
 │  │  - deposit/withdraw │                                                    │
 │  │  - borrow/repay     │     ┌──────────────────────────┐                  │
@@ -152,9 +152,9 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              ORACLE LAYER                                    │
 │                                                                              │
-│  EXTERNAL_PRICE_API    ──► Flare FDC Web2Json ──► OracleConsumer (Arc)     │
-│  Web2 API (secondary)  ──► Chainlink Functions ──► OracleConsumer circuit   │
-│  USDC/USD              ──► Flare FTSO ──────────► OracleConsumer            │
+│  EXTERNAL_PRICE_API    ──► CRE workflow (HTTP + report) ──► OracleConsumer   │
+│  Web2 API (secondary)  ──► Chainlink Functions ──► OracleConsumer circuit     │
+│  (USDC/USD feeds)      ──► Optional future data feeds ──► OracleConsumer    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -279,14 +279,14 @@ event UnlockInitiated(bytes32 indexed collateralId, bytes32 ccipMessageId);
 
 #### `OracleConsumer.sol`
 
-**Responsibility:** Ingests and stores price data from Flare FDC attestations and Chainlink Functions. Acts as the single source of truth for collateral valuations.
+**Responsibility:** Ingests and stores price data from Chainlink CRE (`IReceiver.onReport`) and Chainlink Functions. Acts as the single source of truth for collateral valuations.
 
 **Storage:**
 
 ```solidity
 struct PriceRecord {
     uint256 priceUSD;        // 8 decimals, e.g. 15000000000 = $150.00
-    uint256 attestedAt;      // timestamp of Flare FDC attestation
+    uint256 attestedAt;      // timestamp when price was attested (CRE report or mock)
     uint256 updatedAt;       // block.timestamp when stored on-chain
     bool    disputed;        // flagged by Chainlink Functions circuit breaker
     uint8   tier;            // 1 = high liquidity, 2 = medium, 3 = illiquid
@@ -306,15 +306,8 @@ uint256 public constant DISPUTE_THRESHOLD_BPS   = 1500;    // 15% deviation trig
 **Key Functions:**
 
 ```solidity
-/// Submit a new price from a verified Flare FDC attestation proof
-/// attestationProof is the raw FDC proof bytes; contract verifies on-chain
-function acceptFlareAttestation(
-    address collection,
-    uint256 tokenId,
-    uint256 priceUSD,
-    uint256 attestedAt,
-    bytes calldata attestationProof
-) external;
+/// Chainlink CRE / KeystoneForwarder — report is abi.encode(collection, tokenId, priceUSD)
+function onReport(bytes calldata metadata, bytes calldata report) external;
 
 /// Called by Chainlink Functions callback with secondary price check
 /// If delta vs current price > DISPUTE_THRESHOLD_BPS, sets disputed = true
@@ -708,7 +701,7 @@ contract NFTVault {
 | `outstandingDebt(borrower)` | LendingPool | Any | Read-only |
 | `totalAssets()` / `exchangeRate()` / `currentBorrowAPR()` / `currentSupplyAPR()` | LendingPool | Any | Read-only |
 | `previewHealthFactor(...)` | HealthFactorEngine | Any (frontend) | Read-only |
-| `acceptFlareAttestation(...)` | OracleConsumer | Permissioned (FDC callback) | Price updated |
+| `onReport(...)` | OracleConsumer | KeystoneForwarder only (`forwarderAddress`) | Price updated |
 | `placeBid(auctionId, amount)` | AuctionLiquidationManager | Bidder | USDC pulled; anti-sniping may extend deadline |
 | `claim(auctionId)` | AuctionLiquidationManager | Any (after deadline, if bids) | Distributes USDC; partial debt clear; CCIP NFT to winner |
 | `cancelAllAuctionsForBorrower(borrower)` | AuctionLiquidationManager | HF engine | Refunds bids when borrower cures |
@@ -719,13 +712,13 @@ contract NFTVault {
 
 ## 5. Oracle System
 
-### 5.1 Flare FDC Price Attestation & EXTERNAL_PRICE_API
+### 5.1 Chainlink CRE Price Workflow & EXTERNAL_PRICE_API
 
 #### Overview
 
-Flare's Data Connector (FDC) allows the network's attestation providers to reach consensus on the result of an arbitrary Web2 API call. The output is a signed proof that a specific HTTP endpoint returned a specific value at a specific time, verifiable on-chain.
+**Chainlink CRE** runs a **workflow** on a DON: a **cron trigger** (e.g. every 23h) invokes a callback that uses the **HTTP capability** to call **`EXTERNAL_PRICE_API`** with Byzantine-fault-tolerant consensus on the response. The workflow then **generates a signed report** and submits it on-chain via **`evmClient.writeReport`**, which routes through **KeystoneForwarder** to **`OracleConsumer.onReport(bytes metadata, bytes report)`**. The consumer **ABI-decodes** `report` as `(address collection, uint256 tokenId, uint256 priceUSD)` and stores a **`PriceRecord`**. Reference implementation: [`cre/price-oracle/`](cre/price-oracle/) in this repository.
 
-**Off-chain source of truth** for card valuations and suggested LTV is **`EXTERNAL_PRICE_API`**: a partner-agnostic HTTP API (implementations may wrap Courtyard, TCGPlayer aggregates, or internal pricing). The **frontend** calls this API **before** the user locks an NFT so they see **price, effective LTV, and borrowable preview**; the **hub oracle** ingests the same data **via FDC attestation** (or relay) so on-chain state matches the attested response.
+**Off-chain source of truth** for card valuations and suggested LTV is **`EXTERNAL_PRICE_API`**: a partner-agnostic HTTP API (implementations may wrap Courtyard, TCGPlayer aggregates, or internal pricing). The **frontend** calls this API **before** the user locks an NFT so they see **price, effective LTV, and borrowable preview**; the **hub oracle** ingests price updates **via the CRE workflow** (or admin **`setMockPrice`** in development) so on-chain state tracks the consensus-fetched API.
 
 #### EXTERNAL_PRICE_API — Request / Response Spec
 
@@ -789,35 +782,28 @@ HTTP `503` — transient upstream failure.
 
 **On-chain mapping:** `OracleConsumer` stores attested `priceUSD` (scaled), `tier`, and `attestedAt`. The API’s `ltvBPS` is **not trusted blindly**: the contract applies `min(max(ltvBPS, MIN_LTV_API), MAX_LTV_API)` and still applies **volatility-adjusted effective LTV** (see §5.4) where history exists.
 
-#### FDC Request Configuration
+#### CRE workflow configuration
 
-FDC may attest the full JSON body or separate attested fields (implementation choice). Example **Web2Json** config targeting price only:
+- **`config.json`**: `schedule` (cron), `apiUrl` (full URL to the valuation endpoint or a stable quote URL), and `evms[]` with `oracleConsumerAddress`, `chainSelectorName`, `gasLimit`, `collection`, `tokenId`.
+- **`project.yaml` / `workflow.yaml`**: CRE CLI targets and workflow artifact paths (see [`cre/price-oracle/workflow.yaml`](cre/price-oracle/workflow.yaml)).
+- **Secrets:** Use `secrets.yaml` + Vault DON for deployed workflows; local simulation uses `.env` per Chainlink docs.
+- **Forwarder:** Deploy `OracleConsumer` with the **MockKeystoneForwarder** address for simulation or the **KeystoneForwarder** for production on your hub chain; set **`CRE_FORWARDER_ADDRESS`** for `Deploy_Hub.s.sol` or call **`setForwarderAddress`** after deploy.
 
-```json
-{
-  "attestationType": "Web2Json",
-  "url": "{EXTERNAL_PRICE_API_BASE}/api/v1/cards/{collection}/{tokenId}/valuation",
-  "httpMethod": "GET",
-  "headers": { "Authorization": "Bearer {API_KEY}" },
-  "jqFilter": ".priceUSD",
-  "expectedResponseType": "uint256"
-}
-```
+The workflow encodes **`priceUSD` in 8 decimals** (wei-style integer) to match `OracleConsumer`. If the API returns **cents** or another unit, normalize in the workflow before encoding.
 
-For `ltvBPS` / `tier`, use additional attestations or a single round-trip with a structured proof, depending on Flare tooling. The relay then calls `OracleConsumer.acceptFlareAttestation(...)` (and/or extended setter) with verified fields.
+For **`ltvBPS` / `tier`**, extend the report encoding and `_updatePrice` path in a future upgrade, or set tiers via **`setCollectionTier`** / **`setMockPrice`** as today.
 
-#### On-Chain Verification Flow
+#### On-chain delivery flow
 
-1. An off-chain service detects that a new FDC attestation round has finalized for a card valuation.
-2. It calls `OracleConsumer.acceptFlareAttestation()` with the proof bytes and decoded fields.
-3. `OracleConsumer` verifies via `IFdcVerification`.
-4. On success, the price record is updated and `priceHistory` is appended.
-5. `OracleConsumer` emits `PriceUpdated(collection, tokenId, newPrice, attestedAt)`.
-6. `ChainlinkAutomationKeeper` triggers a position sweep where configured.
+1. Cron trigger fires on each DON node; HTTP capability fetches **`EXTERNAL_PRICE_API`** under consensus.
+2. Workflow builds **`report = abi.encode(collection, tokenId, priceUSD)`** and **`runtime.report(prepareReportRequest(...))`**.
+3. **`writeReport`** delivers to **`OracleConsumer`** via **KeystoneForwarder**; **`onReport`** checks **`msg.sender == forwarderAddress`**, decodes **`report`**, and calls **`_updatePrice`**.
+4. **`PriceUpdated`** is emitted; **`priceHistory`** is updated.
+5. **`ChainlinkAutomationKeeper`** may sweep positions where configured.
 
-#### FDC Attestation Frequency
+#### Update frequency
 
-Flare's attestation rounds occur every 90 seconds; collectible quotes may update less often. The recommended pattern is to request attestation on a schedule (e.g. every 23h) aligned with staleness windows (see §5.3).
+CRE triggers are configurable (e.g. **every 23 hours**) to align with staleness windows (see §5.3). Collectible quotes may change less often than the cron interval.
 
 ---
 
@@ -848,7 +834,7 @@ return Functions.encodeUint256(deviationBps);
 
 The `OracleConsumer.submitCrossReferencePrice()` receives the `deviationBps` result. If `deviationBps > DISPUTE_THRESHOLD_BPS` (1500 = 15%), the price record's `disputed` flag is set to `true`. All price reads during a dispute period return the *lower* of the two prices (conservative) and log a `PriceDisputed` event.
 
-A disputed price auto-resolves if a subsequent FDC attestation within 24 hours confirms the primary price, or if a governance address manually clears it (for the hackathon, this is an `owner` function; post-hackathon it becomes DAO-governed).
+A disputed price auto-resolves if a subsequent **CRE report** within 24 hours confirms the primary price, or if a governance address manually clears it (for the hackathon, this is an `owner` function; post-hackathon it becomes DAO-governed).
 
 ---
 
@@ -956,7 +942,7 @@ Sent by `CollateralAdapter` after NFT is released, to confirm the hub can mark t
      │     (NFT → vault)                    │  registerCollateral()
      │                                      │  CollateralItem: PENDING
      │                                      │
-     │                                      │  acceptFlareAttestation()
+     │                                      │  onReport() via KeystoneForwarder
      │                                      │  CollateralItem: ACTIVE
      │                                      │  position HF updated
      │                                      │
@@ -1004,9 +990,9 @@ ccipMessageRouter.registerAdapter(
 
 **Step 3: Register the collection's oracle**
 ```solidity
-// Set the API endpoint configuration for FDC attestation
+// Set the API endpoint configuration for CRE HTTP fetch
 oracleConsumer.setCollectionTier(collectionAddressOnNewChain, 2); // set tier
-// Configure FDC attestation job to pull from the new tokenization partner's API
+// Configure CRE workflow / cron to pull from the new tokenization partner's API
 ```
 
 **Step 4: Set collection-level LTV parameters (if different from defaults)**
@@ -1124,7 +1110,7 @@ The protocol uses OpenZeppelin `AccessControl` on all hub contracts.
 | Role | Holder | Permissions |
 |---|---|---|
 | `DEFAULT_ADMIN_ROLE` | Deployer multisig | Grant/revoke all roles |
-| `ORACLE_UPDATER` | FDC callback contract | `acceptFlareAttestation()` |
+| *(none)* | *Replaced by forwarder* | `OracleConsumer.onReport` is only callable by `forwarderAddress` (KeystoneForwarder) |
 | `FUNCTIONS_CALLBACK` | Chainlink Functions oracle | `submitCrossReferencePrice()` |
 | `HF_ENGINE` | HealthFactorEngine | (indirect) triggers `queueLiquidation` / `cancelAllAuctionsForBorrower` on auction manager |
 | `HF_ENGINE` on auction manager | HealthFactorEngine | `queueLiquidation`, `cancelAllAuctionsForBorrower` |
@@ -1158,14 +1144,14 @@ For the hackathon, the deployer EOA can hold `DEFAULT_ADMIN_ROLE`. Post-hackatho
 
 ### 10.3 Disputed Price During Active Borrow
 
-**Scenario:** FDC and Chainlink Functions return prices >15% apart for a borrower's collateral.
+**Scenario:** Primary CRE-delivered price and Chainlink Functions cross-check differ by >15% for a borrower's collateral.
 
 **Handling:**
 - `OracleConsumer` stores the *lower* of the two prices conservatively
 - `PriceDisputed` event emitted
 - Borrower's HF is recomputed with lower price — they may enter WARNING zone
 - New borrows against this collateral are blocked
-- The dispute auto-resolves after the next FDC attestation cycle (≤24h)
+- The dispute auto-resolves after the next CRE price report (≤24h)
 - Borrower is not immediately liquidated from a dispute alone; the WARNING zone gives them time
 
 ### 10.4 NFT Transferred Out of Vault (Direct ERC-721 Transfer Bypass)
@@ -1179,13 +1165,13 @@ For the hackathon, the deployer EOA can hold `DEFAULT_ADMIN_ROLE`. Post-hackatho
 
 ### 10.5 Oracle Price for Un-priced Collateral
 
-**Scenario:** A new NFT is locked but Flare FDC has not yet attested its price (PENDING status).
+**Scenario:** A new NFT is locked but the oracle has not yet received a CRE report or mock price (PENDING status).
 
 **Handling:**
 - `availableCredit()` returns 0 for PENDING collateral
 - Borrowing is blocked until the collateral transitions to ACTIVE
 - The frontend should show "Awaiting price attestation — usually within 24 hours" for PENDING items
-- Maximum wait time is one FDC attestation cycle (≤24h after next price update)
+- Maximum wait time is one CRE workflow interval (e.g. ≤24h after next scheduled fetch)
 
 ### 10.6 Simultaneous auction settlement and cure
 
@@ -1351,7 +1337,7 @@ The script should:
 2. Lock a test NFT on the source chain
 3. Wait for CCIP message delivery (~3–5 minutes)
 4. Print the CCIP Explorer link for the message
-5. Trigger a mock Flare FDC price attestation (or `setMockPrice`)
+5. Run the CRE price workflow in simulation or call `setMockPrice`
 6. Borrow 100 USDC
 7. Repay 100 USDC
 8. Initiate unlock and print second CCIP Explorer link
@@ -1367,7 +1353,7 @@ The script should:
 ARC_TESTNET_RPC=
 POLYGON_TESTNET_RPC=
 DEPLOYER_PRIVATE_KEY=
-FLARE_FDC_VERIFICATION_ADDRESS=  # from Flare docs
+CRE_FORWARDER_ADDRESS=  # MockKeystoneForwarder or production KeystoneForwarder (see Chainlink CRE forwarder directory)
 CHAINLINK_CCIP_ROUTER_ARC=       # from Chainlink CCIP docs
 CHAINLINK_CCIP_ROUTER_POLYGON=
 ARC_CHAIN_CCIP_SELECTOR=
@@ -1431,9 +1417,9 @@ cast send $LENDING_POOL_ADDRESS \
 # → Fund with LINK, add ORACLE_CONSUMER_ADDRESS as consumer
 # → Upload JavaScript source for cross-reference check
 
-# 8. Set up FDC attestation cron job
-# → Configure off-chain script to request Flare FDC attestation every 23h
-# → Point to OracleConsumer.acceptFlareAttestation() as the callback
+# 8. Deploy / simulate CRE price workflow (cre/price-oracle/)
+# → cre workflow simulate . --target local-simulation --broadcast
+# → Production: cre workflow deploy (Early Access) with secrets and correct forwarder on hub chain
 ```
 
 ### 13.3 Post-Deployment Verification
@@ -1460,7 +1446,7 @@ cast call $LENDING_POOL_ADDRESS "totalAssets()" --rpc-url $ARC_TESTNET_RPC
 ### Must Ship (Hackathon)
 - [x] All hub contracts (Arc testnet)
 - [x] CollateralAdapter + NFTVault (Polygon testnet)
-- [x] Flare FDC price attestation (1 collection, mocked with real API data)
+- [x] Chainlink CRE price path (1 collection; dev: `setMockPrice`, prod: workflow + forwarder)
 - [x] Chainlink CCIP lock/unlock flow (demonstrable end-to-end)
 - [x] Chainlink Automation health factor sweep (registered and running)
 - [x] Frontend: dashboard, lock, borrow, repay, **vault** flows
@@ -1482,7 +1468,7 @@ cast call $LENDING_POOL_ADDRESS "totalAssets()" --rpc-url $ARC_TESTNET_RPC
 - [ ] Insurance fund (% of interest → risk buffer)
 - [ ] Mobile app with Ledger hardware wallet integration
 - [ ] Additional tokenization partners: Collector (Ronin), Alt (Base), Sorare
-- [ ] PSA population report integration via Flare FDC (rarity-adjusted LTV)
+- [ ] PSA population report integration via CRE (rarity-adjusted LTV)
 
 ---
 
@@ -1493,7 +1479,7 @@ These are unresolved design decisions that the team needs to align on before or 
 | # | Question | Options | Recommended Default |
 |---|---|---|---|
 | 1 | Which Arc testnet? Does Arc have a public testnet at hackathon time? | Arc testnet / fallback to Sepolia with Circle testnet USDC | Confirm with Arc team at hackathon kickoff |
-| 2 | How does the Flare FDC callback reach our contract on Arc? | (a) Relay bot we run; (b) Flare's own relayer if Arc is supported | Run a simple relay script (50 lines) for hackathon |
+| 2 | Is Arc supported by CRE KeystoneForwarder for our hub? | Check [Chainlink CRE forwarder directory](https://docs.chain.link/cre/guides/workflow/using-evm-client/forwarder-directory-ts); use supported hub or bridge pattern | Use a CRE-supported testnet hub or document manual `setMockPrice` for demo |
 | 3 | EXTERNAL_PRICE_API hosting & auth | Self-hosted mock; partner API; API key in env | Mock for hackathon; production key in secrets manager |
 | 4 | Same-address assumption: is the borrower's source-chain address always the same as their Arc address? | (a) Yes, require same address; (b) No, accept `hubOwner` param | Accept `hubOwner` param (safer, more flexible) |
 | 5 | Interest rate curve parameters | base / optimal util / slopes / protocol fee | Tune in testnet; document defaults in deploy script |

@@ -4,13 +4,13 @@ pragma solidity ^0.8.20;
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "../interfaces/ICardFiTypes.sol";
-import {IFdcVerification} from "../interfaces/IFdcVerification.sol";
+import {IReceiver} from "../interfaces/IReceiver.sol";
 
 /// @title OracleConsumer
-/// @notice Ingests and stores price data from Flare FDC attestations and Chainlink Functions
-contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl {
-    bytes32 public constant ORACLE_UPDATER_ROLE = keccak256("ORACLE_UPDATER");
+/// @notice Ingests and stores price data from Chainlink CRE workflows and Chainlink Functions
+contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IReceiver {
     bytes32 public constant FUNCTIONS_CALLBACK_ROLE = keccak256("FUNCTIONS_CALLBACK");
 
     uint256 public constant PRICE_FRESHNESS_WINDOW = 26 hours; // 24h + 2h grace
@@ -21,7 +21,8 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl {
     uint256 public constant BPS = 10000;
     uint256 public constant HISTORY_SIZE = 30;
 
-    IFdcVerification public fdcVerification;
+    /// @notice Chainlink KeystoneForwarder — only this address may call onReport
+    address public forwarderAddress;
 
     // collection => tokenId => PriceRecord
     mapping(address => mapping(uint256 => PriceRecord)) public prices;
@@ -42,17 +43,20 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl {
 
     event PriceUpdated(address indexed collection, uint256 indexed tokenId, uint256 newPrice, uint256 attestedAt);
     event PriceDisputed(address indexed collection, uint256 indexed tokenId, uint256 primaryPrice, uint256 secondaryPrice, uint256 deviationBps);
+    event ForwarderAddressUpdated(address indexed previousForwarder, address indexed newForwarder);
+
+    error InvalidForwarder();
+    error InvalidReport();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(address _fdcVerification) public initializer {
+    function initialize(address _forwarderAddress) public initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ORACLE_UPDATER_ROLE, msg.sender);
 
-        fdcVerification = IFdcVerification(_fdcVerification);
+        forwarderAddress = _forwarderAddress;
 
         baseLTV = [0, 4000, 2500, 1500];       // 40%, 25%, 15%
         liquidationThreshold = [0, 8000, 8500, 9000]; // 80%, 85%, 90%
@@ -60,19 +64,27 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl {
 
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
-    /// @notice Submit a new price from a verified Flare FDC attestation
-    function acceptFlareAttestation(
-        address collection,
-        uint256 tokenId,
-        uint256 priceUSD,
-        uint256 attestedAt,
-        bytes calldata attestationProof
-    ) external onlyRole(ORACLE_UPDATER_ROLE) {
-        require(fdcVerification.verifyAttestation(attestationProof), "Invalid attestation");
-        _updatePrice(collection, tokenId, priceUSD, attestedAt, false);
+    /// @inheritdoc IReceiver
+    function onReport(bytes calldata, bytes calldata report) external override {
+        if (msg.sender != forwarderAddress) revert InvalidForwarder();
+        (address collection, uint256 tokenId, uint256 priceUSD) = abi.decode(report, (address, uint256, uint256));
+        if (collection == address(0)) revert InvalidReport();
+        _updatePrice(collection, tokenId, priceUSD, block.timestamp, false);
     }
 
-    /// @notice Hackathon: set price directly without FDC (owner only)
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId) public view override(AccessControl, IERC165) returns (bool) {
+        return interfaceId == type(IReceiver).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    /// @notice Update the KeystoneForwarder address allowed to deliver CRE reports
+    function setForwarderAddress(address newForwarder) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address previous = forwarderAddress;
+        forwarderAddress = newForwarder;
+        emit ForwarderAddressUpdated(previous, newForwarder);
+    }
+
+    /// @notice Hackathon / dev: set price directly without CRE (admin only)
     function setMockPrice(
         address collection,
         uint256 tokenId,

@@ -41,7 +41,7 @@ struct Position {
 
 struct PriceRecord {
     uint256 priceUSD;         // 8 decimals, e.g. 15000000000 = $150.00
-    uint256 attestedAt;       // timestamp of Flare FDC attestation
+    uint256 attestedAt;       // timestamp when price was attested (CRE report or mock)
     uint256 updatedAt;        // block.timestamp when stored on-chain
     bool disputed;           // flagged by Chainlink Functions circuit breaker
     uint8 tier;               // 1 = high liquidity, 2 = medium, 3 = illiquid

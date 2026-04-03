@@ -1,0 +1,16 @@
+{
+  "name": "@slabfinance/cre-price-oracle",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "simulate": "cre workflow simulate . --target local-simulation --broadcast"
+  },
+  "dependencies": {
+    "@chainlink/cre-sdk": "^1.5.0",
+    "viem": "^2.21.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

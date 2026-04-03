@@ -18,7 +18,7 @@ The only CCIP lane available for Arc Testnet at the moment is Arc ↔ Ethereum S
 
 ## Key Features
 
-- **Oracle-based pricing** — Collateral values come from Flare FDC attestations (or mock prices for hackathon). Tier-based LTV: 40% (high liquidity), 25% (medium), 15% (illiquid).
+- **Oracle-based pricing** — Collateral values come from Chainlink CRE workflows (KeystoneForwarder → `OracleConsumer.onReport`) or admin `setMockPrice` for dev. Tier-based LTV: 40% (high liquidity), 25% (medium), 15% (illiquid).
 - **Health factor** — Your position is HEALTHY (HF ≥ 1.30), WARNING (1.00–1.30), or LIQUIDATABLE (HF < 1.00). New borrows are disabled in WARNING.
 - **Liquidation** — If HF drops below 1.0, your position enters a 6-hour liquidation queue. Liquidators can repay your debt (minus 15% bonus) and receive the NFT after the delay. You can cure the position by repaying or adding collateral before execution.
 
@@ -26,7 +26,7 @@ The only CCIP lane available for Arc Testnet at the moment is Arc ↔ Ethereum S
 
 - **Smart contracts** — Solidity, Foundry, OpenZeppelin, Chainlink CCIP
 - **App** — pnpm monorepo: Vite + React frontend, NestJS backend (skeleton), shared TypeScript package; Reown AppKit, Wagmi, Viem
-- **Oracle** — Flare FDC (hackathon: mock), Chainlink Automation for health factor sweeps
+- **Oracle** — Chainlink CRE (see [`cre/price-oracle/`](cre/price-oracle/)), Chainlink Automation for health factor sweeps
 
 ## Quick Start
 

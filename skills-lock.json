@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "chainlink-ccip-skill": {
+      "source": "smartcontractkit/chainlink-agent-skills",
+      "sourceType": "github",
+      "computedHash": "1487b7a48fa652a8a0c8263758cfc6a9b4a550248ba45e9f4e8a1f0ca22be94c"
+    },
+    "chainlink-cre-skill": {
+      "source": "smartcontractkit/chainlink-agent-skills",
+      "sourceType": "github",
+      "computedHash": "14796d4212cf3b16a10aad4ac240beb25d3884d32c6ec89cd1bb0bece0d3dd79"
+    }
+  }
+}

@@ -99,6 +99,7 @@ These are used by Foundry scripts and `cast`, not by the Vite bundle.
 | `SEPOLIA_CHAIN_SELECTOR` | `16015286601757825753` |
 | `CCIP_ROUTER_HUB` | Optional. If set, `Deploy_Hub.s.sol` uses this instead of `CCIP_ROUTER_ARC` (use for non-Arc hubs) |
 | `HUB_CHAIN_SELECTOR` | Optional. Overrides `ARC_CHAIN_SELECTOR` when deploying the Sepolia adapter so it targets the correct hub |
+| `CRE_FORWARDER_ADDRESS` | Optional. KeystoneForwarder (or mock) passed to `OracleConsumer.initialize`; defaults to `0x0000000000000000000000000000000000000001` if unset |
 
 ### Frontend (`frontend/.env` — `VITE_*` only)
 
@@ -162,7 +163,7 @@ forge script script/Deploy_Hub.s.sol --rpc-url $ARC_TESTNET_RPC --broadcast
 
 This deploys:
 
-- MockFdcVerification, MockUSDC (1M minted)
+- MockUSDC (1M minted); `OracleConsumer` initialized with `CRE_FORWARDER_ADDRESS` (defaults to `0x1` if unset — use real KeystoneForwarder + [`cre/price-oracle/`](cre/price-oracle/) for production paths)
 - OracleConsumer, CollateralRegistry, LendingPool, AuctionLiquidationManager, HealthFactorEngine (UUPS proxies)
 - CCIPMessageRouter, ChainlinkAutomationKeeper
 - May seed initial USDC liquidity (implementation-specific). Anyone can add liquidity afterward via the pool’s public **`deposit`** once that function exists on chain.
@@ -308,7 +309,7 @@ When **HF &lt; 1.0**, the hub **`AuctionLiquidationManager`** opens a **USDC auc
 
 ### Card pricing (lock UI)
 
-Before locking an NFT, the app should call **EXTERNAL_PRICE_API** (documented in [PRD.md](PRD.md) §5.1) for **USD value**, **suggested LTV**, and freshness fields. On-chain prices still come from the oracle / FDC path.
+Before locking an NFT, the app should call **EXTERNAL_PRICE_API** (documented in [PRD.md](PRD.md) §5.1) for **USD value**, **suggested LTV**, and freshness fields. On-chain prices still come from **OracleConsumer** (Chainlink CRE workflow or admin `setMockPrice`).
 
 ### Demo collectible NFT (`CardFiCollectible.sol`)
 
@@ -326,7 +327,7 @@ Metadata fields: `cardName`, `cardImage`, `setName`, `cardNumber`, `cardRarity`,
 3. Connect wallet to Sepolia. Acquire demo collectible tokens from the deployed `CardFiCollectible` contract (admin mints to you or you receive from deployer).
 4. Use **EXTERNAL_PRICE_API** (or mock) in the lock flow to show value and borrow preview; approve the CollateralAdapter to transfer your NFT, then call `lockAndNotify(tokenId, hubOwner)`. Pay the CCIP fee (ETH on Sepolia).
 5. Wait for CCIP delivery (~few minutes). Check [CCIP Explorer](https://ccip.chain.link).
-6. Set oracle price for the token if not already set (`setMockPrice` or FDC relay).
+6. Set oracle price for the token if not already set (`setMockPrice` or the [`cre/price-oracle/`](cre/price-oracle/) CRE workflow after configuring the forwarder).
 7. Switch to your configured hub chain (Arc Testnet or Arbitrum Sepolia). Call `LendingPool.borrow(amount)`.
 8. To unlock: repay full debt with `LendingPool.repay(amount)`, then call `CollateralRegistry.initiateUnlock(collateralId)`.
 9. Wait for UnlockCommand CCIP delivery. NFT is released to your address on Sepolia.

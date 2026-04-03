@@ -359,7 +359,7 @@ After each `lockAndNotify` transaction confirms on the source chain:
    CollateralRegistry.collateralItems(collateralId) → status
    ```
    Display status badges:
-   - **PENDING** — "Awaiting price attestation — usually within 24 hours"
+   - **PENDING** — "Awaiting oracle price — usually within 24 hours (CRE workflow or manual)"
    - **ACTIVE** — "Collateral is active — you can now borrow against it"
 
 3. **Redirect or update.** Once all selected cards are locked and CCIP messages sent, offer:
@@ -447,7 +447,7 @@ function registerCollateral(
 ) external onlyRouter returns (bytes32 collateralId);
 ```
 
-Creates a `CollateralItem` in `PENDING` status. Transitions to `ACTIVE` once `OracleConsumer` has a valid price (either via FDC attestation or `setMockPrice` for hackathon).
+Creates a `CollateralItem` in `PENDING` status. Transitions to `ACTIVE` once `OracleConsumer` has a valid price (either via Chainlink CRE `onReport` or `setMockPrice` for hackathon).
 
 ### 5.3 Hub chain — health factor preview
 
@@ -599,7 +599,7 @@ Display the fee amount in the correct denomination per chain.
 |---|---|
 | User sells/transfers NFT between enumeration and lock | `lockAndNotify` reverts with `ERC721: caller is not token owner`; UI catches and removes the card from the grid |
 | Same NFT locked twice (race condition) | `NFTVault` or adapter reverts if token is already in vault; hub `processedMessages` prevents duplicate `LOCK_NOTICE` |
-| Price drops between API fetch and oracle attestation | On-chain LTV may differ from preview; the preview is advisory. The on-chain `availableCredit` is the source of truth for borrowing. |
+| Price drops between API fetch and oracle update | On-chain LTV may differ from preview; the preview is advisory. The on-chain `availableCredit` is the source of truth for borrowing. |
 | User disconnects wallet mid-flow | Persist selection in local state; resume when wallet reconnects |
 | CCIP lane paused or congested | `lockAndNotify` may revert if CCIP router rejects the message; UI shows lane status if available |
 | Card has no metadata (empty `tokenURI`) | Show token ID and collection address; omit card details section |
