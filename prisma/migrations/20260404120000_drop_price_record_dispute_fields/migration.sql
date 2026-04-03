@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `PriceRecord` DROP COLUMN `disputed`,
+    DROP COLUMN `primaryPrice`,
+    DROP COLUMN `secondaryPrice`,
+    DROP COLUMN `deviationBps`;

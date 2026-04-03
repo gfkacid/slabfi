@@ -124,17 +124,13 @@ model AuctionSettlement {
 }
 
 model PriceRecord {
-  id             String  @id @default(cuid())
+  id             String @id @default(cuid())
   hubChainId     String
   collection     String
   tokenId        BigInt
   priceUsd       BigInt
   attestedAtUnix BigInt
   updatedAtUnix  BigInt
-  disputed       Boolean @default(false)
-  primaryPrice   BigInt?
-  secondaryPrice BigInt?
-  deviationBps   BigInt?
   txHash         String
   blockNumber    BigInt
   logIndex       Int
