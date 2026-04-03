@@ -127,17 +127,6 @@ export const ORACLE_CONSUMER_EVENTS_ABI = [
       { name: "attestedAt", type: "uint256", indexed: false },
     ],
   },
-  {
-    type: "event",
-    name: "PriceDisputed",
-    inputs: [
-      { name: "collection", type: "address", indexed: true },
-      { name: "tokenId", type: "uint256", indexed: true },
-      { name: "primaryPrice", type: "uint256", indexed: false },
-      { name: "secondaryPrice", type: "uint256", indexed: false },
-      { name: "deviationBps", type: "uint256", indexed: false },
-    ],
-  },
 ] as const;
 
 export const NFT_VAULT_EVENTS_ABI = [

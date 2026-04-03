@@ -1,10 +1,14 @@
-# CRE CLI RPCs — keep in sync with shared/config/testnet.ts (source chain = Ethereum Sepolia).
+# CRE CLI RPCs — keep hub (Arc) + source (Sepolia) in sync with shared/config/testnet.ts.
 staging-settings:
   rpcs:
     - chain-name: ethereum-testnet-sepolia
       url: https://rpc.sepolia.org
+    - chain-name: arc-testnet
+      url: https://rpc.testnet.arc.network
 
 production-settings:
   rpcs:
     - chain-name: ethereum-testnet-sepolia
       url: https://rpc.sepolia.org
+    - chain-name: arc-testnet
+      url: https://rpc.testnet.arc.network

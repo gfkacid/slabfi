@@ -19,6 +19,9 @@ shared/dist
 .env.test.local
 .env.production.local
 
+# CRE — deploy-all generated workflow config (secrets / live addresses)
+cre/price-oracle/config.deploy.json
+
 # Foundry
 contracts/out
 contracts/cache

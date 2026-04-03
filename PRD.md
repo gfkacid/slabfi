@@ -16,9 +16,8 @@
    - 4.3 [Contract Interface Catalogue](#43-contract-interface-catalogue)
 5. [Oracle System](#5-oracle-system)
    - 5.1 [Chainlink CRE Price Workflow](#51-chainlink-cre-price-workflow)
-   - 5.2 [Chainlink Functions Cross-Reference](#52-chainlink-functions-cross-reference)
-   - 5.3 [Staleness & Health Factor Model](#53-staleness--health-factor-model)
-   - 5.4 [Volatility-Adjusted LTV](#54-volatility-adjusted-ltv)
+   - 5.2 [Staleness & Health Factor Model](#52-staleness--health-factor-model)
+   - 5.3 [Volatility-Adjusted LTV](#53-volatility-adjusted-ltv)
 6. [Cross-Chain Messaging](#6-cross-chain-messaging)
    - 6.1 [CCIP Message Schemas](#61-ccip-message-schemas)
    - 6.2 [Message Lifecycle & State Machine](#62-message-lifecycle--state-machine)
@@ -39,7 +38,7 @@
 
 ### 1.1 Summary
 
-Slab.Finance is a cross-chain lending protocol that accepts tokenized physical collectibles (e.g. TCG cards on a source chain) as collateral in exchange for USDC loans. **Liquidity providers deposit USDC** into a hub vault; **borrow APR** adjusts with **vault utilization**. The protocol's liquidity and accounting live on **Arc** (Circle's L1), while collateral can be locked across multiple source chains. Chainlink CCIP carries collateral proof messages between source chains and Arc. Card **USD value** and **suggested LTV** come from **`EXTERNAL_PRICE_API`** (see §5.1); on-chain prices are ingested via **Chainlink CRE** workflows that fetch that API under DON consensus and deliver signed reports to **`OracleConsumer`** through **KeystoneForwarder**, with Chainlink Functions as a secondary validation layer.
+Slab.Finance is a cross-chain lending protocol that accepts tokenized physical collectibles (e.g. TCG cards on a source chain) as collateral in exchange for USDC loans. **Liquidity providers deposit USDC** into a hub vault; **borrow APR** adjusts with **vault utilization**. The protocol's liquidity and accounting live on **Arc** (Circle's L1), while collateral can be locked across multiple source chains. Chainlink CCIP carries collateral proof messages between source chains and Arc. Card **USD value** and **suggested LTV** come from **`EXTERNAL_PRICE_API`** (see §5.1); on-chain prices are ingested via **Chainlink CRE** workflows that fetch that API under DON consensus and deliver signed reports to **`OracleConsumer`** through **KeystoneForwarder**.
 
 ### 1.2 Design Principles
 
@@ -56,7 +55,6 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 - Chainlink CRE workflow pushing **EXTERNAL_PRICE_API** results to `OracleConsumer` (or `setMockPrice` for dev)
 - Chainlink CCIP for lock/unlock messages
 - Chainlink Automation for post-oracle health factor sweep
-- Chainlink Functions for price cross-reference (circuit breaker)
 - Reown AppKit frontend with borrow/repay/collateral UI, **vault deposit/withdraw**, and **utilization-based APR** display
 - ERC-7730 clear signing descriptors for all public functions
 
@@ -80,7 +78,7 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 | **CollateralRegistry** | Hub contract that records all cross-chain collateral positions |
 | **Health Factor (HF)** | Ratio of weighted collateral value to outstanding debt. HF < 1.0 = undercollateralized |
 | **LTV** | Loan-to-Value ratio. The max fraction of collateral value that can be borrowed |
-| **Effective LTV** | Max borrow as a fraction of collateral value: tier / API-suggested LTV, clamped on-chain, then volatility haircut (§5.4) |
+| **Effective LTV** | Max borrow as a fraction of collateral value: tier / API-suggested LTV, clamped on-chain, then volatility haircut (§5.3) |
 | **EXTERNAL_PRICE_API** | HTTP API returning `priceUSD`, `ltvBPS`, and metadata for a `(collection, tokenId)` before lock and for the CRE price workflow |
 | **Vault share** | Pro-rata claim on `LendingPool` USDC (assets + accrued borrow interest), minted on `deposit`, burned on `withdraw` |
 | **Utilization** | `totalBorrowed / totalAssets` — drives dynamic borrow and supply APR |
@@ -133,13 +131,12 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 │             │                └────────────┬─────────────┘                  │
 │             ▼                             │                                  │
 │  ┌─────────────────────┐         Chainlink CRE price report               │
-│  │  LendingPool        │         Chainlink Functions                        │
-│  │  - deposit/withdraw │                                                    │
-│  │  - borrow/repay     │     ┌──────────────────────────┐                  │
-│  │  - vault shares     │     │  AuctionLiquidationMgr   │                  │
-│  │  - util-based APR   │◄────│  - per-card USDC bids    │                  │
-│  └─────────────────────┘     │  - placeBid / claim      │                  │
-│                               │  - anti-sniping timer    │                  │
+│  │  LendingPool        │                                                    │
+│  │  - deposit/withdraw │     ┌──────────────────────────┐                  │
+│  │  - borrow/repay     │     │  AuctionLiquidationMgr   │                  │
+│  │  - vault shares     │◄────│  - per-card USDC bids    │                  │
+│  │  - util-based APR   │     │  - placeBid / claim      │                  │
+│  └─────────────────────┘     │  - anti-sniping timer    │                  │
 │                               └──────────────────────────┘                  │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────┐                  │
@@ -153,7 +150,6 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 │                              ORACLE LAYER                                    │
 │                                                                              │
 │  EXTERNAL_PRICE_API    ──► CRE workflow (HTTP + report) ──► OracleConsumer   │
-│  Web2 API (secondary)  ──► Chainlink Functions ──► OracleConsumer circuit     │
 │  (USDC/USD feeds)      ──► Optional future data feeds ──► OracleConsumer    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -279,7 +275,7 @@ event UnlockInitiated(bytes32 indexed collateralId, bytes32 ccipMessageId);
 
 #### `OracleConsumer.sol`
 
-**Responsibility:** Ingests and stores price data from Chainlink CRE (`IReceiver.onReport`) and Chainlink Functions. Acts as the single source of truth for collateral valuations.
+**Responsibility:** Ingests and stores price data from Chainlink CRE (`IReceiver.onReport`). Acts as the single source of truth for collateral valuations.
 
 **Storage:**
 
@@ -288,7 +284,6 @@ struct PriceRecord {
     uint256 priceUSD;        // 8 decimals, e.g. 15000000000 = $150.00
     uint256 attestedAt;      // timestamp when price was attested (CRE report or mock)
     uint256 updatedAt;       // block.timestamp when stored on-chain
-    bool    disputed;        // flagged by Chainlink Functions circuit breaker
     uint8   tier;            // 1 = high liquidity, 2 = medium, 3 = illiquid
 }
 
@@ -300,7 +295,6 @@ mapping(address => mapping(uint256 => uint256[30])) public priceHistory;
 mapping(address => mapping(uint256 => uint8))       public historyIndex;
 
 uint256 public constant PRICE_FRESHNESS_WINDOW = 26 hours; // 24h + 2h grace
-uint256 public constant DISPUTE_THRESHOLD_BPS   = 1500;    // 15% deviation triggers dispute
 ```
 
 **Key Functions:**
@@ -309,15 +303,7 @@ uint256 public constant DISPUTE_THRESHOLD_BPS   = 1500;    // 15% deviation trig
 /// Chainlink CRE / KeystoneForwarder — report is abi.encode(collection, tokenId, priceUSD)
 function onReport(bytes calldata metadata, bytes calldata report) external;
 
-/// Called by Chainlink Functions callback with secondary price check
-/// If delta vs current price > DISPUTE_THRESHOLD_BPS, sets disputed = true
-function submitCrossReferencePrice(
-    address collection,
-    uint256 tokenId,
-    uint256 secondaryPriceUSD
-) external onlyChainlinkFunctions;
-
-/// Returns latest non-disputed price; reverts if stale or disputed
+/// Returns latest price; reverts if stale
 function getPrice(address collection, uint256 tokenId)
     external view returns (uint256 priceUSD, uint256 age);
 
@@ -780,7 +766,7 @@ HTTP `503` — transient upstream failure.
 
 **Frontend usage:** For each card the user may lock, call this endpoint, render **USD value**, **LTV %**, **max borrowable** (`priceUSD/100 * ltvBPS / 10000` in USD), and **confidence / updatedAt**. If the API errors, disable lock or show “pricing unavailable.”
 
-**On-chain mapping:** `OracleConsumer` stores attested `priceUSD` (scaled), `tier`, and `attestedAt`. The API’s `ltvBPS` is **not trusted blindly**: the contract applies `min(max(ltvBPS, MIN_LTV_API), MAX_LTV_API)` and still applies **volatility-adjusted effective LTV** (see §5.4) where history exists.
+**On-chain mapping:** `OracleConsumer` stores attested `priceUSD` (scaled), `tier`, and `attestedAt`. The API’s `ltvBPS` is **not trusted blindly**: the contract applies `min(max(ltvBPS, MIN_LTV_API), MAX_LTV_API)` and still applies **volatility-adjusted effective LTV** (see §5.3) where history exists.
 
 #### CRE workflow configuration
 
@@ -803,51 +789,19 @@ For **`ltvBPS` / `tier`**, extend the report encoding and `_updatePrice` path in
 
 #### Update frequency
 
-CRE triggers are configurable (e.g. **every 23 hours**) to align with staleness windows (see §5.3). Collectible quotes may change less often than the cron interval.
+CRE triggers are configurable (e.g. **every 23 hours**) to align with staleness windows (see §5.2). Collectible quotes may change less often than the cron interval.
 
 ---
 
-### 5.2 Chainlink Functions Cross-Reference
-
-Chainlink Functions allows arbitrary JavaScript to run in a decentralized compute environment and push results on-chain. It is used here as a *circuit breaker*, not as the primary price source.
-
-**JavaScript Source (deployed to Chainlink Functions):**
-
-```javascript
-// Fetches secondary price and compares to primary
-const tokenId = args[0];
-const primaryPrice = parseInt(args[1]);
-
-// Secondary source: e.g., eBay sold listings scraper API or alt marketplace
-const secondaryResponse = await Functions.makeHttpRequest({
-  url: `https://api.tcgplayer.com/v2/marketplace/products/${tokenId}/market-price`,
-  headers: { "Authorization": `Bearer ${secrets.TCGPLAYER_KEY}` }
-});
-
-const secondaryPrice = secondaryResponse.data.marketPrice;
-const deviationBps = Math.abs(secondaryPrice - primaryPrice) / primaryPrice * 10000;
-
-return Functions.encodeUint256(deviationBps);
-```
-
-**On-Chain Callback:**
-
-The `OracleConsumer.submitCrossReferencePrice()` receives the `deviationBps` result. If `deviationBps > DISPUTE_THRESHOLD_BPS` (1500 = 15%), the price record's `disputed` flag is set to `true`. All price reads during a dispute period return the *lower* of the two prices (conservative) and log a `PriceDisputed` event.
-
-A disputed price auto-resolves if a subsequent **CRE report** within 24 hours confirms the primary price, or if a governance address manually clears it (for the hackathon, this is an `owner` function; post-hackathon it becomes DAO-governed).
-
----
-
-### 5.3 Staleness & Health Factor Model
+### 5.2 Staleness & Health Factor Model
 
 #### Freshness Window
 
 | Scenario | Behaviour |
 |---|---|
-| Price age < 24h, not disputed | Normal — full LTV applied |
+| Price age < 24h | Normal — full LTV applied |
 | Price age 24–26h (grace period) | LTV reduced by 50% as staleness penalty |
 | Price age > 26h | `getPrice()` reverts with `PriceStale`; new borrows blocked for this collateral |
-| Price disputed | Conservative lower price used; new borrows blocked |
 
 A position with stale-priced collateral contributes **zero** to the borrower's weighted collateral value for the purpose of new borrows, but existing debt continues to accrue. The borrower must repay or wait for the next price update.
 
@@ -873,7 +827,7 @@ The WARNING zone exists because daily-priced assets can gap down significantly b
 
 ---
 
-### 5.4 Volatility-Adjusted LTV
+### 5.3 Volatility-Adjusted LTV
 
 After 30 days of price history have accumulated for a `(collection, tokenId)` pair, the effective LTV is dynamically reduced based on recent price volatility.
 
@@ -1075,7 +1029,6 @@ LendingPool:
 
 OracleConsumer:
   PriceUpdated(collection, tokenId, newPrice, attestedAt)
-  PriceDisputed(collection, tokenId, primaryPrice, secondaryPrice, deviationBps)
 
 AuctionLiquidationManager:
   AuctionQueued(auctionId, borrower, collateralId, reservePrice, debtShareSnapshot, deadline)
@@ -1111,7 +1064,6 @@ The protocol uses OpenZeppelin `AccessControl` on all hub contracts.
 |---|---|---|
 | `DEFAULT_ADMIN_ROLE` | Deployer multisig | Grant/revoke all roles |
 | *(none)* | *Replaced by forwarder* | `OracleConsumer.onReport` is only callable by `forwarderAddress` (KeystoneForwarder) |
-| `FUNCTIONS_CALLBACK` | Chainlink Functions oracle | `submitCrossReferencePrice()` |
 | `HF_ENGINE` | HealthFactorEngine | (indirect) triggers `queueLiquidation` / `cancelAllAuctionsForBorrower` on auction manager |
 | `HF_ENGINE` on auction manager | HealthFactorEngine | `queueLiquidation`, `cancelAllAuctionsForBorrower` |
 | `LIQUIDATION_MANAGER` | AuctionLiquidationManager | `CollateralRegistry.seizeLiquidatedCollateral()` |
@@ -1142,19 +1094,7 @@ For the hackathon, the deployer EOA can hold `DEFAULT_ADMIN_ROLE`. Post-hackatho
 
 **Handling (v2):** ENS reverse resolution — if both addresses point to the same ENS primary name, they are treated as the same owner.
 
-### 10.3 Disputed Price During Active Borrow
-
-**Scenario:** Primary CRE-delivered price and Chainlink Functions cross-check differ by >15% for a borrower's collateral.
-
-**Handling:**
-- `OracleConsumer` stores the *lower* of the two prices conservatively
-- `PriceDisputed` event emitted
-- Borrower's HF is recomputed with lower price — they may enter WARNING zone
-- New borrows against this collateral are blocked
-- The dispute auto-resolves after the next CRE price report (≤24h)
-- Borrower is not immediately liquidated from a dispute alone; the WARNING zone gives them time
-
-### 10.4 NFT Transferred Out of Vault (Direct ERC-721 Transfer Bypass)
+### 10.3 NFT Transferred Out of Vault (Direct ERC-721 Transfer Bypass)
 
 **Scenario:** A malicious or buggy source chain contract somehow transfers an NFT out of `NFTVault` without going through the adapter.
 
@@ -1163,7 +1103,7 @@ For the hackathon, the deployer EOA can hold `DEFAULT_ADMIN_ROLE`. Post-hackatho
 - It **does not implement** any `transfer` or `safeTransfer` function — the only exit is `release()`, callable only by the adapter
 - If an NFT is removed via a direct call to the underlying ERC-721's transfer (i.e., the vault contract itself calls `transferFrom`), that is only possible if the vault contract has a bug — which is why `NFTVault` has zero business logic beyond the `release` function and is kept minimal and non-upgradeable
 
-### 10.5 Oracle Price for Un-priced Collateral
+### 10.4 Oracle Price for Un-priced Collateral
 
 **Scenario:** A new NFT is locked but the oracle has not yet received a CRE report or mock price (PENDING status).
 
@@ -1173,7 +1113,7 @@ For the hackathon, the deployer EOA can hold `DEFAULT_ADMIN_ROLE`. Post-hackatho
 - The frontend should show "Awaiting price attestation — usually within 24 hours" for PENDING items
 - Maximum wait time is one CRE workflow interval (e.g. ≤24h after next scheduled fetch)
 
-### 10.6 Simultaneous auction settlement and cure
+### 10.5 Simultaneous auction settlement and cure
 
 **Scenario:** Borrower submits `repay()` (or HF improves) in the same block as `claim()` on an auction.
 
@@ -1284,7 +1224,7 @@ Each contract has a corresponding test file. Minimum coverage targets for hackat
 
 | Contract | Tests Required |
 |---|---|
-| `OracleConsumer` | Price acceptance, staleness revert, dispute flag, volatility computation |
+| `OracleConsumer` | Price acceptance, staleness revert, volatility computation |
 | `HealthFactorEngine` | HF formula correctness, all status zone transitions |
 | `LendingPool` | Deposit/withdraw shares, exchange rate, borrow cap, repay full/partial, **utilization-based** accrual |
 | `AuctionLiquidationManager` | Queue, bids, anti-sniping, `claim` distribution, cancel-on-cure |
@@ -1305,8 +1245,7 @@ forge test --fork-url $ARC_RPC --match-path test/integration/
 **Integration test scenarios:**
 1. Full happy path: lock → price update → borrow → repay → unlock
 2. Liquidation path: lock → price drop → queue auctions → bids → claim
-3. Dispute resolution: conflicting oracle prices → conservative price applied
-4. Multi-collateral: lock two NFTs → borrow against combined credit
+3. Multi-collateral: lock two NFTs → borrow against combined credit
 
 ### 12.3 CCIP Local Simulation
 
@@ -1412,14 +1351,10 @@ cast send $LENDING_POOL_ADDRESS \
 # 6. Register Chainlink Automation upkeep
 # → Do this manually via https://automation.chain.link using AUTOMATION_KEEPER_ADDRESS
 
-# 7. Configure Chainlink Functions subscription
-# → Create subscription at https://functions.chain.link
-# → Fund with LINK, add ORACLE_CONSUMER_ADDRESS as consumer
-# → Upload JavaScript source for cross-reference check
-
-# 8. Deploy / simulate CRE price workflow (cre/price-oracle/)
+# 7. Deploy / simulate CRE price workflow (cre/price-oracle/)
 # → cre workflow simulate . --target local-simulation --broadcast
 # → Production: cre workflow deploy (Early Access) with secrets and correct forwarder on hub chain
+# → Optional: scripts/deploy-all.sh with DEPLOY_CRE_WORKFLOW=1 (see .env.example)
 ```
 
 ### 13.3 Post-Deployment Verification
@@ -1455,7 +1390,6 @@ cast call $LENDING_POOL_ADDRESS "totalAssets()" --rpc-url $ARC_TESTNET_RPC
 - [x] ERC-7730 JSON descriptors for all user functions
 
 ### Ship If Time Allows
-- [ ] Chainlink Functions cross-reference price circuit breaker
 - [ ] `/liquidations` public page
 - [ ] Second source chain (Ronin or Base)
 - [ ] Full Foundry test suite

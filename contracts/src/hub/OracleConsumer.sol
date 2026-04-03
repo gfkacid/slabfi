@@ -9,13 +9,10 @@ import "../interfaces/ICardFiTypes.sol";
 import {IReceiver} from "../interfaces/IReceiver.sol";
 
 /// @title OracleConsumer
-/// @notice Ingests and stores price data from Chainlink CRE workflows and Chainlink Functions
+/// @notice Ingests and stores price data from Chainlink CRE workflows
 contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IReceiver {
-    bytes32 public constant FUNCTIONS_CALLBACK_ROLE = keccak256("FUNCTIONS_CALLBACK");
-
     uint256 public constant PRICE_FRESHNESS_WINDOW = 26 hours; // 24h + 2h grace
     uint256 public constant STALENESS_PENALTY_WINDOW = 2 hours; // 24h-26h: 50% LTV
-    uint256 public constant DISPUTE_THRESHOLD_BPS = 1500; // 15% deviation triggers dispute
     uint256 public constant MIN_LTV_BPS = 500; // 5% floor
     uint256 public constant PRICE_DECIMALS = 8;
     uint256 public constant BPS = 10000;
@@ -42,7 +39,6 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
     uint256 public lastPriceUpdateTime;
 
     event PriceUpdated(address indexed collection, uint256 indexed tokenId, uint256 newPrice, uint256 attestedAt);
-    event PriceDisputed(address indexed collection, uint256 indexed tokenId, uint256 primaryPrice, uint256 secondaryPrice, uint256 deviationBps);
     event ForwarderAddressUpdated(address indexed previousForwarder, address indexed newForwarder);
 
     error InvalidForwarder();
@@ -69,7 +65,7 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
         if (msg.sender != forwarderAddress) revert InvalidForwarder();
         (address collection, uint256 tokenId, uint256 priceUSD) = abi.decode(report, (address, uint256, uint256));
         if (collection == address(0)) revert InvalidReport();
-        _updatePrice(collection, tokenId, priceUSD, block.timestamp, false);
+        _updatePrice(collection, tokenId, priceUSD, block.timestamp);
     }
 
     /// @inheritdoc IERC165
@@ -92,41 +88,18 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
         uint8 tier
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint256 attestedAt = block.timestamp;
-        _updatePrice(collection, tokenId, priceUSD, attestedAt, false);
+        _updatePrice(collection, tokenId, priceUSD, attestedAt);
         if (tier > 0) {
             collectionTier[collection] = tier;
         }
     }
 
-    /// @notice Chainlink Functions callback - sets disputed flag if deviation > 15%
-    function submitCrossReferencePrice(
-        address collection,
-        uint256 tokenId,
-        uint256 secondaryPriceUSD
-    ) external onlyRole(FUNCTIONS_CALLBACK_ROLE) {
-        PriceRecord storage record = prices[collection][tokenId];
-        require(record.updatedAt > 0, "No price to compare");
-
-        uint256 primaryPrice = record.priceUSD;
-        uint256 deviationBps = primaryPrice > 0
-            ? (secondaryPriceUSD > primaryPrice
-                ? (secondaryPriceUSD - primaryPrice) * BPS / primaryPrice
-                : (primaryPrice - secondaryPriceUSD) * BPS / primaryPrice)
-            : 0;
-
-        if (deviationBps > DISPUTE_THRESHOLD_BPS) {
-            record.disputed = true;
-            emit PriceDisputed(collection, tokenId, primaryPrice, secondaryPriceUSD, deviationBps);
-        }
-    }
-
-    /// @notice Returns latest non-disputed price; reverts if stale or disputed
+    /// @notice Returns latest price; reverts if stale
     /// @return priceUSD Price in 8 decimals
     /// @return age Seconds since attestation
     function getPrice(address collection, uint256 tokenId) external view returns (uint256 priceUSD, uint256 age) {
         PriceRecord storage record = prices[collection][tokenId];
         require(record.updatedAt > 0, "No price");
-        require(!record.disputed, "Price disputed");
         require(block.timestamp <= record.attestedAt + PRICE_FRESHNESS_WINDOW, "Price stale");
 
         age = block.timestamp - record.attestedAt;
@@ -204,14 +177,12 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
         address collection,
         uint256 tokenId,
         uint256 priceUSD,
-        uint256 attestedAt,
-        bool disputed
+        uint256 attestedAt
     ) internal {
         prices[collection][tokenId] = PriceRecord({
             priceUSD: priceUSD,
             attestedAt: attestedAt,
             updatedAt: block.timestamp,
-            disputed: disputed,
             tier: collectionTier[collection] > 0 ? collectionTier[collection] : 1
         });
 

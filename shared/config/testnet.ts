@@ -15,7 +15,7 @@ export const testnetConfig = {
       oracleConsumer: "",
       healthFactorEngine: "",
       liquidationManager: "",
-      usdc: "",
+      usdc: "0x3600000000000000000000000000000000000000",
     } satisfies Record<keyof HubContractAddresses, string>,
   },
   source: {
@@ -28,10 +28,12 @@ export const testnetConfig = {
       collateralAdapter: "",
       slabFinanceCollectible: "",
       nftVault: "",
+      usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
     },
   },
   cre: {
-    forwarderAddress: "0x0000000000000000000000000000000000000001" as const,
+    /** Arc Testnet — MockKeystoneForwarder (fixed per network; not deployed by Foundry). https://docs.chain.link/cre/guides/workflow/using-evm-client/forwarder-directory-ts */
+    forwarderAddress: "0x6E9EE680ef59ef64Aa8C7371279c27E496b5eDc1" as const,
   },
 };
 

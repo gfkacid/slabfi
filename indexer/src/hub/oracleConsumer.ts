@@ -32,7 +32,6 @@ export async function handleOracleConsumerDecoded(params: {
           priceUsd: newPrice,
           attestedAtUnix: attestedAt,
           updatedAtUnix: ts,
-          disputed: false,
           txHash: tx,
           blockNumber: bn,
           logIndex,
@@ -50,36 +49,6 @@ export async function handleOracleConsumerDecoded(params: {
           tokenId,
         },
         data: { latestPriceUsd: newPrice },
-      });
-    }
-
-    if (ev.eventName === "PriceDisputed") {
-      await prisma.priceRecord.upsert({
-        where: {
-          hubChainId_txHash_logIndex: { hubChainId, txHash: tx, logIndex },
-        },
-        create: {
-          hubChainId,
-          collection,
-          tokenId,
-          priceUsd: args.primaryPrice as bigint,
-          attestedAtUnix: 0n,
-          updatedAtUnix: ts,
-          disputed: true,
-          primaryPrice: args.primaryPrice as bigint,
-          secondaryPrice: args.secondaryPrice as bigint,
-          deviationBps: args.deviationBps as bigint,
-          txHash: tx,
-          blockNumber: bn,
-          logIndex,
-        },
-        update: {
-          disputed: true,
-          primaryPrice: args.primaryPrice as bigint,
-          secondaryPrice: args.secondaryPrice as bigint,
-          deviationBps: args.deviationBps as bigint,
-          updatedAtUnix: ts,
-        },
       });
     }
   }

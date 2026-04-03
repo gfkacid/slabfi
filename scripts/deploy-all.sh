@@ -144,8 +144,12 @@ Copy addresses into [`shared/config/testnet.ts`](../shared/config/testnet.ts) un
 | Variable | Purpose |
 |----------|---------|
 | `DEPLOYER_PRIVATE_KEY` | EOA used on Arc and Sepolia (must hold gas on both) |
+| `DEPLOY_CRE_WORKFLOW` | Set to `1` to run optional CRE CLI deploy after hub + Sepolia (needs `cre` + `CRE_API_KEY`) |
+| `CRE_API_KEY` | Non-interactive CRE CLI authentication |
+| `EXTERNAL_PRICE_API_URL` | Optional; overrides `apiUrl` in generated `cre/price-oracle/config.deploy.json` |
+| `CRE_PRICE_TOKEN_ID` | Optional token id string for the CRE config (default: first entry in `config.json`) |
 
-Forge RPCs and CCIP values are **not** set in `.env`; they come from `shared/config/testnet.ts`.
+Forge RPCs, CCIP values, and default `CRE_FORWARDER_ADDRESS` come from `shared/config/testnet.ts` via `eval "$(... print-deploy-env.ts)"` after sourcing `.env` (exports from the script override same-named vars from `.env`).
 GUIDE_EOF
 )"
 
@@ -159,6 +163,52 @@ CCIP_ONCHAIN="$(json_get "$HUB_JSON" ccipRouterOnChain)"
 
 SEP_COLL="$(json_get "$SEPOLIA_JSON" cardFiCollectible)"
 SEP_VAULT="$(json_get "$SEPOLIA_JSON" nftVault)"
+
+CRE_DIR="$REPO_ROOT/cre/price-oracle"
+if [[ "${DEPLOY_CRE_WORKFLOW:-}" == "1" ]]; then
+  if ! command -v cre >/dev/null 2>&1; then
+    echo "CRE skipped: Chainlink CRE CLI not on PATH (install cre, then re-run with DEPLOY_CRE_WORKFLOW=1)."
+  elif [[ -z "${CRE_API_KEY:-}" ]]; then
+    echo "CRE skipped: set CRE_API_KEY for non-interactive CLI auth (see https://docs.chain.link/cre/reference/cli/authentication)."
+  elif [[ -z "${ORACLE:-}" || -z "${SEP_COLL:-}" ]]; then
+    echo "CRE skipped: missing oracleConsumer or collectible address from deployment JSON."
+  else
+    echo "=== Optional: CRE workflow deploy (DEPLOY_CRE_WORKFLOW=1) ==="
+    if (cd "$CRE_DIR" && npm ci --omit=dev); then
+      BASE_CFG="$CRE_DIR/config.json"
+      SCHEDULE=$(jq -r '.schedule' "$BASE_CFG")
+      DEFAULT_API=$(jq -r '.apiUrl' "$BASE_CFG")
+      API_URL="${EXTERNAL_PRICE_API_URL:-$DEFAULT_API}"
+      TOKEN_ID="${CRE_PRICE_TOKEN_ID:-$(jq -r '.evms[0].tokenId // "1"' "$BASE_CFG")}"
+      jq -n \
+        --arg schedule "$SCHEDULE" \
+        --arg apiUrl "$API_URL" \
+        --arg oracle "$ORACLE" \
+        --arg collection "$SEP_COLL" \
+        --arg tokenId "$TOKEN_ID" \
+        '{
+          schedule: $schedule,
+          apiUrl: $apiUrl,
+          evms: [{
+            oracleConsumerAddress: $oracle,
+            chainSelectorName: "arc-testnet",
+            gasLimit: "500000",
+            collection: $collection,
+            tokenId: $tokenId
+          }]
+        }' >"$CRE_DIR/config.deploy.json"
+      set +e
+      (cd "$CRE_DIR" && CRE_API_KEY="$CRE_API_KEY" cre workflow deploy . --target arc-testnet-deploy --yes)
+      cre_status=$?
+      set -e
+      if [[ "$cre_status" -ne 0 ]]; then
+        echo "WARN: cre workflow deploy exited $cre_status (Early Access, target name, or platform limits). Hub and source deploys finished successfully." >&2
+      fi
+    else
+      echo "CRE skipped: npm ci failed in cre/price-oracle (install dependencies manually)."
+    fi
+  fi
+fi
 
 cat >"$DEPLOYMENTS_MD" <<EOF
 # CardFi deployments
@@ -185,6 +235,7 @@ _Generated: ${TS}_ (re-run \`scripts/deploy-all.sh\` to refresh.)
 | Chainlink CCIP router (on-chain) | ${CCIP_ONCHAIN} |
 | CollateralRegistry (proxy) | ${REGISTRY} |
 | OracleConsumer (proxy) | ${ORACLE} |
+| CRE Keystone forwarder (Arc testnet; config) | ${CRE_FORWARDER_ADDRESS} |
 | LendingPool (proxy) | ${POOL} |
 | AuctionLiquidationManager (proxy) | ${LIQ} |
 | HealthFactorEngine (proxy) | ${HF} |
