@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Slab.Finance Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "secondary-container": "#2170e4",
+            "on-primary-fixed": "#0b1d2d",
+            "surface-dim": "#d8dadc",
+            "surface-bright": "#f7f9fb",
+            "secondary-fixed": "#d8e2ff",
+            "inverse-on-surface": "#eff1f3",
+            "primary-container": "#1a2b3c",
+            "on-primary-container": "#8192a7",
+            "secondary": "#0058be",
+            "tertiary-container": "#00311f",
+            "on-tertiary-fixed": "#002113",
+            "surface": "#f7f9fb",
+            "on-primary": "#ffffff",
+            "surface-variant": "#e0e3e5",
+            "tertiary-fixed": "#6ffbbe",
+            "on-error": "#ffffff",
+            "on-surface-variant": "#44474c",
+            "on-secondary-container": "#fefcff",
+            "surface-container-high": "#e6e8ea",
+            "error": "#ba1a1a",
+            "surface-container-highest": "#e0e3e5",
+            "inverse-surface": "#2d3133",
+            "surface-container-lowest": "#ffffff",
+            "primary": "#041627",
+            "outline-variant": "#c4c6cd",
+            "on-error-container": "#93000a",
+            "on-secondary-fixed-variant": "#004395",
+            "surface-tint": "#4f6073",
+            "on-background": "#191c1e",
+            "primary-fixed-dim": "#b7c8de",
+            "surface-container-low": "#f2f4f6",
+            "on-surface": "#191c1e",
+            "surface-container": "#eceef0",
+            "on-tertiary": "#ffffff",
+            "secondary-fixed-dim": "#adc6ff",
+            "tertiary-fixed-dim": "#4edea3",
+            "tertiary": "#001a0f",
+            "on-secondary": "#ffffff",
+            "outline": "#74777d",
+            "error-container": "#ffdad6",
+            "on-primary-fixed-variant": "#38485a",
+            "on-tertiary-container": "#00a572",
+            "on-tertiary-fixed-variant": "#005236",
+            "on-secondary-fixed": "#001a42",
+            "background": "#f7f9fb",
+            "inverse-primary": "#b7c8de",
+            "primary-fixed": "#d2e4fb"
+          },
+          fontFamily: {
+            "headline": ["Manrope"],
+            "body": ["Inter"],
+            "label": ["Inter"]
+          },
+          borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    body { font-family: 'Inter', sans-serif; }
+    h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    .tonal-shift-bg-only { border: none !important; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-secondary/30">
+<!-- Side Navigation Bar -->
+<aside class="bg-[#F2F4F6] dark:bg-[#041627] h-screen w-64 border-r-0 flex flex-col fixed left-0 top-0 z-[60]">
+<div class="p-8">
+<div class="text-xl font-extrabold text-[#041627] dark:text-white mb-8">Slab.Finance</div>
+<nav class="space-y-1">
+<a class="flex items-center px-4 py-3 gap-3 font-['Manrope'] font-bold text-sm tracking-tight text-[#3B82F6] border-r-4 border-[#3B82F6] bg-[#E0E3E5] dark:bg-[#1A2B3C] transition-transform scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+        Dashboard
+      </a>
+<a class="flex items-center px-4 py-3 gap-3 font-['Manrope'] font-bold text-sm tracking-tight text-[#191C1E] dark:text-[#C4C6CD] opacity-70 hover:bg-[#E0E3E5] dark:hover:bg-[#1A2B3C] transition-colors transition-transform scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+        Assets
+      </a>
+<a class="flex items-center px-4 py-3 gap-3 font-['Manrope'] font-bold text-sm tracking-tight text-[#191C1E] dark:text-[#C4C6CD] opacity-70 hover:bg-[#E0E3E5] dark:hover:bg-[#1A2B3C] transition-colors transition-transform scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="account_balance">account_balance</span>
+        Lending
+      </a>
+<a class="flex items-center px-4 py-3 gap-3 font-['Manrope'] font-bold text-sm tracking-tight text-[#191C1E] dark:text-[#C4C6CD] opacity-70 hover:bg-[#E0E3E5] dark:hover:bg-[#1A2B3C] transition-colors transition-transform scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="list_alt">list_alt</span>
+        Liquidation Queue
+      </a>
+</nav>
+</div>
+<div class="mt-auto p-8 border-t border-outline-variant/10">
+<div class="flex items-center gap-3 mb-6 p-3 bg-surface-container-high rounded-xl">
+<img alt="Wallet Profile" class="w-8 h-8 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA72FwFzdFy4pfyuWzprj0DtehDPS0D87vJxzQ7xA39UTVujqGApy0HkYmrwyfnovCytUdwUe89bnQCd7gNwqolMUCLfeSX9b0suFE2R_m10dm7N2EhbBeurXWVjGb1WG9-kA5eQS71bgtY7Npjw17Tydb88jXg6bgw9etuoiubr7zcbaN07l6w_A1zgLN1-NxkGVjzW686I83FoifhMlOPCxtYg42G-4ZLY0jSvSfYrK7lb0qSXSA_KKi_vDBqdYTTW6RPXq9UO2g"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">0x1A2...3C4</p>
+<p class="text-[10px] opacity-60">Connected</p>
+</div>
+</div>
+<div class="space-y-1">
+<a class="flex items-center px-4 py-2 gap-3 font-['Manrope'] font-bold text-sm tracking-tight text-[#191C1E] dark:text-[#C4C6CD] opacity-70 hover:bg-[#E0E3E5] dark:hover:bg-[#1A2B3C] transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+        Support
+      </a>
+<a class="flex items-center px-4 py-2 gap-3 font-['Manrope'] font-bold text-sm tracking-tight text-[#191C1E] dark:text-[#C4C6CD] opacity-70 hover:bg-[#E0E3E5] dark:hover:bg-[#1A2B3C] transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+        Settings
+      </a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<div class="px-10 py-6">
+<!-- Header with Wallet Info -->
+<div class="flex justify-between items-center mb-8">
+<div>
+<h1 class="text-2xl font-extrabold text-primary">Dashboard</h1>
+<p class="text-xs text-on-surface-variant font-medium">Welcome back, 0x1A2...3C4</p>
+</div>
+<div class="flex items-center gap-4 bg-surface-container-lowest p-2 pr-4 rounded-xl shadow-sm border border-outline-variant/5">
+<div class="flex items-center gap-3 border-r border-outline-variant/20 pr-4 mr-1">
+<div class="text-right">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase leading-none">Net Balance</p>
+<p class="text-sm font-extrabold text-primary">$2,140.20</p>
+</div>
+<button class="bg-primary text-white px-4 py-2 rounded-lg font-['Inter'] font-semibold text-xs hover:bg-primary-container transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="account_balance_wallet">account_balance_wallet</span>
+            0x1A2...3C4
+          </button>
+</div>
+<div class="flex gap-2">
+<button class="p-2 text-on-surface-variant hover:text-[#3B82F6] transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-[#3B82F6] transition-all">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Top Stats Row (Updated) -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+<!-- Consolidated Net Worth & Rewards -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0px_4px_24px_rgba(25,28,30,0.04)] flex flex-col justify-between transition-all hover:scale-[1.01] border border-outline-variant/5">
+<div class="mb-4">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Total Net Worth</p>
+<h3 class="text-2xl font-extrabold text-primary">$1,540.20</h3>
+<p class="text-[10px] text-tertiary-fixed-dim font-semibold">+2.4% from yesterday</p>
+</div>
+<div class="bg-surface-container-low p-3 rounded-lg border border-outline-variant/10">
+<div class="flex items-center justify-between mb-2">
+<div>
+<p class="text-[9px] font-bold text-on-surface-variant uppercase">Outstanding Rewards</p>
+<p class="text-sm font-bold text-[#3B82F6]">45.20 SLAB</p>
+</div>
+<button class="px-3 py-1.5 bg-secondary text-on-primary rounded-lg font-['Manrope'] font-bold text-[9px] uppercase tracking-wider hover:bg-secondary-container transition-colors">
+              Claim
+            </button>
+</div>
+<p class="text-[8px] text-on-surface-variant/60 font-medium">Accrues every 24h</p>
+</div>
+</div>
+<!-- Consolidated Health Factor & Total Borrowed -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0px_4px_24px_rgba(25,28,30,0.04)] flex flex-col justify-between transition-all hover:scale-[1.01] border border-outline-variant/5">
+<div>
+<div class="flex items-center justify-between mb-1">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Health Factor</p>
+<span class="text-[10px] font-bold text-on-tertiary-container px-1.5 py-0.5 bg-tertiary-fixed/20 rounded">Healthy</span>
+</div>
+<h3 class="text-2xl font-extrabold text-on-tertiary-container">1.85</h3>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full mt-2 overflow-hidden">
+<div class="bg-tertiary-fixed-dim h-full w-[85%] rounded-full"></div>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant/10">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Total Borrowed</p>
+<div class="flex items-baseline gap-2">
+<h4 class="text-lg font-extrabold text-primary">600.00 USDC</h4>
+<span class="text-[9px] text-on-surface-variant/60 font-medium">Arc Testnet</span>
+</div>
+</div>
+</div>
+<!-- Moved Market Stats -->
+<div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0px_4px_24px_rgba(25,28,30,0.04)] border border-outline-variant/5 transition-all hover:scale-[1.01]">
+<div class="flex items-center justify-between mb-4">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Market Overview</p>
+<span class="material-symbols-outlined text-on-surface-variant text-sm" data-icon="monitoring">monitoring</span>
+</div>
+<div class="space-y-4">
+<div>
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tight mb-1">TVL</p>
+<p class="text-xl font-extrabold text-primary">$12.4M <span class="text-xs font-medium text-tertiary-fixed-dim ml-1">+0.8%</span></p>
+</div>
+<div class="pt-3 border-t border-outline-variant/10">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-tight mb-2">USDC Utilization</p>
+<div class="flex items-center gap-3">
+<div class="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[72%] rounded-full"></div>
+</div>
+<span class="text-xs font-bold text-primary">72%</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-12 gap-8">
+<!-- Left Column (Main content) -->
+<div class="col-span-12 lg:col-span-8 space-y-8">
+<!-- Portfolio Breakdown -->
+<section>
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xl font-extrabold text-primary">Portfolio Breakdown</h2>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-outline-variant/5">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="text-sm font-bold">Assets by Platform</span>
+<span class="text-xs opacity-60">USD Value</span>
+</div>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-xs font-medium mb-1.5">
+<span>Courtyard</span>
+<span>$1,240.20 (58%)</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[58%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-medium mb-1.5">
+<span>Beezy</span>
+<span>$600.00 (28%)</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container w-[28%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs font-medium mb-1.5">
+<span>Alt</span>
+<span>$300.00 (14%)</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-fixed-dim w-[14%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-center border-l border-outline-variant/10 pl-8">
+<div class="text-center">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Total Assets</p>
+<p class="text-3xl font-extrabold">$2,140.20</p>
+<p class="text-[10px] text-on-error bg-error/10 text-error px-2 py-0.5 rounded mt-2 inline-block">-$600.00 Debt</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Active Collateral (Expanded) -->
+<section>
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xl font-extrabold text-primary">Active Collateral</h2>
+<div class="flex items-center gap-3">
+<button class="text-xs font-medium p-1 px-2 bg-surface-container-high rounded hover:bg-surface-variant transition-colors"><span class="material-symbols-outlined text-sm align-middle">grid_view</span></button>
+<button class="text-xs font-medium p-1 px-2 rounded hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined text-sm align-middle">list</span></button>
+<span class="text-xs font-medium text-secondary hover:underline cursor-pointer ml-2">View All</span>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+<!-- NFT Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm transition-all hover:shadow-md group">
+<div class="h-36 relative">
+<img class="w-full h-full object-cover" data-alt="Pokemon Card 1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnLerYKtiBqUTu_QsPE3BlOdzUmO4MNjLNZ95I1sn-qHZFzxZl_NX_2o_TkIbDsNHLoCB-5QI9zNhkmLwVCr6OqlwBNQfghwl5e1Xoaq5sEruelVUEpVrjCFqT10nXO2UBH4K2aYkhug43frgUdtXDaFeUJ8Lo1ryg68lJZYw-XsVyoE5tFm6eKjRF6utEqmkQWz3Rhv1hIz9ld8jKywqP9CrGVKpY8igmp2NRwgSM-W5AbF8CsS-ZTvsTZJ2b-WAVyiIRTxI_V-o"/>
+<div class="absolute top-2 left-2 bg-black/40 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-bold text-white uppercase">Sepolia</div>
+</div>
+<div class="p-3 bg-surface-container-low/50">
+<p class="text-[8px] font-bold text-secondary uppercase">CardFi</p>
+<h4 class="text-xs font-bold text-on-surface truncate">Oracle Knight #101</h4>
+<p class="text-xs font-extrabold text-primary mt-0.5">$150.00</p>
+</div>
+</div>
+<!-- NFT Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm transition-all hover:shadow-md group">
+<div class="h-36 relative">
+<img class="w-full h-full object-cover" data-alt="Pokemon Card 2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3vrFIc-gV3iaKJqR0Q7j9pDIP2H_yELDluG9otsgN1H5Q2VyDTC20CCfIecheyX-UHvju_fyv-Bda2Ajad892lK_64y7MM39JrtRWfOaxzPg2n7lnulw7e-bW7Ih8PCo983AQIFlCf8q2YYn4-OYyZ1ooPv3ydYTGohSUWyeby1RmET-BjSSZCNDC35rY3ClhXVcVACsfwzI94a18Qp7hciwLRZ6kQcwn-rli6ReQOFq09kZ-2huKcom9vwoK1lcW6bzMZGKQGdU"/>
+<div class="absolute top-2 left-2 bg-black/40 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-bold text-white uppercase">Sepolia</div>
+</div>
+<div class="p-3 bg-surface-container-low/50">
+<p class="text-[8px] font-bold text-secondary uppercase">CardFi</p>
+<h4 class="text-xs font-bold text-on-surface truncate">Oracle Knight #102</h4>
+<p class="text-xs font-extrabold text-primary mt-0.5">$150.00</p>
+</div>
+</div>
+<!-- NFT Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm transition-all hover:shadow-md group">
+<div class="h-36 relative">
+<img class="w-full h-full object-cover" data-alt="Pokemon Card 3" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6whRyqB3QMPh_tORmyijBdloSJoW6L9MEkDEHyUlHFC7wWmOcdZQgCOh8OdcRitg6dxtN9VH9ZoTC5vM9IGEx-5PDqmtUx5kwAE6stCp50JWkrUOYXZieB3A_bFtoPt5mJ615X5h4lpdfyA8vESOpWSMVDQxFqJ558a5EQiwitwHZH1TIxBCUj3wD9Pdm-7kUSD4xI9tq1eYIc9oPUTyf0lNbwhpssQ3uyFR6xGCSq-ldH7WQtHKDc-_rufl5sjzr1QvElASasgw"/>
+<div class="absolute top-2 left-2 bg-black/40 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] font-bold text-white uppercase">Sepolia</div>
+</div>
+<div class="p-3 bg-surface-container-low/50">
+<p class="text-[8px] font-bold text-secondary uppercase">CardFi</p>
+<h4 class="text-xs font-bold text-on-surface truncate">Oracle Knight #103</h4>
+<p class="text-xs font-extrabold text-primary mt-0.5">$150.00</p>
+</div>
+</div>
+<!-- NFT Card 4 -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm transition-all hover:shadow-md group border-2 border-dashed border-outline-variant/20 flex flex-col items-center justify-center p-6 cursor-pointer hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary text-3xl mb-2" data-icon="add_circle">add_circle</span>
+<p class="text-[10px] font-bold text-secondary uppercase text-center">Add Asset</p>
+</div>
+</div>
+</section>
+<!-- Recent Activity -->
+<section>
+<h2 class="text-xl font-extrabold text-primary mb-4">Recent Activity</h2>
+<div class="bg-surface-container-lowest rounded-2xl p-2 shadow-sm border border-outline-variant/5">
+<div class="divide-y divide-outline-variant/10">
+<!-- Activity Item 1 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low rounded-xl transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-container text-xl" data-icon="check_circle">check_circle</span>
+</div>
+<div>
+<p class="font-bold text-sm">Lock Notice Sent</p>
+<p class="text-[10px] text-on-surface-variant">CCIP Message ID: 0x4f...a3e</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold text-on-tertiary-container">Success</p>
+<p class="text-[10px] text-on-surface-variant">2 mins ago</p>
+</div>
+</div>
+<!-- Activity Item 2 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-low rounded-xl transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-xl" data-icon="sync">sync</span>
+</div>
+<div>
+<p class="font-bold text-sm">Cross-Chain Sync</p>
+<p class="text-[10px] text-on-surface-variant">Updating Sepolia state</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold text-secondary">In Progress</p>
+<p class="text-[10px] text-on-surface-variant">15 mins ago</p>
+</div>
+</div>
+</div>
+<div class="p-3 text-center">
+<button class="text-xs font-bold text-secondary hover:underline">View Transaction History</button>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column (Lending & Actions) -->
+<aside class="col-span-12 lg:col-span-4 space-y-8">
+<!-- Lending Position Card -->
+<section>
+<h2 class="text-xl font-extrabold text-primary mb-4">Lending Position</h2>
+<div class="bg-primary text-white p-6 rounded-2xl shadow-xl relative overflow-hidden group">
+<div class="absolute -right-10 -bottom-10 w-40 h-40 bg-secondary rounded-full opacity-10 blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+<div class="flex justify-between items-start mb-6">
+<div>
+<p class="text-[10px] font-bold text-on-primary-container uppercase tracking-widest mb-1">Arc Testnet</p>
+<h4 class="text-2xl font-extrabold tracking-tight">USDC Loan</h4>
+</div>
+<span class="material-symbols-outlined text-secondary-fixed-dim" data-icon="account_balance">account_balance</span>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-end border-b border-white/10 pb-4">
+<p class="text-sm font-medium opacity-70">Accrued Interest</p>
+<div class="text-right">
+<p class="text-lg font-bold">8% APR</p>
+<p class="text-[10px] text-tertiary-fixed-dim">+$12.40 total</p>
+</div>
+</div>
+<div>
+<div class="flex justify-between items-center mb-2">
+<p class="text-sm font-medium opacity-70">Current LTV</p>
+<p class="text-sm font-bold">40% <span class="opacity-40 font-medium text-[10px]">/ 60% max</span></p>
+</div>
+<div class="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+<div class="bg-secondary-fixed-dim h-full w-[66.6%] rounded-full shadow-[0_0_8px_rgba(173,198,255,0.5)]"></div>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-3 bg-secondary-container hover:bg-secondary text-white font-bold rounded-xl transition-all active:scale-[0.98]">
+              Manage Loan
+            </button>
+</div>
+</section>
+<!-- Quick Actions -->
+<section>
+<h2 class="text-xl font-extrabold text-primary mb-4">Quick Actions</h2>
+<div class="grid grid-cols-1 gap-3">
+<button class="group flex items-center justify-between p-4 bg-surface-container-high rounded-xl hover:bg-secondary-fixed transition-all text-left">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-secondary text-xl" data-icon="add_moderator">add_moderator</span>
+</div>
+<div>
+<p class="font-bold text-sm text-primary">Lock Collateral</p>
+<p class="text-[9px] text-on-surface-variant">Increase borrowing power</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-sm opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all" data-icon="chevron_right">chevron_right</span>
+</button>
+<button class="group flex items-center justify-between p-4 bg-surface-container-high rounded-xl hover:bg-secondary-fixed transition-all text-left">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-secondary text-xl" data-icon="payments">payments</span>
+</div>
+<div>
+<p class="font-bold text-sm text-primary">Borrow USDC</p>
+<p class="text-[9px] text-on-surface-variant">Instant liquidity</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-sm opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</section>
+</aside>
+</div>
+</div>
+</main>
+<!-- Mobile Bottom Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-lg flex justify-around items-center px-4 z-[70] shadow-[0_-4px_20px_rgba(0,0,0,0.05)] border-t border-outline-variant/10">
+<button class="text-secondary flex flex-col items-center"><span class="material-symbols-outlined" data-icon="dashboard" style="font-variation-settings: 'FILL' 1;">dashboard</span><span class="text-[8px] font-bold">Home</span></button>
+<button class="text-on-surface-variant flex flex-col items-center"><span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span><span class="text-[8px] font-bold">Assets</span></button>
+<button class="text-on-surface-variant flex flex-col items-center"><span class="material-symbols-outlined" data-icon="account_balance">account_balance</span><span class="text-[8px] font-bold">Lend</span></button>
+<button class="text-on-surface-variant flex flex-col items-center"><span class="material-symbols-outlined" data-icon="settings">settings</span><span class="text-[8px] font-bold">Menu</span></button>
+</nav>
+</body></html>

@@ -1,0 +1,183 @@
+// MySQL — amounts and unix times as BigInt (see unified plan)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/// Last processed block per chain + logical contract key (e.g. hub:lendingPool)
+model IndexerCursor {
+  chainId       String
+  contractKey   String
+  lastBlock     BigInt
+  updatedAtUnix BigInt
+
+  @@id([chainId, contractKey])
+}
+
+/// Hub chain id groups rows for multi-deployment / test setups
+model CollateralItem {
+  id             String @id
+  hubChainId     String
+  sourceChainId  BigInt
+  collection     String
+  tokenId        BigInt
+  owner          String
+  status         Int
+  lockedAtUnix   BigInt
+  latestPriceUsd BigInt?
+  tokenUri       String? @db.Text
+  cardName       String?
+  cardImage      String? @db.Text
+
+  @@index([hubChainId, owner])
+  @@index([hubChainId, collection, tokenId])
+}
+
+/// Borrower position snapshot (indexer-maintained from pool events + optional reconcile)
+model Position {
+  borrower               String @id
+  hubChainId             String
+  collateralIdsJson      String @db.Text
+  principal              BigInt
+  interestAccrued        BigInt
+  lastInterestUpdateUnix BigInt
+  status                 Int
+  healthFactorWad        BigInt?
+
+  @@index([hubChainId])
+}
+
+model LendingPoolEvent {
+  id            String  @id @default(cuid())
+  hubChainId    String
+  kind          String
+  account       String
+  amount        BigInt?
+  amount2       BigInt?
+  boolFlag      Boolean?
+  txHash        String
+  blockNumber   BigInt
+  logIndex      Int
+  timestampUnix BigInt
+
+  @@unique([txHash, logIndex])
+  @@index([hubChainId, account])
+  @@index([hubChainId, timestampUnix])
+}
+
+model Auction {
+  id                String  @id
+  hubChainId        String
+  borrower          String
+  collateralId      String
+  startedAtUnix     BigInt
+  deadlineUnix      BigInt
+  reservePrice      BigInt
+  debtShareSnapshot BigInt
+  feeSnapshot       BigInt
+  highestBid        BigInt
+  highestBidder     String
+  settled           Boolean @default(false)
+  cancelled         Boolean @default(false)
+
+  bids       Bid[]
+  settlement AuctionSettlement?
+
+  @@index([hubChainId, borrower])
+  @@index([hubChainId, settled, cancelled])
+}
+
+model Bid {
+  id              String @id @default(cuid())
+  auctionId       String
+  bidder          String
+  amount          BigInt
+  newDeadlineUnix BigInt
+  txHash          String
+  blockNumber     BigInt
+  logIndex        Int
+  timestampUnix   BigInt
+
+  auction Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+
+  @@unique([txHash, logIndex])
+  @@index([auctionId])
+}
+
+model AuctionSettlement {
+  auctionId        String @id
+  winner           String
+  winningBid       BigInt
+  debtToPool       BigInt
+  feeToTreasury    BigInt
+  excessToPool     BigInt
+  excessToTreasury BigInt
+  txHash           String
+  timestampUnix    BigInt
+
+  auction Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+}
+
+model PriceRecord {
+  id             String  @id @default(cuid())
+  hubChainId     String
+  collection     String
+  tokenId        BigInt
+  priceUsd       BigInt
+  attestedAtUnix BigInt
+  updatedAtUnix  BigInt
+  disputed       Boolean @default(false)
+  primaryPrice   BigInt?
+  secondaryPrice BigInt?
+  deviationBps   BigInt?
+  txHash         String
+  blockNumber    BigInt
+  logIndex       Int
+
+  @@unique([hubChainId, txHash, logIndex])
+  @@index([hubChainId, collection, tokenId])
+  @@index([hubChainId, updatedAtUnix])
+}
+
+model ProtocolSnapshot {
+  id              String @id @default(cuid())
+  hubChainId      String
+  totalAssets     BigInt
+  totalBorrows    BigInt
+  utilizationWad  BigInt
+  borrowAprBps    BigInt
+  supplyAprBps    BigInt
+  exchangeRateWad BigInt
+  blockNumber     BigInt
+  timestampUnix   BigInt
+  totalSupplyShares BigInt?
+  depositorCount    Int?
+  positionCount     Int?
+
+  @@index([hubChainId, timestampUnix])
+}
+
+/// Unified activity feed (pool, registry, auctions, source)
+model ActivityEvent {
+  id            String  @id @default(cuid())
+  hubChainId    String?
+  sourceChainId String?
+  kind          String
+  actor         String
+  counterparty  String?
+  amount        BigInt?
+  amount2       BigInt?
+  payloadJson   String? @db.Text
+  txHash        String
+  blockNumber   BigInt
+  logIndex      Int
+  timestampUnix BigInt
+
+  @@unique([txHash, logIndex, kind])
+  @@index([actor, timestampUnix])
+}

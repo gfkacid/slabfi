@@ -1,0 +1,131 @@
+export const LENDING_POOL_ABI = [
+  { inputs: [{ name: "amount", type: "uint256" }], name: "borrow", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "amount", type: "uint256" }], name: "repay", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "amount", type: "uint256" }], name: "deposit", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "shares", type: "uint256" }], name: "withdraw", outputs: [], stateMutability: "nonpayable", type: "function" },
+  {
+    inputs: [{ name: "borrower", type: "address" }],
+    name: "outstandingDebt",
+    outputs: [
+      { name: "principal", type: "uint256" },
+      { name: "interest", type: "uint256" },
+      { name: "total", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  { inputs: [], name: "totalAssets", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "totalReserves", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "totalBorrows", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "totalSupplyShares", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "account", type: "address" }], name: "balanceOfShares", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "availableLiquidity", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "assets", type: "uint256" }], name: "previewDeposit", outputs: [{ name: "shares", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "shares", type: "uint256" }], name: "previewWithdraw", outputs: [{ name: "assets", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "exchangeRate", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "utilization", outputs: [{ name: "uWad", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "currentBorrowAPR", outputs: [{ name: "annualBPS", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "currentSupplyAPR", outputs: [{ name: "annualBPS", type: "uint256" }], stateMutability: "view", type: "function" },
+] as const;
+
+export const COLLATERAL_REGISTRY_ABI = [
+  { inputs: [{ name: "borrower", type: "address" }], name: "availableCredit", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "borrower", type: "address" }], name: "getPosition", outputs: [{ name: "", type: "tuple", components: [{ name: "borrower", type: "address" }, { name: "collateralIds", type: "bytes32[]" }, { name: "principal", type: "uint256" }, { name: "interestAccrued", type: "uint256" }, { name: "lastInterestUpdate", type: "uint256" }, { name: "status", type: "uint8" }] }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "collateralId", type: "bytes32" }], name: "getCollateralItem", outputs: [{ name: "", type: "tuple", components: [{ name: "id", type: "bytes32" }, { name: "sourceChainId", type: "uint64" }, { name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }, { name: "owner", type: "address" }, { name: "lockedAt", type: "uint256" }, { name: "status", type: "uint8" }] }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "collateralId", type: "bytes32" }], name: "initiateUnlock", outputs: [{ name: "", type: "bytes32" }], stateMutability: "nonpayable", type: "function" },
+] as const;
+
+export const HEALTH_FACTOR_ENGINE_ABI = [
+  { inputs: [{ name: "collateralValuesUSD", type: "uint256[]" }, { name: "tiers", type: "uint8[]" }, { name: "totalDebtUSD", type: "uint256" }], name: "previewHealthFactor", outputs: [{ name: "", type: "uint256" }], stateMutability: "pure", type: "function" },
+  { inputs: [{ name: "borrower", type: "address" }], name: "getPositionStatus", outputs: [{ name: "", type: "uint8" }], stateMutability: "view", type: "function" },
+] as const;
+
+export const ORACLE_CONSUMER_ABI = [
+  { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }], name: "getPrice", outputs: [{ name: "", type: "uint256" }, { name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }], name: "getEffectiveLTV", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "collection", type: "address" }], name: "collectionTier", outputs: [{ name: "", type: "uint8" }], stateMutability: "view", type: "function" },
+] as const;
+
+/** AuctionLiquidationManager (hub) — per-card auctions */
+export const LIQUIDATION_MANAGER_ABI = [
+  { inputs: [], name: "activeAuctionIds", outputs: [{ name: "", type: "bytes32[]" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [{ name: "", type: "bytes32" }],
+    name: "auctions",
+    outputs: [
+      {
+        name: "",
+        type: "tuple",
+        components: [
+          { name: "borrower", type: "address" },
+          { name: "collateralId", type: "bytes32" },
+          { name: "startedAt", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+          { name: "reservePrice", type: "uint256" },
+          { name: "debtShareSnapshot", type: "uint256" },
+          { name: "feeSnapshot", type: "uint256" },
+          { name: "highestBid", type: "uint256" },
+          { name: "highestBidder", type: "address" },
+          { name: "settled", type: "bool" },
+          { name: "cancelled", type: "bool" },
+        ],
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  { inputs: [], name: "minBidIncrementBPS", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [
+      { name: "auctionId", type: "bytes32" },
+      { name: "amount", type: "uint256" },
+    ],
+    name: "placeBid",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  { inputs: [{ name: "auctionId", type: "bytes32" }], name: "claim", outputs: [], stateMutability: "nonpayable", type: "function" },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "auctionId", type: "bytes32" },
+      { indexed: true, name: "winner", type: "address" },
+      { indexed: false, name: "winningBid", type: "uint256" },
+      { indexed: false, name: "debtToPool", type: "uint256" },
+      { indexed: false, name: "feeToTreasury", type: "uint256" },
+      { indexed: false, name: "excessToPool", type: "uint256" },
+      { indexed: false, name: "excessToTreasury", type: "uint256" },
+    ],
+    name: "AuctionSettled",
+    type: "event",
+  },
+] as const;
+
+export const COLLATERAL_ADAPTER_ABI = [
+  { inputs: [{ name: "tokenId", type: "uint256" }, { name: "hubOwner", type: "address" }], name: "lockAndNotify", outputs: [{ name: "", type: "bytes32" }], stateMutability: "payable", type: "function" },
+] as const;
+
+export const SLAB_COLLECTIBLE_ABI = [
+  { inputs: [{ name: "tokenId", type: "uint256" }], name: "ownerOf", outputs: [{ name: "", type: "address" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "tokenId", type: "uint256" }], name: "tokenURI", outputs: [{ name: "", type: "string" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    name: "cardMetadata",
+    outputs: [
+      { name: "cardName", type: "string" },
+      { name: "cardImage", type: "string" },
+      { name: "setName", type: "string" },
+      { name: "cardNumber", type: "string" },
+      { name: "cardRarity", type: "string" },
+      { name: "cardPrinting", type: "string" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+export const ERC20_ABI = [
+  { inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], name: "approve", outputs: [{ name: "", type: "bool" }], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], name: "allowance", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+] as const;

@@ -1,0 +1,268 @@
+import { formatUnits, parseUnits } from "viem";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAccount, useBalance, useChainId } from "wagmi";
+import { useCollateralItem, useMinBidIncrementBPS } from "@/hooks";
+import { BaseModal } from "./BaseModal";
+import type { BidModalPayload } from "./modalTypes";
+import { Icon } from "@/components/ui/Icon";
+import { TransactionButton } from "@/components/TransactionButton";
+import { hubChain, hubContracts } from "@/lib/hub";
+
+function formatCountdown(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+}
+
+function formatUsdcFrom18(value: bigint) {
+  return Number(formatUnits(value, 18)).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function ceilMinNextBid(highestBid: bigint, incrementBps: bigint): bigint {
+  if (highestBid === 0n) return 0n;
+  const num = highestBid * (10000n + incrementBps);
+  const den = 10000n;
+  const q = num / den;
+  return q * den === num ? q : q + 1n;
+}
+
+type BidModalProps = {
+  payload: BidModalPayload;
+  onClose: () => void;
+};
+
+export function BidModal({ payload, onClose }: BidModalProps) {
+  const { address } = useAccount();
+  const chainId = useChainId();
+  const usdcAddr = hubContracts.usdc;
+  const onHub = chainId === hubChain.id;
+  const { data: usdcBal } = useBalance({
+    address,
+    token: usdcAddr || undefined,
+    chainId: hubChain.id,
+    query: { enabled: Boolean(address && usdcAddr && onHub) },
+  });
+  const { data: incBps } = useMinBidIncrementBPS();
+  const incrementBps = incBps ?? 100n;
+
+  const [bidInput, setBidInput] = useState("");
+  const [placePending, setPlacePending] = useState(false);
+
+  const isMock = payload.variant === "mock";
+  const entry = payload.variant === "live" ? payload.entry : null;
+  const { data: collateralItem } = useCollateralItem(entry?.collateralId);
+
+  const hasBid = entry ? entry.highestBid > 0n : false;
+  const minAmountWei = useMemo(() => {
+    if (!entry) return 0n;
+    return hasBid ? ceilMinNextBid(entry.highestBid, incrementBps) : entry.reservePrice;
+  }, [entry, hasBid, incrementBps]);
+
+  useEffect(() => {
+    if (payload.variant === "live" && entry) {
+      setBidInput(formatUsdcFrom18(minAmountWei).replace(/,/g, ""));
+    } else if (payload.variant === "mock") {
+      const raw = payload.row.bidUsdc.replace(/\s*USDC\s*/i, "").replace(/,/g, "");
+      setBidInput(raw);
+    }
+  }, [payload, entry, minAmountWei]);
+
+  const deadlineSec = entry ? Number(entry.deadline) : 0;
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+
+  useEffect(() => {
+    if (!entry) return;
+    const t = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [entry]);
+
+  const canPlace = entry ? !hasBid || nowSec < deadlineSec : false;
+  const countdownSec = entry && hasBid ? Math.max(0, deadlineSec - nowSec) : 0;
+
+  const titleLine =
+    isMock
+      ? payload.row.assetName
+      : collateralItem !== undefined
+        ? `Token #${collateralItem.tokenId.toString()}`
+        : entry
+          ? `${entry.collateralId.slice(0, 6)}…${entry.collateralId.slice(-4)}`
+          : "";
+
+  const vaultLine = isMock ? payload.row.vaultLabel : entry ? `${entry.borrower.slice(0, 5)}…${entry.borrower.slice(-4)}` : "";
+
+  const currentBidAmount =
+    payload.variant === "mock"
+      ? payload.row.bidUsdc.replace(/\s*USDC\s*/i, "").replace(/,/g, "").trim()
+      : entry
+        ? entry.highestBid > 0n
+          ? formatUsdcFrom18(entry.highestBid)
+          : "—"
+        : "—";
+
+  const secondaryStatLabel = isMock ? "Minimum Increase" : "Liquidation fee (on debt)";
+  const secondaryStatValue = isMock
+    ? "250.00 USDC"
+    : entry
+      ? `${formatUsdcFrom18(entry.feeSnapshot)} USDC`
+      : "—";
+
+  const balanceLabel = usdcBal?.formatted
+    ? `${Number(usdcBal.formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
+    : onHub && address
+      ? "0.00 USDC"
+      : "—";
+
+  const handlePlaceBid = useCallback(async () => {
+    if (isMock || !entry) return;
+    let wei: bigint;
+    try {
+      wei = parseUnits(bidInput.replace(/,/g, "").trim() || "0", 18);
+    } catch {
+      return;
+    }
+    if (wei < minAmountWei) return;
+    setPlacePending(true);
+    try {
+      if (payload.variant === "live") {
+        await payload.onPlaceBid(wei);
+      }
+      onClose();
+    } finally {
+      setPlacePending(false);
+    }
+  }, [isMock, entry, bidInput, minAmountWei, onClose, payload]);
+
+  let parseOk = true;
+  try {
+    if (!isMock && entry) {
+      const w = parseUnits(bidInput.replace(/,/g, "").trim() || "0", 18);
+      if (w < minAmountWei) parseOk = false;
+    }
+  } catch {
+    parseOk = false;
+  }
+
+  const placeDisabled = isMock || !canPlace || Boolean(placePending) || !parseOk;
+
+  const imageUrl = isMock ? payload.row.imageUrl : undefined;
+
+  const footerNote = useMemo(
+    () =>
+      "Bids cannot be withdrawn until the auction settles or is cancelled (e.g. borrower cures). Protocol fee on debt share goes to treasury; any premium is split per contract.",
+    [],
+  );
+
+  return (
+    <BaseModal open title="Place Your Bid" onClose={onClose}>
+      <div className="flex gap-6">
+        <div className="h-32 w-24 shrink-0 overflow-hidden rounded-lg bg-surface shadow-md ring-1 ring-outline-variant/20">
+          {imageUrl ? (
+            <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-3xl text-on-surface-variant/40">
+              🃏
+            </div>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-col justify-center">
+          <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-on-primary-container">
+            Active auction
+          </span>
+          <h4 className="font-headline text-2xl font-extrabold leading-tight text-primary">{titleLine}</h4>
+          <p className="mt-1 font-mono text-xs text-on-surface-variant">{vaultLine}</p>
+          <div className="mt-4 flex items-center gap-2 text-sm font-bold text-error">
+            <Icon name="schedule" className="text-sm" />
+            {isMock ? (
+              <span>{payload.row.timeLabel} remaining</span>
+            ) : entry ? (
+              !hasBid ? (
+                <span>Open — no bids yet (stays open until first bid)</span>
+              ) : canPlace ? (
+                <span className="tabular-nums">{formatCountdown(countdownSec)} until deadline</span>
+              ) : (
+                <span>Deadline passed — bid on another auction or claim if you won</span>
+              )
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 grid grid-cols-2 gap-4">
+        <div className="rounded-lg bg-surface-container-low p-4">
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+            Current highest bid
+          </p>
+          <p className="font-headline text-xl font-extrabold text-primary">
+            {currentBidAmount}{" "}
+            <span className="text-xs font-bold uppercase text-on-surface-variant">USDC</span>
+          </p>
+        </div>
+        <div className="rounded-lg bg-surface-container-low p-4">
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+            {secondaryStatLabel}
+          </p>
+          <p className="font-headline text-xl font-extrabold text-primary">
+            {secondaryStatValue.replace(/\s*USDC\s*/i, "").trim()}{" "}
+            <span className="text-xs font-bold uppercase text-on-surface-variant">USDC</span>
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8 space-y-4">
+        <div>
+          <div className="mb-2 flex items-end justify-between gap-2">
+            <label htmlFor="bid-amount-input" className="text-sm font-bold text-primary">
+              Your bid amount
+            </label>
+            <span className="text-[11px] font-semibold text-on-surface-variant">
+              Wallet balance:{" "}
+              <span className="font-bold text-primary">{balanceLabel}</span>
+            </span>
+          </div>
+          <div className="relative">
+            <input
+              id="bid-amount-input"
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={bidInput}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "" || /^\d*\.?\d*$/.test(v)) setBidInput(v);
+              }}
+              disabled={isMock}
+              placeholder="0.00"
+              className="w-full rounded-lg border-2 border-outline-variant/30 bg-surface-container-lowest py-4 pl-4 pr-36 font-headline text-xl font-extrabold text-primary placeholder:text-outline-variant transition-all focus:border-secondary focus:outline-none focus:ring-0 disabled:opacity-60"
+            />
+            <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-2">
+              <span className="text-sm font-bold text-on-surface-variant">USDC</span>
+              <button
+                type="button"
+                disabled={isMock || !usdcBal?.formatted}
+                onClick={() => setBidInput(usdcBal?.formatted.replace(/,/g, "") ?? "")}
+                className="rounded bg-primary px-2 py-1 text-[10px] font-bold uppercase text-on-primary transition-opacity hover:opacity-90 disabled:opacity-40"
+              >
+                Max
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <TransactionButton
+          onClick={handlePlaceBid}
+          isLoading={Boolean(placePending)}
+          disabled={placeDisabled}
+          variant="primary"
+          className="mt-2 w-full !bg-secondary !py-4 !text-lg !font-extrabold !text-on-secondary shadow-lg hover:!bg-secondary-container focus:!ring-secondary disabled:!opacity-50"
+        >
+          {isMock ? "Example — not live" : "Place bid"}
+        </TransactionButton>
+        <p className="text-center text-[11px] font-medium text-on-surface-variant">{footerNote}</p>
+      </div>
+    </BaseModal>
+  );
+}
