@@ -8,7 +8,10 @@ interface ICollateralAdapter {
     /// @param tokenId The NFT token ID to lock
     /// @param hubOwner The borrower's address on the hub chain (for cross-chain address mismatch)
     /// @return ccipMessageId The CCIP message ID for tracking
-    function lockAndNotify(uint256 tokenId, address hubOwner) external returns (bytes32 ccipMessageId);
+    function lockAndNotify(uint256 tokenId, address hubOwner) external payable returns (bytes32 ccipMessageId);
+
+    /// @notice CCIP fee in wei (native on source chain) for `lockAndNotify` with the same arguments
+    function quoteCcipFee(uint256 tokenId, address hubOwner) external view returns (uint256 fee);
 
     /// @notice Receive an UnlockCommand from hub and release NFT to recipient
     /// @param collateralId The collateral ID (keccak256(chainSelector, collection, tokenId))

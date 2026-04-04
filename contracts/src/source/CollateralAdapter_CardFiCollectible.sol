@@ -35,13 +35,7 @@ contract CollateralAdapter_CardFiCollectible is CCIPReceiver, ICollateralAdapter
         _chainSelector = sourceChainSelector;
     }
 
-    function lockAndNotify(uint256 tokenId, address hubOwner) external override returns (bytes32 ccipMessageId) {
-        bytes32 collateralId = keccak256(abi.encodePacked(_chainSelector, address(collectionContract), tokenId));
-        collateralIdToTokenId[collateralId] = tokenId;
-
-        collectionContract.safeTransferFrom(msg.sender, address(vault), tokenId);
-        vault.deposit(address(collectionContract), tokenId, hubOwner, collateralId);
-
+    function _ccipLockMessage(uint256 tokenId, address hubOwner) internal view returns (Client.EVM2AnyMessage memory message) {
         bytes memory payload = abi.encode(
             LOCK_NOTICE,
             _chainSelector,
@@ -49,17 +43,40 @@ contract CollateralAdapter_CardFiCollectible is CCIPReceiver, ICollateralAdapter
             tokenId,
             hubOwner
         );
-
-        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
+        message = Client.EVM2AnyMessage({
             receiver: abi.encode(hubRouter),
             data: payload,
             tokenAmounts: new Client.EVMTokenAmount[](0),
             feeToken: address(0),
             extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 200_000}))
         });
+    }
 
+    function quoteCcipFee(uint256 tokenId, address hubOwner) external view override returns (uint256 fee) {
+        return ccipRouter.getFee(hubChainSelector, _ccipLockMessage(tokenId, hubOwner));
+    }
+
+    function lockAndNotify(uint256 tokenId, address hubOwner) external payable override returns (bytes32 ccipMessageId) {
+        bytes32 collateralId = keccak256(abi.encodePacked(_chainSelector, address(collectionContract), tokenId));
+        collateralIdToTokenId[collateralId] = tokenId;
+
+        collectionContract.safeTransferFrom(msg.sender, address(vault), tokenId);
+        vault.deposit(address(collectionContract), tokenId, hubOwner, collateralId);
+
+        Client.EVM2AnyMessage memory message = _ccipLockMessage(tokenId, hubOwner);
         uint256 fee = ccipRouter.getFee(hubChainSelector, message);
-        ccipMessageId = ccipRouter.ccipSend{value: fee}(hubChainSelector, message);
+
+        if (msg.value >= fee) {
+            ccipMessageId = ccipRouter.ccipSend{value: fee}(hubChainSelector, message);
+            uint256 refund = msg.value - fee;
+            if (refund > 0) {
+                (bool ok,) = payable(msg.sender).call{value: refund}("");
+                require(ok, "Fee refund failed");
+            }
+        } else {
+            require(address(this).balance >= fee, "Insufficient CCIP fee");
+            ccipMessageId = ccipRouter.ccipSend{value: fee}(hubChainSelector, message);
+        }
 
         emit Locked(tokenId, msg.sender, ccipMessageId);
     }

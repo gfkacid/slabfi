@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAccount, useSwitchChain } from "wagmi";
+import { useAccount, usePublicClient, useSwitchChain } from "wagmi";
 import { COLLATERAL_ADAPTER_ABI } from "@slabfinance/shared";
 import { useSlabCollectibles, useLockAndNotify } from "@/hooks";
 import { TransactionButton } from "@/components/TransactionButton";
@@ -11,6 +11,7 @@ import { showToast } from "@/lib/toast";
 
 export function LockPage() {
   const { address, isConnected, chainId } = useAccount();
+  const sepoliaClient = usePublicClient({ chainId: sepolia.id });
   const { switchChain } = useSwitchChain();
   const { data: nfts, isLoading: nftsLoading } = useSlabCollectibles();
   const { writeContractAsync, isPending } = useLockAndNotify();
@@ -22,18 +23,29 @@ export function LockPage() {
   const hubOwner = address;
 
   const handleLock = async () => {
-    if (!selectedTokenId || !hubOwner || !isSourceChain) return;
+    if (!selectedTokenId || !hubOwner || !isSourceChain || !sepoliaClient) return;
 
     const adapterAddr = CONTRACT_ADDRESSES.sepolia.collateralAdapter;
     if (!adapterAddr) return;
 
     try {
+      let ccipFee = 0n;
+      try {
+        ccipFee = await sepoliaClient.readContract({
+          address: adapterAddr,
+          abi: COLLATERAL_ADAPTER_ABI,
+          functionName: "quoteCcipFee",
+          args: [BigInt(selectedTokenId), hubOwner],
+        });
+      } catch {
+        // Older adapters without `quoteCcipFee` rely on Sepolia ETH pre-funded on the contract.
+      }
       const hash = await writeContractAsync({
         address: adapterAddr,
         abi: COLLATERAL_ADAPTER_ABI,
         functionName: "lockAndNotify",
         args: [BigInt(selectedTokenId), hubOwner],
-        value: 0n,
+        value: ccipFee,
       });
       setTxHash(hash);
       showToast({

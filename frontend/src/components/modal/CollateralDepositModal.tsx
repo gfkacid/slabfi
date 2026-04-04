@@ -264,12 +264,23 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
       }
 
       for (const nft of selectedList) {
+        let ccipFee = 0n;
+        try {
+          ccipFee = await sepoliaClient.readContract({
+            address: adapterAddr,
+            abi: COLLATERAL_ADAPTER_ABI,
+            functionName: "quoteCcipFee",
+            args: [BigInt(nft.tokenId), address],
+          });
+        } catch {
+          // Older adapters without `quoteCcipFee` rely on Sepolia ETH pre-funded on the contract.
+        }
         await lockWrite({
           address: adapterAddr,
           abi: COLLATERAL_ADAPTER_ABI,
           functionName: "lockAndNotify",
           args: [BigInt(nft.tokenId), address],
-          value: 0n,
+          value: ccipFee,
         });
       }
 

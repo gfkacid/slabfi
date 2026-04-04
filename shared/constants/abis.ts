@@ -112,6 +112,16 @@ export const LIQUIDATION_MANAGER_ABI = [
 ] as const;
 
 export const COLLATERAL_ADAPTER_ABI = [
+  {
+    inputs: [
+      { name: "tokenId", type: "uint256" },
+      { name: "hubOwner", type: "address" },
+    ],
+    name: "quoteCcipFee",
+    outputs: [{ name: "fee", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
   { inputs: [{ name: "tokenId", type: "uint256" }, { name: "hubOwner", type: "address" }], name: "lockAndNotify", outputs: [{ name: "", type: "bytes32" }], stateMutability: "payable", type: "function" },
 ] as const;
 
