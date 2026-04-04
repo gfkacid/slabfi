@@ -19,7 +19,26 @@ contract CardFiCollectible is ERC721, Ownable {
 
     mapping(uint256 => CardMetadata) public cardMetadata;
 
+    /// @dev Next id assigned by {mintWithMetadata}. Starts at 1. Do not mix with {mint} for the same ids
+    ///      or you can cause collisions; prefer {mintWithMetadata} for new tokens.
+    uint256 private _nextTokenId = 1;
+
     constructor() ERC721("Slab.Finance Collectible", "SLAB") Ownable(msg.sender) {}
+
+    /// @notice Next token id that {mintWithMetadata} will mint.
+    function nextTokenId() external view returns (uint256) {
+        return _nextTokenId;
+    }
+
+    /// @notice Mint the next id to `to` and store metadata in one transaction.
+    function mintWithMetadata(address to, CardMetadata calldata metadata) external onlyOwner returns (uint256 tokenId) {
+        tokenId = _nextTokenId;
+        unchecked {
+            _nextTokenId = tokenId + 1;
+        }
+        _mint(to, tokenId);
+        cardMetadata[tokenId] = metadata;
+    }
 
     function mint(address to, uint256 tokenId) external onlyOwner {
         _mint(to, tokenId);
