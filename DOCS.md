@@ -1,6 +1,8 @@
 # Slab.Finance Developer Documentation
 
-Step-by-step instructions for setting up and deploying the Slab.Finance protocol.
+Protocol reference for developers: repository layout, environment, deployment order, verification, mechanics (CCIP, collateral lifecycle, health factor, lending UI, liquidations), and end-to-end flow.
+
+For a focused deployment and local stack walkthrough, see **[SETUP.md](./SETUP.md)**.
 
 ## Repository layout
 
@@ -31,6 +33,8 @@ pnpm dev:frontend   # Vite dev server (default http://localhost:3000)
 pnpm dev:backend  # Nest dev server (default http://localhost:3001)
 pnpm dev:indexer  # Chain indexer → MySQL (set `DATABASE_URL`; contract addresses in shared/config/testnet.ts)
 ```
+
+From clone through contract deploy, database seed, and running all services, follow **[SETUP.md](./SETUP.md)**.
 
 The Vite app reads environment variables from **`frontend/.env`** (not the repo root). Copy or symlink from the root example:
 

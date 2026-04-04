@@ -36,4 +36,4 @@ The only CCIP lane available for Arc Testnet at the moment is Arc ↔ Ethereum S
 4. Get testnet USDC on Arc (faucet) and demo collectible NFTs on Sepolia (mint via admin or receive from deployer).
 5. Lock an NFT on Sepolia, then borrow USDC on Arc.
 
-For detailed setup and deployment, see [DOCS.md](./DOCS.md).
+For step-by-step setup and deployment, see [SETUP.md](./SETUP.md). For protocol mechanics and developer reference, see [DOCS.md](./DOCS.md).
