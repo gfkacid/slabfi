@@ -1,20 +1,58 @@
 import { lendingGhostBorder, lendingGradientPrimary } from "@/components/shared/lending/lendingStyles";
+import { useProtocolStats, useUserPosition, useOutstandingDebt } from "@/hooks";
+import { isApiConfigured } from "@/lib/api";
+import {
+  formatHealthFactorWad,
+  formatUsd18,
+  formatUsdFromSnapshotString,
+  formatUsdNumber,
+  price8ToUsdNumber,
+  utilizationPercentFromSnapshotWad,
+} from "@/lib/hubFormat";
+import { POSITION_STATUS_LABELS } from "@slabfinance/shared";
 
-function UtilizationBar({ pct }: { pct: string }) {
+function UtilizationBar({ pctNum }: { pctNum: number | undefined }) {
+  const pct = pctNum !== undefined && Number.isFinite(pctNum) ? Math.min(100, Math.round(pctNum)) : 0;
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
         <span className="text-xs font-semibold text-on-surface-variant">Global Utilization</span>
-        <span className="text-xs font-bold text-primary">{pct}</span>
+        <span className="text-xs font-bold text-primary">{pct}%</span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
-        <div className="h-full rounded-full bg-secondary" style={{ width: pct }} />
+        <div className="h-full rounded-full bg-secondary" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
 }
 
 export function LendingSidebar() {
+  const { data: protocol, isLoading: protoLoading } = useProtocolStats();
+  const position = useUserPosition();
+  const { data: debtTuple } = useOutstandingDebt();
+
+  const collaterals = position.data?.collaterals ?? [];
+  const lockedUsd = collaterals.reduce(
+    (acc, c) => acc + price8ToUsdNumber(c.latestPriceUsd ?? undefined),
+    0,
+  );
+  const borrowed = debtTuple?.[2];
+  const borrowedUsd =
+    borrowed !== undefined && borrowed > 0n ? formatUsd18(borrowed) : "0.00";
+
+  const hf = formatHealthFactorWad(position.data?.indexedPosition?.healthFactorWad ?? null);
+  const st = position.data?.live?.positionStatus;
+  const healthLabel =
+    st !== null && st !== undefined ? POSITION_STATUS_LABELS[st] ?? "—" : "—";
+
+  const snap = protocol?.latestSnapshot;
+  const tvl =
+    snap?.totalAssets != null
+      ? `$${formatUsdFromSnapshotString(snap.totalAssets)}`
+      : "—";
+  const util = utilizationPercentFromSnapshotWad(snap?.utilizationWad);
+  const loans = protocol?.positionCount ?? "—";
+
   return (
     <div className="space-y-6">
       <div className={`relative overflow-hidden rounded-xl p-6 text-white shadow-xl ${lendingGradientPrimary}`}>
@@ -25,20 +63,22 @@ export function LendingSidebar() {
         <div className="space-y-6">
           <div>
             <span className="mb-1 block text-xs font-medium text-primary-fixed-dim">
-              Locked Collateral Value
+              Indexed collateral value
             </span>
-            <p className="font-headline text-2xl font-extrabold">$142,500.00</p>
+            <p className="font-headline text-2xl font-extrabold">
+              {position.isLoading ? "…" : `$${formatUsdNumber(lockedUsd)}`}
+            </p>
           </div>
           <div className="flex items-end justify-between gap-4">
             <div>
               <span className="mb-1 block text-xs font-medium text-primary-fixed-dim">Total Borrowed</span>
-              <p className="font-headline text-xl font-bold">$35,000.00</p>
+              <p className="font-headline text-xl font-bold">${borrowedUsd}</p>
             </div>
             <div className="text-right">
               <span className="mb-1 block text-xs font-medium text-primary-fixed-dim">Health Factor</span>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-950 px-3 py-1 text-xs font-bold text-emerald-300">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                Healthy (2.41)
+                {healthLabel} ({hf})
               </span>
             </div>
           </div>
@@ -50,19 +90,23 @@ export function LendingSidebar() {
           Protocol Metrics
         </h4>
         <div className="space-y-8">
-          <UtilizationBar pct="68.4%" />
+          <UtilizationBar pctNum={util} />
           <div className="grid grid-cols-1 gap-4">
             <div className="rounded-xl bg-surface-container-low p-4">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
                 Total Value Locked (TVL)
               </span>
-              <p className="font-headline text-xl font-extrabold text-primary">$428.14M</p>
+              <p className="font-headline text-xl font-extrabold text-primary">
+                {protoLoading ? "…" : !isApiConfigured() ? "—" : tvl}
+              </p>
             </div>
             <div className="rounded-xl bg-surface-container-low p-4">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                Active Loans
+                Open positions
               </span>
-              <p className="font-headline text-xl font-extrabold text-primary">1,422</p>
+              <p className="font-headline text-xl font-extrabold text-primary">
+                {protoLoading ? "…" : loans}
+              </p>
             </div>
           </div>
         </div>

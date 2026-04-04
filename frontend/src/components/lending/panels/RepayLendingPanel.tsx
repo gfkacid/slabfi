@@ -1,62 +1,68 @@
-import { useCallback, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { useAccount } from "wagmi";
+import { parseUnits, formatUnits } from "viem";
+import { LENDING_POOL_ABI, ERC20_ABI } from "@slabfinance/shared";
 import { UsdcInputField } from "@/components/shared/lending/UsdcInputField";
 import { LendingActionPanel } from "@/components/shared/lending/LendingActionPanel";
 import { lendingGradientPrimary } from "@/components/shared/lending/lendingStyles";
-import { showToast } from "@/lib/toast";
-
-const MOCK_REPAY_DELAY_MS = 1800;
-
-function Spinner({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      className={`h-5 w-5 animate-spin ${className}`.trim()}
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-  );
-}
+import { useOutstandingDebt, useRepay, useUsdcBalance } from "@/hooks";
+import { hubChain, hubContracts } from "@/lib/hub";
 
 export function RepayLendingPanel() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const pendingRef = useRef(false);
+  const { isConnected, chainId } = useAccount();
+  const [amount, setAmount] = useState("");
+  const { data: debt } = useOutstandingDebt();
+  const { data: walletBal } = useUsdcBalance();
+  const { writeContractAsync, isPending } = useRepay();
 
-  const runMockRepay = useCallback(() => {
-    if (pendingRef.current) return;
-    pendingRef.current = true;
-    setIsSubmitting(true);
+  const poolAddr = hubContracts.lendingPool;
+  const usdcAddr = hubContracts.usdc;
+  const isHub = chainId === hubChain.id;
 
-    window.setTimeout(() => {
-      pendingRef.current = false;
-      setIsSubmitting(false);
+  const principal = debt?.[0] ?? 0n;
+  const interest = debt?.[1] ?? 0n;
+  const totalDebt = principal + interest;
+  const totalFormatted = Number(formatUnits(totalDebt, 18));
 
-      const ok = Math.random() < 0.5;
-      if (ok) {
-        showToast({
-          type: "success",
-          title: "Repayment confirmed",
-          message:
-            "Your USDC repayment was confirmed on-chain. Your debt and health factor will update shortly.",
-        });
-      } else {
-        showToast({
-          type: "error",
-          title: "Repayment failed",
-          message:
-            "The network could not confirm your transaction. Check your wallet balance and RPC connection, then try again.",
-          tag: "RPC",
-          actions: [{ label: "Try again", onClick: () => runMockRepay() }],
-        });
-      }
-    }, MOCK_REPAY_DELAY_MS);
-  }, []);
+  const amountWei = useMemo(() => {
+    try {
+      if (!amount || amount === ".") return 0n;
+      return parseUnits(amount, 18);
+    } catch {
+      return 0n;
+    }
+  }, [amount]);
+
+  const walletStr =
+    walletBal !== undefined ? formatUnits(walletBal, 18) : "0";
+
+  const canRepay =
+    isHub &&
+    poolAddr &&
+    usdcAddr &&
+    amountWei > 0n &&
+    amountWei <= totalDebt;
+
+  const handleRepay = async () => {
+    if (!canRepay || !poolAddr || !usdcAddr) return;
+    try {
+      await writeContractAsync({
+        address: usdcAddr,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [poolAddr, amountWei],
+      });
+      await writeContractAsync({
+        address: poolAddr,
+        abi: LENDING_POOL_ABI,
+        functionName: "repay",
+        args: [amountWei],
+      });
+      setAmount("");
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <LendingActionPanel id="lending-panel-repay" labelledBy="lending-tab-repay">
@@ -67,67 +73,81 @@ export function RepayLendingPanel() {
         </p>
       </div>
 
-      <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl bg-surface-container-low p-4">
-          <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-            Principal
-          </span>
-          <p className="font-headline text-lg font-bold text-primary">
-            12,450.00 <span className="text-xs font-medium opacity-60">USDC</span>
-          </p>
-        </div>
-        <div className="rounded-xl bg-surface-container-low p-4">
-          <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-            Accrued Interest
-          </span>
-          <p className="font-headline text-lg font-bold text-primary">
-            42.85 <span className="text-xs font-medium opacity-60">USDC</span>
-          </p>
-        </div>
-        <div className="rounded-xl border border-secondary/20 bg-surface-container-high p-4">
-          <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-secondary">
-            Total Debt
-          </span>
-          <p className="font-headline text-lg font-extrabold text-primary">
-            12,492.85 <span className="text-xs font-medium opacity-60">USDC</span>
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        <UsdcInputField
-          label="Amount to Repay"
-          headerRight={
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              <span className="text-xs font-medium text-on-surface-variant">
-                Wallet Balance: <span className="font-bold text-primary">24,502.10 USDC</span>
+      {!isConnected ? (
+        <p className="text-sm text-on-surface-variant">Connect your wallet to repay.</p>
+      ) : !isHub ? (
+        <p className="text-sm text-amber-800">Switch to {hubChain.name} to repay.</p>
+      ) : (
+        <>
+          <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl bg-surface-container-low p-4">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                Principal
               </span>
+              <p className="font-headline text-lg font-bold text-primary">
+                {Number(formatUnits(principal, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                <span className="text-xs font-medium opacity-60">USDC</span>
+              </p>
+            </div>
+            <div className="rounded-xl bg-surface-container-low p-4">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+                Accrued Interest
+              </span>
+              <p className="font-headline text-lg font-bold text-primary">
+                {Number(formatUnits(interest, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}{" "}
+                <span className="text-xs font-medium opacity-60">USDC</span>
+              </p>
+            </div>
+            <div className="rounded-xl border border-secondary/20 bg-surface-container-high p-4">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-secondary">
+                Total Debt
+              </span>
+              <p className="font-headline text-lg font-extrabold text-primary">
+                {totalFormatted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                <span className="text-xs font-medium opacity-60">USDC</span>
+              </p>
+            </div>
+          </div>
+
+          {totalDebt > 0n ? (
+            <div className="space-y-6">
+              <UsdcInputField
+                label="Amount to Repay"
+                value={amount}
+                onChange={setAmount}
+                headerRight={
+                  <div className="flex flex-wrap items-center justify-end gap-3">
+                    <span className="text-xs font-medium text-on-surface-variant">
+                      Wallet Balance:{" "}
+                      <span className="font-bold text-primary">
+                        {Number(walletStr).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAmount(totalFormatted.toString())}
+                      className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary transition-colors hover:bg-primary/20"
+                    >
+                      MAX
+                    </button>
+                  </div>
+                }
+              />
+
               <button
                 type="button"
-                className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary transition-colors hover:bg-primary/20"
+                disabled={!canRepay || isPending}
+                onClick={handleRepay}
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-xl py-4 font-bold text-on-primary shadow-lg shadow-primary/10 transition-all hover:shadow-primary/20 active:opacity-80 disabled:opacity-50 ${lendingGradientPrimary}`}
               >
-                MAX
+                {isPending ? "Confirm in wallet…" : "Repay USDC"}
               </button>
             </div>
-          }
-        />
-
-        <button
-          type="button"
-          disabled={isSubmitting}
-          onClick={() => runMockRepay()}
-          className={`inline-flex w-full items-center justify-center gap-2 rounded-xl py-4 font-bold text-on-primary shadow-lg shadow-primary/10 transition-all hover:shadow-primary/20 active:opacity-80 disabled:pointer-events-none disabled:opacity-70 ${lendingGradientPrimary}`}
-        >
-          {isSubmitting ? (
-            <>
-              <Spinner className="text-on-primary" />
-              Confirming repayment…
-            </>
           ) : (
-            "Repay USDC"
+            <p className="text-sm text-on-surface-variant">No debt to repay.</p>
           )}
-        </button>
-      </div>
+        </>
+      )}
     </LendingActionPanel>
   );
 }

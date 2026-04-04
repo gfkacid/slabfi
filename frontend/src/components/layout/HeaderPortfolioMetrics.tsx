@@ -1,14 +1,64 @@
 import { Link } from "react-router-dom";
+import { useAccount } from "wagmi";
 import { Icon } from "@/components/ui/Icon";
-
-/** Placeholder metrics — replace with live data when portfolio APIs are wired. */
-const MOCK = {
-  netWorth: "969.90",
-  netApyPercent: "0.50",
-  healthFactor: "1.96",
-} as const;
+import { useProtocolStats, useUserPosition, useOutstandingDebt, useLendingPoolStats } from "@/hooks";
+import {
+  aprPercentFromBps,
+  aprPercentFromSnapshotBps,
+  formatHealthFactorWad,
+  price8ToUsdNumber,
+} from "@/lib/hubFormat";
 
 export function HeaderPortfolioMetrics() {
+  const { address, isConnected } = useAccount();
+  const { data: protocol } = useProtocolStats();
+  const position = useUserPosition();
+  const { data: debtTuple } = useOutstandingDebt();
+  const poolStats = useLendingPoolStats();
+
+  const collaterals = position.data?.collaterals ?? [];
+  const collateralUsd = collaterals.reduce(
+    (acc, c) => acc + price8ToUsdNumber(c.latestPriceUsd ?? undefined),
+    0,
+  );
+  const debtUsd =
+    debtTuple?.[2] !== undefined && debtTuple[2] > 0n
+      ? Number(debtTuple[2]) / 1e18
+      : 0;
+  const netWorthUsd = collateralUsd - debtUsd;
+  const netWorthDisplay =
+    isConnected && address && (collateralUsd > 0 || debtUsd > 0)
+      ? netWorthUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : isConnected && address
+        ? "0.00"
+        : "—";
+
+  const snap = protocol?.latestSnapshot;
+  const supplyApr =
+    snap?.supplyAprBps !== undefined
+      ? aprPercentFromSnapshotBps(snap.supplyAprBps)
+      : aprPercentFromBps(poolStats.supplyAprBps);
+  const borrowApr =
+    snap?.borrowAprBps !== undefined
+      ? aprPercentFromSnapshotBps(snap.borrowAprBps)
+      : aprPercentFromBps(poolStats.borrowAprBps);
+  const hasShares = poolStats.balanceOfShares !== undefined && poolStats.balanceOfShares > 0n;
+  const hasDebt = debtTuple !== undefined && debtTuple[2] > 0n;
+  const netApy =
+    isConnected && address
+      ? hasShares && hasDebt
+        ? `${supplyApr}% / ${borrowApr}%`
+        : hasShares
+          ? `${supplyApr}%`
+          : hasDebt
+            ? `${borrowApr}%`
+            : supplyApr !== "—"
+              ? `${supplyApr}%`
+              : "—"
+      : "—";
+
+  const hfDisplay = formatHealthFactorWad(position.data?.indexedPosition?.healthFactorWad ?? null);
+
   return (
     <div
       className="flex min-w-0 flex-1 items-center justify-start gap-5 overflow-x-auto py-1 pr-2 sm:gap-8 md:gap-12 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
@@ -18,7 +68,7 @@ export function HeaderPortfolioMetrics() {
         <p className="text-[9px] font-bold uppercase tracking-wider text-on-surface-variant">Net worth</p>
         <p className="font-headline text-lg font-extrabold leading-tight text-primary md:text-xl">
           <span className="text-sm font-semibold text-on-surface-variant">$</span>
-          {MOCK.netWorth}
+          {netWorthDisplay}
         </p>
       </div>
 
@@ -28,12 +78,12 @@ export function HeaderPortfolioMetrics() {
           <Icon
             name="info"
             className="!text-[14px] text-on-surface-variant"
-            title="Blended annualized yield across your supplied and borrowed positions."
+            title="Supply APR / borrow APR from the latest snapshot or live pool reads."
             aria-hidden
           />
         </div>
         <p className="font-headline text-lg font-extrabold leading-tight text-primary md:text-xl">
-          {MOCK.netApyPercent}%
+          {netApy}
         </p>
       </div>
 
@@ -43,7 +93,7 @@ export function HeaderPortfolioMetrics() {
             Health factor
           </p>
           <p className="font-headline text-lg font-extrabold leading-tight text-amber-500 md:text-xl">
-            {MOCK.healthFactor}
+            {!isConnected || !address ? "—" : hfDisplay}
           </p>
         </div>
         <Link

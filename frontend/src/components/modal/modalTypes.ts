@@ -1,9 +1,9 @@
 import type { AuctionRow } from "@/components/liquidation/ActiveQueueTableRow";
-import type { ActiveQueueMockRow } from "@/components/liquidation/activeLiquidationMock";
 
-export type BidModalPayload =
-  | { variant: "live"; entry: AuctionRow; onPlaceBid: (amountWei: bigint) => Promise<void> }
-  | { variant: "mock"; row: ActiveQueueMockRow };
+export type BidModalPayload = {
+  entry: AuctionRow;
+  onPlaceBid: (amountWei: bigint) => Promise<void>;
+};
 
 export type ModalType = "bid" | "collateralDeposit";
 

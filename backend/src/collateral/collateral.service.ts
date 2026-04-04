@@ -25,4 +25,14 @@ export class CollateralService {
       orderBy: { lockedAtUnix: "desc" },
     });
   }
+
+  /** Protocol catalog: active collateral on the hub (capped). */
+  catalog(limit = 500) {
+    const cap = Math.min(Math.max(1, limit), 1000);
+    return this.prisma.collateralItem.findMany({
+      where: { hubChainId: this.hc() },
+      orderBy: { lockedAtUnix: "desc" },
+      take: cap,
+    });
+  }
 }

@@ -9,6 +9,8 @@ type UsdcInputFieldProps = {
   headerRight?: ReactNode;
   placeholder?: string;
   tokenClassName?: string;
+  value?: string;
+  onChange?: (value: string) => void;
 };
 
 export function UsdcInputField({
@@ -16,6 +18,8 @@ export function UsdcInputField({
   headerRight,
   placeholder = "0.00",
   tokenClassName = "",
+  value,
+  onChange,
 }: UsdcInputFieldProps) {
   return (
     <div
@@ -34,6 +38,8 @@ export function UsdcInputField({
           type="text"
           inputMode="decimal"
           autoComplete="off"
+          value={value ?? ""}
+          onChange={(e) => onChange?.(e.target.value)}
         />
         <div
           className={`flex shrink-0 items-center gap-2 rounded-lg bg-white px-4 py-2 shadow-sm ${lendingGhostBorder} ${tokenClassName}`.trim()}

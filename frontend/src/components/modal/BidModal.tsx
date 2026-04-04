@@ -52,63 +52,41 @@ export function BidModal({ payload, onClose }: BidModalProps) {
   const [bidInput, setBidInput] = useState("");
   const [placePending, setPlacePending] = useState(false);
 
-  const isMock = payload.variant === "mock";
-  const entry = payload.variant === "live" ? payload.entry : null;
-  const { data: collateralItem } = useCollateralItem(entry?.collateralId);
+  const entry = payload.entry;
+  const { data: collateralItem } = useCollateralItem(entry.collateralId);
 
-  const hasBid = entry ? entry.highestBid > 0n : false;
+  const hasBid = entry.highestBid > 0n;
   const minAmountWei = useMemo(() => {
-    if (!entry) return 0n;
     return hasBid ? ceilMinNextBid(entry.highestBid, incrementBps) : entry.reservePrice;
   }, [entry, hasBid, incrementBps]);
 
   useEffect(() => {
-    if (payload.variant === "live" && entry) {
-      setBidInput(formatUsdcFrom18(minAmountWei).replace(/,/g, ""));
-    } else if (payload.variant === "mock") {
-      const raw = payload.row.bidUsdc.replace(/\s*USDC\s*/i, "").replace(/,/g, "");
-      setBidInput(raw);
-    }
-  }, [payload, entry, minAmountWei]);
+    setBidInput(formatUsdcFrom18(minAmountWei).replace(/,/g, ""));
+  }, [entry.auctionId, minAmountWei]);
 
-  const deadlineSec = entry ? Number(entry.deadline) : 0;
+  const deadlineSec = Number(entry.deadline);
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
-    if (!entry) return;
     const t = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(t);
-  }, [entry]);
+  }, [entry.auctionId]);
 
-  const canPlace = entry ? !hasBid || nowSec < deadlineSec : false;
-  const countdownSec = entry && hasBid ? Math.max(0, deadlineSec - nowSec) : 0;
+  const canPlace = !hasBid || nowSec < deadlineSec;
+  const countdownSec = hasBid ? Math.max(0, deadlineSec - nowSec) : 0;
 
   const titleLine =
-    isMock
-      ? payload.row.assetName
-      : collateralItem !== undefined
-        ? `Token #${collateralItem.tokenId.toString()}`
-        : entry
-          ? `${entry.collateralId.slice(0, 6)}…${entry.collateralId.slice(-4)}`
-          : "";
+    collateralItem !== undefined
+      ? `Token #${collateralItem.tokenId.toString()}`
+      : `${entry.collateralId.slice(0, 6)}…${entry.collateralId.slice(-4)}`;
 
-  const vaultLine = isMock ? payload.row.vaultLabel : entry ? `${entry.borrower.slice(0, 5)}…${entry.borrower.slice(-4)}` : "";
+  const vaultLine = `${entry.borrower.slice(0, 5)}…${entry.borrower.slice(-4)}`;
 
   const currentBidAmount =
-    payload.variant === "mock"
-      ? payload.row.bidUsdc.replace(/\s*USDC\s*/i, "").replace(/,/g, "").trim()
-      : entry
-        ? entry.highestBid > 0n
-          ? formatUsdcFrom18(entry.highestBid)
-          : "—"
-        : "—";
+    entry.highestBid > 0n ? formatUsdcFrom18(entry.highestBid) : "—";
 
-  const secondaryStatLabel = isMock ? "Minimum Increase" : "Liquidation fee (on debt)";
-  const secondaryStatValue = isMock
-    ? "250.00 USDC"
-    : entry
-      ? `${formatUsdcFrom18(entry.feeSnapshot)} USDC`
-      : "—";
+  const secondaryStatLabel = "Liquidation fee (on debt)";
+  const secondaryStatValue = `${formatUsdcFrom18(entry.feeSnapshot)} USDC`;
 
   const balanceLabel = usdcBal?.formatted
     ? `${Number(usdcBal.formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
@@ -117,7 +95,6 @@ export function BidModal({ payload, onClose }: BidModalProps) {
       : "—";
 
   const handlePlaceBid = useCallback(async () => {
-    if (isMock || !entry) return;
     let wei: bigint;
     try {
       wei = parseUnits(bidInput.replace(/,/g, "").trim() || "0", 18);
@@ -127,28 +104,22 @@ export function BidModal({ payload, onClose }: BidModalProps) {
     if (wei < minAmountWei) return;
     setPlacePending(true);
     try {
-      if (payload.variant === "live") {
-        await payload.onPlaceBid(wei);
-      }
+      await payload.onPlaceBid(wei);
       onClose();
     } finally {
       setPlacePending(false);
     }
-  }, [isMock, entry, bidInput, minAmountWei, onClose, payload]);
+  }, [bidInput, minAmountWei, onClose, payload]);
 
   let parseOk = true;
   try {
-    if (!isMock && entry) {
-      const w = parseUnits(bidInput.replace(/,/g, "").trim() || "0", 18);
-      if (w < minAmountWei) parseOk = false;
-    }
+    const w = parseUnits(bidInput.replace(/,/g, "").trim() || "0", 18);
+    if (w < minAmountWei) parseOk = false;
   } catch {
     parseOk = false;
   }
 
-  const placeDisabled = isMock || !canPlace || Boolean(placePending) || !parseOk;
-
-  const imageUrl = isMock ? payload.row.imageUrl : undefined;
+  const placeDisabled = !canPlace || Boolean(placePending) || !parseOk;
 
   const footerNote = useMemo(
     () =>
@@ -160,13 +131,9 @@ export function BidModal({ payload, onClose }: BidModalProps) {
     <BaseModal open title="Place Your Bid" onClose={onClose}>
       <div className="flex gap-6">
         <div className="h-32 w-24 shrink-0 overflow-hidden rounded-lg bg-surface shadow-md ring-1 ring-outline-variant/20">
-          {imageUrl ? (
-            <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-3xl text-on-surface-variant/40">
-              🃏
-            </div>
-          )}
+          <div className="flex h-full w-full items-center justify-center text-3xl text-on-surface-variant/40">
+            🃏
+          </div>
         </div>
         <div className="flex min-w-0 flex-col justify-center">
           <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-on-primary-container">
@@ -176,17 +143,13 @@ export function BidModal({ payload, onClose }: BidModalProps) {
           <p className="mt-1 font-mono text-xs text-on-surface-variant">{vaultLine}</p>
           <div className="mt-4 flex items-center gap-2 text-sm font-bold text-error">
             <Icon name="schedule" className="text-sm" />
-            {isMock ? (
-              <span>{payload.row.timeLabel} remaining</span>
-            ) : entry ? (
-              !hasBid ? (
-                <span>Open — no bids yet (stays open until first bid)</span>
-              ) : canPlace ? (
-                <span className="tabular-nums">{formatCountdown(countdownSec)} until deadline</span>
-              ) : (
-                <span>Deadline passed — bid on another auction or claim if you won</span>
-              )
-            ) : null}
+            {!hasBid ? (
+              <span>Open — no bids yet (stays open until first bid)</span>
+            ) : canPlace ? (
+              <span className="tabular-nums">{formatCountdown(countdownSec)} until deadline</span>
+            ) : (
+              <span>Deadline passed — bid on another auction or claim if you won</span>
+            )}
           </div>
         </div>
       </div>
@@ -234,15 +197,14 @@ export function BidModal({ payload, onClose }: BidModalProps) {
                 const v = e.target.value;
                 if (v === "" || /^\d*\.?\d*$/.test(v)) setBidInput(v);
               }}
-              disabled={isMock}
               placeholder="0.00"
-              className="w-full rounded-lg border-2 border-outline-variant/30 bg-surface-container-lowest py-4 pl-4 pr-36 font-headline text-xl font-extrabold text-primary placeholder:text-outline-variant transition-all focus:border-secondary focus:outline-none focus:ring-0 disabled:opacity-60"
+              className="w-full rounded-lg border-2 border-outline-variant/30 bg-surface-container-lowest py-4 pl-4 pr-36 font-headline text-xl font-extrabold text-primary placeholder:text-outline-variant transition-all focus:border-secondary focus:outline-none focus:ring-0"
             />
             <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-2">
               <span className="text-sm font-bold text-on-surface-variant">USDC</span>
               <button
                 type="button"
-                disabled={isMock || !usdcBal?.formatted}
+                disabled={!usdcBal?.formatted}
                 onClick={() => setBidInput(usdcBal?.formatted.replace(/,/g, "") ?? "")}
                 className="rounded bg-primary px-2 py-1 text-[10px] font-bold uppercase text-on-primary transition-opacity hover:opacity-90 disabled:opacity-40"
               >
@@ -259,7 +221,7 @@ export function BidModal({ payload, onClose }: BidModalProps) {
           variant="primary"
           className="mt-2 w-full !bg-secondary !py-4 !text-lg !font-extrabold !text-on-secondary shadow-lg hover:!bg-secondary-container focus:!ring-secondary disabled:!opacity-50"
         >
-          {isMock ? "Example — not live" : "Place bid"}
+          Place bid
         </TransactionButton>
         <p className="text-center text-[11px] font-medium text-on-surface-variant">{footerNote}</p>
       </div>
