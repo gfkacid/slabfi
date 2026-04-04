@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { formatUnits } from "viem";
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { useAccount } from "wagmi";
 import { Icon } from "@/components/ui/Icon";
 import { useProtocolStats, useUserPosition, useOutstandingDebt, useLendingPoolStats } from "@/hooks";
@@ -23,7 +25,7 @@ export function HeaderPortfolioMetrics() {
   );
   const debtUsd =
     debtTuple?.[2] !== undefined && debtTuple[2] > 0n
-      ? Number(debtTuple[2]) / 1e18
+      ? Number(formatUnits(debtTuple[2], HUB_USDC_DECIMALS))
       : 0;
   const netWorthUsd = collateralUsd - debtUsd;
   const netWorthDisplay =

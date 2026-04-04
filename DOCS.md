@@ -1,6 +1,8 @@
 # Slab.Finance Developer Documentation
 
-Step-by-step instructions for setting up and deploying the Slab.Finance protocol.
+Protocol reference for developers: repository layout, environment, deployment order, verification, mechanics (CCIP, collateral lifecycle, health factor, lending UI, liquidations), and end-to-end flow.
+
+For a focused deployment and local stack walkthrough, see **[SETUP.md](./SETUP.md)**.
 
 ## Repository layout
 
@@ -31,6 +33,8 @@ pnpm dev:frontend   # Vite dev server (default http://localhost:3000)
 pnpm dev:backend  # Nest dev server (default http://localhost:3001)
 pnpm dev:indexer  # Chain indexer → MySQL (set `DATABASE_URL`; contract addresses in shared/config/testnet.ts)
 ```
+
+From clone through contract deploy, database seed, and running all services, follow **[SETUP.md](./SETUP.md)**.
 
 The Vite app reads environment variables from **`frontend/.env`** (not the repo root). Copy or symlink from the root example:
 
@@ -124,7 +128,7 @@ forge script script/Deploy_Hub.s.sol --rpc-url "$ARC_TESTNET_RPC" --broadcast --
 
 This deploys:
 
-- MockUSDC (1M minted); `OracleConsumer` initialized with `CRE_FORWARDER_ADDRESS` from **`shared/config/testnet.ts`** (`cre.forwarderAddress`, exported by `print-deploy-env.ts` — use real KeystoneForwarder + [`cre/price-oracle/`](cre/price-oracle/) for production paths)
+- **USDC** at `hub.contracts.usdc` in **`shared/config/testnet.ts`** (exported as `HUB_USDC_ADDRESS` by `print-deploy-env.ts`); optional seed deposit (default $1,000 raw units) if the deployer holds balance. `OracleConsumer` uses `CRE_FORWARDER_ADDRESS` from the same config (`cre.forwarderAddress` — use real KeystoneForwarder + [`cre/price-oracle/`](cre/price-oracle/) for production paths)
 - OracleConsumer, CollateralRegistry, LendingPool, AuctionLiquidationManager, HealthFactorEngine (UUPS proxies)
 - CCIPMessageRouter, ChainlinkAutomationKeeper
 - May seed initial USDC liquidity (implementation-specific). Anyone can add liquidity afterward via the pool’s public **`deposit`** once that function exists on chain.
@@ -150,6 +154,8 @@ This deploys:
 
 - `CardFiCollectible` demo NFT (Solidity contract name; 3 sample tokens minted and metadata set)
 - NFTVault, CollateralAdapter_CardFiCollectible
+
+`source.contracts.usdc` in **`shared/config/testnet.ts`** is for the **app** (balances, approvals on Sepolia when needed); this script does **not** deploy USDC.
 
 ### Step 3: Register Adapter on Hub
 
@@ -184,15 +190,16 @@ For collateral to become ACTIVE, the OracleConsumer needs prices. Use the mock s
 
 ```bash
 cast send $ORACLE_CONSUMER_ADDRESS \
-  "setMockPrice(address,uint256,uint256)" \
+  "setMockPrice(address,uint256,uint256,uint8)" \
   $SLAB_FINANCE_COLLECTIBLE_ADDRESS \
   1 \
   15000000000 \
+  1 \
   --rpc-url $ARC_TESTNET_RPC \
   --private-key $DEPLOYER_PRIVATE_KEY
 ```
 
-(Price is 8 decimals: 15000000000 = $150.00.) Repeat for token IDs 2 and 3 if needed.
+(Price is 8 decimals: 15000000000 = $150.00; last `1` is risk tier.) Repeat for token IDs 2 and 3 if needed.
 
 ### Step 6: Configure the app
 
@@ -284,7 +291,7 @@ Metadata fields: `cardName`, `cardImage`, `setName`, `cardNumber`, `cardRarity`,
 3. Connect wallet to Sepolia. Acquire demo collectible tokens from the deployed `CardFiCollectible` contract (admin mints to you or you receive from deployer).
 4. Use **EXTERNAL_PRICE_API** (or mock) in the lock flow to show value and borrow preview; approve the CollateralAdapter to transfer your NFT, then call `lockAndNotify(tokenId, hubOwner)`. Pay the CCIP fee (ETH on Sepolia).
 5. Wait for CCIP delivery (~few minutes). Check [CCIP Explorer](https://ccip.chain.link).
-6. Set oracle price for the token if not already set (`setMockPrice` or the [`cre/price-oracle/`](cre/price-oracle/) CRE workflow after configuring the forwarder).
+6. Set oracle price for the token if not already set (`setMockPrice`, or local CRE simulate + on-chain update via [`cre/price-oracle/`](cre/price-oracle/) / `deploy-all.sh`; forwarder `onReport` when CRE deploy is available).
 7. Switch to **Arc Testnet** (hub). Call `LendingPool.borrow(amount)`.
 8. To unlock: repay full debt with `LendingPool.repay(amount)`, then call `CollateralRegistry.initiateUnlock(collateralId)`.
 9. Wait for UnlockCommand CCIP delivery. NFT is released to your address on Sepolia.

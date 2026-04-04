@@ -9,12 +9,14 @@ import {
   useOutstandingDebt,
   useLendingPoolStats,
 } from "@/hooks";
+import { formatUnits } from "viem";
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { hubChain } from "@/lib/hub";
 import {
   aprPercentFromBps,
   aprPercentFromSnapshotBps,
   formatHealthFactorWad,
-  formatUsd18,
+  formatUsdc,
   formatUsdFromSnapshotString,
   healthFactorBarPercent,
   utilizationPercentFromSnapshotWad,
@@ -45,7 +47,7 @@ export function StatsRow({ guest = false }: StatsRowProps) {
   const tvlStr = snap?.totalAssets
     ? `$${formatUsdFromSnapshotString(snap.totalAssets)}`
     : poolStats.totalAssets !== undefined
-      ? `$${formatUsd18(poolStats.totalAssets)}`
+      ? `$${formatUsdc(poolStats.totalAssets)}`
       : "—";
   const utilPct =
     utilizationPercentFromSnapshotWad(snap?.utilizationWad) ??
@@ -60,7 +62,7 @@ export function StatsRow({ guest = false }: StatsRowProps) {
   );
   const debtWad = position.onHub ? (debtTuple?.[2] ?? 0n) : undefined;
   const debtUsd =
-    debtWad !== undefined && debtWad > 0n ? Number(debtWad) / 1e18 : 0;
+    debtWad !== undefined && debtWad > 0n ? Number(formatUnits(debtWad, HUB_USDC_DECIMALS)) : 0;
   const netWorthUsd = collateralUsd - debtUsd;
   const netWorthDisplay =
     Number.isFinite(netWorthUsd) && (collateralUsd > 0 || debtUsd > 0)
@@ -103,7 +105,7 @@ export function StatsRow({ guest = false }: StatsRowProps) {
 
   const borrowedDisplay =
     debtTuple?.[2] !== undefined && debtTuple[2] > 0n
-      ? `${formatUsd18(debtTuple[2])} USDC`
+      ? `${formatUsdc(debtTuple[2])} USDC`
       : "0.00 USDC";
 
   const guestLoading = guest && isApiConfigured() && protocolLoading;

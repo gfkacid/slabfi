@@ -24,6 +24,10 @@ async function bootstrap() {
     .setTitle("Slab.Finance API")
     .setDescription("Read API backed by MySQL + indexer. Numeric uints and unix times are JSON strings.")
     .setVersion("0.1.0")
+    .addApiKey(
+      { type: "apiKey", name: "x-api-key", in: "header" },
+      "x-api-key",
+    )
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup("api", app, document);

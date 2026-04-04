@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useAccount } from "wagmi";
 import { parseUnits } from "viem";
-import { LENDING_POOL_ABI } from "@slabfinance/shared";
+import { HUB_USDC_DECIMALS, LENDING_POOL_ABI } from "@slabfinance/shared";
 import { useAvailableCredit, useBorrow } from "@/hooks";
 import { AmountInput } from "@/components/AmountInput";
 import { TransactionButton } from "@/components/TransactionButton";
@@ -21,7 +21,7 @@ export function BorrowPage() {
   const amountWei = useMemo(() => {
     try {
       if (!amount || amount === ".") return 0n;
-      return parseUnits(amount, 18);
+      return parseUnits(amount, HUB_USDC_DECIMALS);
     } catch {
       return 0n;
     }

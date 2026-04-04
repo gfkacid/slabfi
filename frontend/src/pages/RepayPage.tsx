@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useAccount } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
-import { LENDING_POOL_ABI, COLLATERAL_REGISTRY_ABI, ERC20_ABI } from "@slabfinance/shared";
+import {
+  HUB_USDC_DECIMALS,
+  LENDING_POOL_ABI,
+  COLLATERAL_REGISTRY_ABI,
+  ERC20_ABI,
+} from "@slabfinance/shared";
 import { useOutstandingDebt, useRepay, usePosition, useInitiateUnlock } from "@/hooks";
 import { AmountInput } from "@/components/AmountInput";
 import { TransactionButton } from "@/components/TransactionButton";
@@ -26,11 +31,11 @@ export function RepayPage() {
   const principal = debt?.[0] ?? 0n;
   const interest = debt?.[1] ?? 0n;
   const totalDebt = principal + interest;
-  const totalFormatted = Number(formatUnits(totalDebt, 18));
+  const totalFormatted = Number(formatUnits(totalDebt, HUB_USDC_DECIMALS));
   const amountWei = (() => {
     try {
       if (!amount || amount === ".") return 0n;
-      return parseUnits(amount, 18);
+      return parseUnits(amount, HUB_USDC_DECIMALS);
     } catch {
       return 0n;
     }
@@ -112,11 +117,11 @@ export function RepayPage() {
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-on-surface-variant">Principal</span>
-            <span className="text-on-surface">${Number(formatUnits(principal, 18)).toFixed(2)}</span>
+            <span className="text-on-surface">${Number(formatUnits(principal, HUB_USDC_DECIMALS)).toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-on-surface-variant">Interest</span>
-            <span className="text-on-surface">${Number(formatUnits(interest, 18)).toFixed(2)}</span>
+            <span className="text-on-surface">${Number(formatUnits(interest, HUB_USDC_DECIMALS)).toFixed(2)}</span>
           </div>
           <div className="flex justify-between border-t border-outline-variant/20 pt-2 font-semibold text-primary">
             <span>Total</span>

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { erc721Abi, formatUnits } from "viem";
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import {
   useAccount,
   useChainId,
@@ -30,6 +31,7 @@ import { Icon } from "@/components/ui/Icon";
 import { sepolia } from "@/lib/chains";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts";
 import { hubChain, hubContracts } from "@/lib/hub";
+import { price8ToUsdNumber } from "@/lib/hubFormat";
 import { showToast } from "@/lib/toast";
 import { COLLATERAL_REGISTRY_ABI } from "@slabfinance/shared";
 
@@ -47,8 +49,9 @@ function gradeChip(nft: { cardRarity?: string; cardPrinting?: string }): string 
   return g || "Card";
 }
 
-function centsToWad(cents: number): bigint {
-  return BigInt(Math.round(cents * 10 ** 16));
+/** 6-decimal API valuation → oracle 8-decimal USD (matches backend `priceUsdcToOracle8`). */
+function priceUsdcMicroToOracle8(micro: number): bigint {
+  return BigInt(Math.round(micro)) * 100n;
 }
 
 const MAX_UINT256 = 2n ** 256n - 1n;
@@ -146,7 +149,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
   const newCollateralUsd = useMemo(() => {
     let s = 0;
     for (const v of selectedValuations) {
-      if (v) s += v.priceUSD / 100;
+      if (v) s += v.priceUSD / 1_000_000;
     }
     return s;
   }, [selectedValuations]);
@@ -160,26 +163,26 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
   }, [selectedValuations]);
 
   const existingCollateralUsd = useMemo(() => {
-    if (!existing?.valuesWad.length) return 0;
-    return existing.valuesWad.reduce((acc, w) => acc + Number(formatUnits(w, 18)), 0);
+    if (!existing?.valuesPrice8.length) return 0;
+    return existing.valuesPrice8.reduce((acc, w) => acc + price8ToUsdNumber(w.toString()), 0);
   }, [existing]);
 
   const mergedAfter = useMemo(() => {
-    const values = [...(existing?.valuesWad ?? [])];
+    const values = [...(existing?.valuesPrice8 ?? [])];
     const tiers = [...(existing?.tiers ?? [])];
     selectedList.forEach((nft, i) => {
       const v = selectedValuations[i];
       if (!v) return;
-      values.push(centsToWad(v.priceUSD));
+      values.push(priceUsdcMicroToOracle8(v.priceUSD));
       const t = v.tier >= 1 && v.tier <= 3 ? v.tier : 2;
       tiers.push(t);
     });
-    return { valuesWad: values as readonly bigint[], tiers: tiers as readonly number[] };
+    return { valuesPrice8: values as readonly bigint[], tiers: tiers as readonly number[] };
   }, [existing, selectedList, selectedValuations]);
 
   const mergedCurrent = useMemo(() => {
     return {
-      valuesWad: existing?.valuesWad ?? [],
+      valuesPrice8: existing?.valuesPrice8 ?? [],
       tiers: existing?.tiers ?? [],
     };
   }, [existing]);
@@ -190,14 +193,14 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
   const hfEngineConfigured = !!hubContracts.healthFactorEngine;
 
   const currentHf = usePreviewHealthFactorOnHub(
-    mergedCurrent.valuesWad,
+    mergedCurrent.valuesPrice8,
     mergedCurrent.tiers,
     totalDebtWad,
     isConnected && hfEngineConfigured && totalDebtWad !== undefined
   );
 
   const afterHf = usePreviewHealthFactorOnHub(
-    mergedAfter.valuesWad,
+    mergedAfter.valuesPrice8,
     mergedAfter.tiers,
     totalDebtWad,
     isConnected &&
@@ -292,9 +295,9 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
   };
 
   const debtUsd =
-    totalDebtWad !== undefined ? Number(formatUnits(totalDebtWad, 18)) : undefined;
+    totalDebtWad !== undefined ? Number(formatUnits(totalDebtWad, HUB_USDC_DECIMALS)) : undefined;
   const creditUsd =
-    availableCredit !== undefined ? Number(formatUnits(availableCredit, 18)) : undefined;
+    availableCredit !== undefined ? Number(formatUnits(availableCredit, HUB_USDC_DECIMALS)) : undefined;
   const creditAfter =
     creditUsd !== undefined ? creditUsd + newBorrowUsd : undefined;
 
@@ -344,9 +347,10 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
 
           {isConnected && !apiConfigured ? (
             <div className="mb-6 rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-xs text-amber-950">
-              <strong className="font-bold">Pricing API not set.</strong> Set{" "}
-              <code className="rounded bg-white/80 px-1">VITE_EXTERNAL_PRICE_API_BASE</code> for
-              live valuations. You can still lock cards; borrow previews stay approximate.
+              <strong className="font-bold">Backend API not set.</strong> Set{" "}
+              <code className="rounded bg-white/80 px-1">VITE_API_BASE</code> (Nest read API) for
+              live valuations and seeded <code className="rounded bg-white/80 px-1">Card</code> rows.
+              You can still lock cards; borrow previews stay approximate.
             </div>
           ) : null}
 
@@ -502,7 +506,9 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                           {loadingV ? (
                             <p className="mt-0.5 animate-pulse text-sm text-on-surface-variant">…</p>
                           ) : v ? (
-                            <p className="font-bold text-primary">{formatUsd(v.priceUSD / 100)}</p>
+                            <p className="font-bold text-primary">
+                              {formatUsd(v.priceUSD / 1_000_000)}
+                            </p>
                           ) : apiConfigured ? (
                             <p className="text-xs font-bold text-error">N/A</p>
                           ) : (
@@ -591,7 +597,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                         </div>
                       </div>
                       <p className="shrink-0 pl-2 text-sm font-bold text-primary">
-                        {v ? formatUsd(v.priceUSD / 100) : "—"}
+                        {v ? formatUsd(v.priceUSD / 1_000_000) : "—"}
                       </p>
                     </div>
                   );

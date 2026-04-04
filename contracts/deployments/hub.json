@@ -1,0 +1,18 @@
+{
+  "network": "arc-testnet",
+  "ccipRouterOnChain": "0xdE4E7FED43FAC37EB21aA0643d9852f75332eab8",
+  "creForwarderAddress": "0x6E9EE680ef59ef64Aa8C7371279c27E496b5eDc1",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "oracleConsumer": "0x66A7737Fd2ac66c409E7D2fe896821DbA3dEc735",
+  "oracleConsumerImplementation": "0x942a461263124B9F11416487A5F23B6e470d3e97",
+  "ccipMessageRouter": "0x969589b618E9b75F4181D3a262420a384df90AD2",
+  "collateralRegistry": "0x96c990FAc3bA9329aEdbcf423C78e7880B6AB50e",
+  "collateralRegistryImplementation": "0x43011a4Ab55458f56616a018caC5DD17E44866f8",
+  "lendingPool": "0x1BaE68aCD54C18716678c6049b1919a30520F2F8",
+  "lendingPoolImplementation": "0x4aF63550e8e58D4b0FaF4F3801A921Ce632935aB",
+  "auctionLiquidationManager": "0x7691c741B6CB7F1C79BBc0f34bac0FF32f5A29eb",
+  "auctionLiquidationManagerImplementation": "0x5D6C7B0B9581ebdf5508be64cBE53646F663B6C3",
+  "healthFactorEngine": "0xbE4a32F159Fe8e9E48aDEa1b70c6e16AFdcfb714",
+  "healthFactorEngineImplementation": "0xDf920FeE17Ad1002FE0C7c0a44c537Bb7271C0d5",
+  "chainlinkAutomationKeeper": "0x01DFbAe16B3E7Ac93152c9F26fB3827d1431279d"
+}

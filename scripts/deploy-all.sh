@@ -17,7 +17,19 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
   set +a
 fi
 
+# Preserve RPC overrides from .env / environment; print-deploy-env.ts always emits defaults from testnet.ts.
+_HUB_RPC_OVERRIDE="${ARC_TESTNET_RPC:-}"
+_SOURCE_RPC_OVERRIDE="${SEPOLIA_RPC:-}"
+
 eval "$(cd "$REPO_ROOT/indexer" && pnpm exec tsx ../scripts/print-deploy-env.ts)"
+
+if [[ -n "$_HUB_RPC_OVERRIDE" ]]; then
+  export ARC_TESTNET_RPC="$_HUB_RPC_OVERRIDE"
+fi
+if [[ -n "$_SOURCE_RPC_OVERRIDE" ]]; then
+  export SEPOLIA_RPC="$_SOURCE_RPC_OVERRIDE"
+fi
+unset _HUB_RPC_OVERRIDE _SOURCE_RPC_OVERRIDE
 
 if [[ -z "${DEPLOYER_PRIVATE_KEY:-}" ]]; then
   echo "Missing required env var: DEPLOYER_PRIVATE_KEY" >&2
@@ -44,37 +56,59 @@ cd "$CONTRACTS"
 
 export HUB_DEPLOYMENT_OUTPUT="deployments/hub.json"
 
-echo "=== Phase 1: Deploy hub on Arc testnet ==="
-forge script script/Deploy_Hub.s.sol:DeployHub --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir -vvv
+if [[ "${ONLY_POST_DEPLOY:-}" != "1" ]]; then
+  if [[ "${SKIP_HUB_DEPLOY:-}" == "1" ]]; then
+    echo "=== Phase 1: Skipped (SKIP_HUB_DEPLOY=1); using existing $HUB_JSON ==="
+  else
+    echo "=== Phase 1: Deploy hub on Arc testnet ==="
+    forge script script/Deploy_Hub.s.sol:DeployHub --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir -vvv
+  fi
 
-HUB_ROUTER="$(json_get "$HUB_JSON" ccipMessageRouter)"
-REGISTRY="$(json_get "$HUB_JSON" collateralRegistry)"
-if [[ -z "$HUB_ROUTER" || -z "$REGISTRY" ]]; then
-  echo "Failed to read hub addresses from $HUB_JSON" >&2
-  exit 1
+  HUB_ROUTER="$(json_get "$HUB_JSON" ccipMessageRouter)"
+  REGISTRY="$(json_get "$HUB_JSON" collateralRegistry)"
+  if [[ -z "$HUB_ROUTER" || -z "$REGISTRY" ]]; then
+    echo "Failed to read hub addresses from $HUB_JSON" >&2
+    exit 1
+  fi
+
+  export HUB_CCIP_ROUTER_ADDRESS="$HUB_ROUTER"
+  export HUB_CHAIN_SELECTOR="$ARC_CHAIN_SELECTOR"
+
+  echo "=== Phase 2: Deploy source chain on Ethereum Sepolia ==="
+  export SOURCE_CCIP_ROUTER="$CCIP_ROUTER_SEPOLIA"
+  export SOURCE_CHAIN_SELECTOR="$SEPOLIA_CHAIN_SELECTOR"
+  export DEPLOYMENT_OUTPUT_FILE="deployments/eth-sepolia.json"
+  export SOURCE_NETWORK_NAME="ethereum-sepolia"
+  # Stub seed mints can exceed public-RPC per-tx gas caps; override with SOURCE_DEPLOY_TOKEN_LIMIT (see .env.example).
+  export SOURCE_DEPLOY_TOKEN_LIMIT="${SOURCE_DEPLOY_TOKEN_LIMIT:-0}"
+  forge script script/Deploy_SourceChain.s.sol:DeploySourceChain --rpc-url "$SEPOLIA_RPC" --broadcast --via-ir -vvv
+
+  SEPOLIA_ADAPTER="$(json_get "$SEPOLIA_JSON" collateralAdapter)"
+  if [[ -z "$SEPOLIA_ADAPTER" ]]; then
+    echo "Failed to read adapter address from $SEPOLIA_JSON" >&2
+    exit 1
+  fi
+
+  export COLLATERAL_REGISTRY_ADDRESS="$REGISTRY"
+  export SEPOLIA_ADAPTER_ADDRESS="$SEPOLIA_ADAPTER"
+
+  echo "=== Phase 3: Register Sepolia adapter on hub (Arc) ==="
+  FORGE_P3=(
+    forge script script/Configure_Hub_Adapters.s.sol:ConfigureHubAdapters
+    --rpc-url "$ARC_TESTNET_RPC"
+    --broadcast
+    --via-ir
+    -vvv
+  )
+  if [[ "${ARC_CONFIGURE_LEGACY:-}" == "1" ]]; then
+    FORGE_P3+=(--legacy --with-gas-price "${ARC_CONFIGURE_GAS_PRICE:-120000000000}")
+  elif [[ -n "${ARC_PRIORITY_GAS_PRICE:-}" ]]; then
+    FORGE_P3+=(--priority-gas-price "$ARC_PRIORITY_GAS_PRICE")
+  fi
+  "${FORGE_P3[@]}"
+else
+  echo "=== ONLY_POST_DEPLOY=1: skipping forge (CRE + DEPLOYMENTS.md only) ==="
 fi
-
-export HUB_CCIP_ROUTER_ADDRESS="$HUB_ROUTER"
-export HUB_CHAIN_SELECTOR="$ARC_CHAIN_SELECTOR"
-
-echo "=== Phase 2: Deploy source chain on Ethereum Sepolia ==="
-export SOURCE_CCIP_ROUTER="$CCIP_ROUTER_SEPOLIA"
-export SOURCE_CHAIN_SELECTOR="$SEPOLIA_CHAIN_SELECTOR"
-export DEPLOYMENT_OUTPUT_FILE="deployments/eth-sepolia.json"
-export SOURCE_NETWORK_NAME="ethereum-sepolia"
-forge script script/Deploy_SourceChain.s.sol:DeploySourceChain --rpc-url "$SEPOLIA_RPC" --broadcast --via-ir -vvv
-
-SEPOLIA_ADAPTER="$(json_get "$SEPOLIA_JSON" collateralAdapter)"
-if [[ -z "$SEPOLIA_ADAPTER" ]]; then
-  echo "Failed to read adapter address from $SEPOLIA_JSON" >&2
-  exit 1
-fi
-
-export COLLATERAL_REGISTRY_ADDRESS="$REGISTRY"
-export SEPOLIA_ADAPTER_ADDRESS="$SEPOLIA_ADAPTER"
-
-echo "=== Phase 3: Register Sepolia adapter on hub (Arc) ==="
-forge script script/Configure_Hub_Adapters.s.sol:ConfigureHubAdapters --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir -vvv
 
 TS="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
 
@@ -144,8 +178,8 @@ Copy addresses into [`shared/config/testnet.ts`](../shared/config/testnet.ts) un
 | Variable | Purpose |
 |----------|---------|
 | `DEPLOYER_PRIVATE_KEY` | EOA used on Arc and Sepolia (must hold gas on both) |
-| `DEPLOY_CRE_WORKFLOW` | Set to `1` to run optional CRE CLI deploy after hub + Sepolia (needs `cre` + `CRE_API_KEY`) |
-| `CRE_API_KEY` | Non-interactive CRE CLI authentication |
+| `DEPLOY_CRE_WORKFLOW` | Set to `1` to run local `cre workflow simulate --broadcast` after hub + Sepolia, then `cast send` `setMockPrice` (needs `cre`, `cast`, reachable price API — default `http://127.0.0.1:3001/...`) |
+| `FAIL_ON_CRE_FAILURE` | Set to `1` to exit non-zero if CRE simulate or on-chain price tx does not complete |
 | `EXTERNAL_PRICE_API_URL` | Optional; overrides `apiUrl` in generated `cre/price-oracle/config.deploy.json` |
 | `CRE_PRICE_TOKEN_ID` | Optional token id string for the CRE config (default: first entry in `config.json`) |
 
@@ -153,11 +187,20 @@ Forge RPCs, CCIP values, and default `CRE_FORWARDER_ADDRESS` come from `shared/c
 GUIDE_EOF
 )"
 
+HUB_ROUTER="$(json_get "$HUB_JSON" ccipMessageRouter)"
+REGISTRY="$(json_get "$HUB_JSON" collateralRegistry)"
+SEPOLIA_ADAPTER="$(json_get "$SEPOLIA_JSON" collateralAdapter)"
+if [[ -z "$HUB_ROUTER" || -z "$REGISTRY" || -z "$SEPOLIA_ADAPTER" ]]; then
+  echo "Missing deployment addresses (ccipMessageRouter, collateralRegistry, or collateralAdapter in JSON)." >&2
+  exit 1
+fi
+
 ORACLE="$(json_get "$HUB_JSON" oracleConsumer)"
 POOL="$(json_get "$HUB_JSON" lendingPool)"
 LIQ="$(json_get "$HUB_JSON" auctionLiquidationManager)"
 HF="$(json_get "$HUB_JSON" healthFactorEngine)"
-USDC="$(json_get "$HUB_JSON" mockUsdc)"
+USDC="$(json_get "$HUB_JSON" usdc)"
+[[ -z "$USDC" ]] && USDC="$(json_get "$HUB_JSON" mockUsdc)"
 KEEPER="$(json_get "$HUB_JSON" chainlinkAutomationKeeper)"
 CCIP_ONCHAIN="$(json_get "$HUB_JSON" ccipRouterOnChain)"
 
@@ -165,30 +208,35 @@ SEP_COLL="$(json_get "$SEPOLIA_JSON" cardFiCollectible)"
 SEP_VAULT="$(json_get "$SEPOLIA_JSON" nftVault)"
 
 CRE_DIR="$REPO_ROOT/cre/price-oracle"
+CRE_COMPLETED=0
 if [[ "${DEPLOY_CRE_WORKFLOW:-}" == "1" ]]; then
   if ! command -v cre >/dev/null 2>&1; then
     echo "CRE skipped: Chainlink CRE CLI not on PATH (install cre, then re-run with DEPLOY_CRE_WORKFLOW=1)."
-  elif [[ -z "${CRE_API_KEY:-}" ]]; then
-    echo "CRE skipped: set CRE_API_KEY for non-interactive CLI auth (see https://docs.chain.link/cre/reference/cli/authentication)."
+  elif ! command -v cast >/dev/null 2>&1; then
+    echo "CRE skipped: cast (Foundry) not on PATH — needed to submit setMockPrice after simulate."
   elif [[ -z "${ORACLE:-}" || -z "${SEP_COLL:-}" ]]; then
     echo "CRE skipped: missing oracleConsumer or collectible address from deployment JSON."
   else
-    echo "=== Optional: CRE workflow deploy (DEPLOY_CRE_WORKFLOW=1) ==="
+    echo "=== Optional: CRE workflow simulate + on-chain price (DEPLOY_CRE_WORKFLOW=1) ==="
     if (cd "$CRE_DIR" && npm ci --omit=dev); then
       BASE_CFG="$CRE_DIR/config.json"
       SCHEDULE=$(jq -r '.schedule' "$BASE_CFG")
-      DEFAULT_API=$(jq -r '.apiUrl' "$BASE_CFG")
-      API_URL="${EXTERNAL_PRICE_API_URL:-$DEFAULT_API}"
       TOKEN_ID="${CRE_PRICE_TOKEN_ID:-$(jq -r '.evms[0].tokenId // "1"' "$BASE_CFG")}"
+      COLL_LOWER=$(printf '%s' "$SEP_COLL" | tr '[:upper:]' '[:lower:]')
+      BACKEND_DEFAULT="http://127.0.0.1:3001/cards/${COLL_LOWER}/${TOKEN_ID}/price"
+      API_URL="${EXTERNAL_PRICE_API_URL:-$BACKEND_DEFAULT}"
+      API_KEY="${SLABFI_API_KEY:-$(jq -r '.apiKey // ""' "$BASE_CFG")}"
       jq -n \
         --arg schedule "$SCHEDULE" \
         --arg apiUrl "$API_URL" \
+        --arg apiKey "$API_KEY" \
         --arg oracle "$ORACLE" \
         --arg collection "$SEP_COLL" \
         --arg tokenId "$TOKEN_ID" \
         '{
           schedule: $schedule,
           apiUrl: $apiUrl,
+          apiKey: $apiKey,
           evms: [{
             oracleConsumerAddress: $oracle,
             chainSelectorName: "arc-testnet",
@@ -198,15 +246,50 @@ if [[ "${DEPLOY_CRE_WORKFLOW:-}" == "1" ]]; then
           }]
         }' >"$CRE_DIR/config.deploy.json"
       set +e
-      (cd "$CRE_DIR" && CRE_API_KEY="$CRE_API_KEY" cre workflow deploy . --target arc-testnet-deploy --yes)
+      CRE_OUTPUT=$(cd "$CRE_DIR" && cre workflow simulate . --target arc-testnet-deploy --broadcast 2>&1)
       cre_status=$?
       set -e
       if [[ "$cre_status" -ne 0 ]]; then
-        echo "WARN: cre workflow deploy exited $cre_status (Early Access, target name, or platform limits). Hub and source deploys finished successfully." >&2
+        echo "$CRE_OUTPUT" >&2
+        echo "WARN: cre workflow simulate exited $cre_status (is the backend reachable at the price URL?). Hub and source deploys finished successfully." >&2
+        if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]]; then
+          exit "$cre_status"
+        fi
+      else
+        PRICE=$(echo "$CRE_OUTPUT" | sed -n 's/.*Consensus price (8 decimals): \([0-9]*\).*/\1/p' | tail -1)
+        if [[ -z "$PRICE" ]]; then
+          echo "$CRE_OUTPUT" >&2
+          echo "WARN: CRE simulate succeeded but could not parse consensus price from output." >&2
+          if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]]; then
+            exit 1
+          fi
+        else
+          echo "Submitting oracle price on-chain: collection=$SEP_COLL tokenId=$TOKEN_ID price=$PRICE"
+          set +e
+          cast send "$ORACLE" \
+            "setMockPrice(address,uint256,uint256,uint8)" \
+            "$SEP_COLL" "$TOKEN_ID" "$PRICE" 1 \
+            --rpc-url "$ARC_TESTNET_RPC" \
+            --private-key "$DEPLOYER_PRIVATE_KEY"
+          cast_status=$?
+          set -e
+          if [[ "$cast_status" -ne 0 ]]; then
+            echo "WARN: cast send setMockPrice exited $cast_status." >&2
+            if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]]; then
+              exit "$cast_status"
+            fi
+          else
+            CRE_COMPLETED=1
+          fi
+        fi
       fi
     else
       echo "CRE skipped: npm ci failed in cre/price-oracle (install dependencies manually)."
     fi
+  fi
+  if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]] && [[ "$CRE_COMPLETED" -ne 1 ]]; then
+    echo "CRE simulate / on-chain price step did not complete successfully (FAIL_ON_CRE_FAILURE=1)." >&2
+    exit 1
   fi
 fi
 
@@ -239,7 +322,7 @@ _Generated: ${TS}_ (re-run \`scripts/deploy-all.sh\` to refresh.)
 | LendingPool (proxy) | ${POOL} |
 | AuctionLiquidationManager (proxy) | ${LIQ} |
 | HealthFactorEngine (proxy) | ${HF} |
-| MockUSDC | ${USDC} |
+| USDC (hub, ERC-20) | ${USDC} |
 | ChainlinkAutomationKeeper | ${KEEPER} |
 
 _Proxy implementation addresses are stored in \`contracts/deployments/hub.json\`._

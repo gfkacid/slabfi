@@ -19,6 +19,47 @@ model IndexerCursor {
   @@id([chainId, contractKey])
 }
 
+/// Off-chain card catalog + pricing (NFT collection + token id)
+model Card {
+  id              String   @id @default(cuid())
+  collection      String
+  tokenId         BigInt
+  cardName        String
+  cardImage       String   @db.Text
+  setName         String?
+  cardNumber      String?
+  cardRarity      String?
+  cardPrinting    String?
+  gradeService    String?
+  grade           Int?
+  pricechartingId String?
+  tier            Int      @default(1)
+  ltvBps          Int      @default(5000)
+  latestPriceUsdc BigInt?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  dailyPrices     CardDailyPrice[]
+  collateralItems CollateralItem[]
+
+  @@unique([collection, tokenId])
+}
+
+/// One row per card per calendar day (UTC); price in 6-decimal USDC (micro-USDC)
+model CardDailyPrice {
+  id        String   @id @default(cuid())
+  cardId    String
+  date      DateTime @db.Date
+  priceUsdc BigInt
+  source    String   @default("pricecharting")
+  createdAt DateTime @default(now())
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, date])
+  @@index([cardId, date])
+}
+
 /// Hub chain id groups rows for multi-deployment / test setups
 model CollateralItem {
   id             String @id
@@ -33,9 +74,12 @@ model CollateralItem {
   tokenUri       String? @db.Text
   cardName       String?
   cardImage      String? @db.Text
+  cardId         String?
+  card           Card?  @relation(fields: [cardId], references: [id])
 
   @@index([hubChainId, owner])
   @@index([hubChainId, collection, tokenId])
+  @@index([cardId])
 }
 
 /// Borrower position snapshot (indexer-maintained from pool events + optional reconcile)

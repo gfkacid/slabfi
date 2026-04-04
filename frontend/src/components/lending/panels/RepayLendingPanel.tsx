@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
-import { LENDING_POOL_ABI, ERC20_ABI } from "@slabfinance/shared";
+import { LENDING_POOL_ABI, ERC20_ABI, HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { UsdcInputField } from "@/components/shared/lending/UsdcInputField";
 import { LendingActionPanel } from "@/components/shared/lending/LendingActionPanel";
 import { lendingGradientPrimary } from "@/components/shared/lending/lendingStyles";
 import { useOutstandingDebt, useRepay, useUsdcBalance } from "@/hooks";
 import { hubChain, hubContracts } from "@/lib/hub";
+import { formatUsdc } from "@/lib/hubFormat";
 
 export function RepayLendingPanel() {
   const { isConnected, chainId } = useAccount();
@@ -22,19 +23,18 @@ export function RepayLendingPanel() {
   const principal = debt?.[0] ?? 0n;
   const interest = debt?.[1] ?? 0n;
   const totalDebt = principal + interest;
-  const totalFormatted = Number(formatUnits(totalDebt, 18));
+  const totalFormatted = Number(formatUnits(totalDebt, HUB_USDC_DECIMALS));
 
   const amountWei = useMemo(() => {
     try {
       if (!amount || amount === ".") return 0n;
-      return parseUnits(amount, 18);
+      return parseUnits(amount, HUB_USDC_DECIMALS);
     } catch {
       return 0n;
     }
   }, [amount]);
 
-  const walletStr =
-    walletBal !== undefined ? formatUnits(walletBal, 18) : "0";
+  const walletStr = walletBal !== undefined ? formatUsdc(walletBal) : "0.00";
 
   const canRepay =
     isHub &&
@@ -85,7 +85,7 @@ export function RepayLendingPanel() {
                 Principal
               </span>
               <p className="font-headline text-lg font-bold text-primary">
-                {Number(formatUnits(principal, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                {Number(formatUnits(principal, HUB_USDC_DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
                 <span className="text-xs font-medium opacity-60">USDC</span>
               </p>
             </div>
@@ -94,7 +94,7 @@ export function RepayLendingPanel() {
                 Accrued Interest
               </span>
               <p className="font-headline text-lg font-bold text-primary">
-                {Number(formatUnits(interest, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}{" "}
+                {Number(formatUnits(interest, HUB_USDC_DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}{" "}
                 <span className="text-xs font-medium opacity-60">USDC</span>
               </p>
             </div>
@@ -120,7 +120,7 @@ export function RepayLendingPanel() {
                     <span className="text-xs font-medium text-on-surface-variant">
                       Wallet Balance:{" "}
                       <span className="font-bold text-primary">
-                        {Number(walletStr).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC
+                        {walletStr} USDC
                       </span>
                     </span>
                     <button

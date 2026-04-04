@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { hubChain } from "@/lib/hub";
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { formatUnits } from "viem";
 
 export function DashboardPage() {
@@ -56,10 +57,10 @@ export function DashboardPage() {
 
   const creditFormatted =
     availableCredit !== undefined
-      ? `$${Number(formatUnits(availableCredit, 18)).toFixed(2)}`
+      ? `$${Number(formatUnits(availableCredit, HUB_USDC_DECIMALS)).toFixed(2)}`
       : "—";
-  const principal = debt !== undefined ? Number(formatUnits(debt[0], 18)) : 0;
-  const interest = debt !== undefined ? Number(formatUnits(debt[1], 18)) : 0;
+  const principal = debt !== undefined ? Number(formatUnits(debt[0], HUB_USDC_DECIMALS)) : 0;
+  const interest = debt !== undefined ? Number(formatUnits(debt[1], HUB_USDC_DECIMALS)) : 0;
   const totalDebtFormatted = `$${(principal + interest).toFixed(2)}`;
   const collateralCount = position?.collateralIds?.length ?? 0;
 

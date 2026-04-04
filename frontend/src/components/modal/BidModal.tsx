@@ -1,3 +1,4 @@
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { formatUnits, parseUnits } from "viem";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccount, useBalance, useChainId } from "wagmi";
@@ -15,8 +16,8 @@ function formatCountdown(seconds: number) {
   return `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
 }
 
-function formatUsdcFrom18(value: bigint) {
-  return Number(formatUnits(value, 18)).toLocaleString(undefined, {
+function formatUsdcAmount(value: bigint) {
+  return Number(formatUnits(value, HUB_USDC_DECIMALS)).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -61,7 +62,7 @@ export function BidModal({ payload, onClose }: BidModalProps) {
   }, [entry, hasBid, incrementBps]);
 
   useEffect(() => {
-    setBidInput(formatUsdcFrom18(minAmountWei).replace(/,/g, ""));
+    setBidInput(formatUsdcAmount(minAmountWei).replace(/,/g, ""));
   }, [entry.auctionId, minAmountWei]);
 
   const deadlineSec = Number(entry.deadline);
@@ -83,10 +84,10 @@ export function BidModal({ payload, onClose }: BidModalProps) {
   const vaultLine = `${entry.borrower.slice(0, 5)}…${entry.borrower.slice(-4)}`;
 
   const currentBidAmount =
-    entry.highestBid > 0n ? formatUsdcFrom18(entry.highestBid) : "—";
+    entry.highestBid > 0n ? formatUsdcAmount(entry.highestBid) : "—";
 
   const secondaryStatLabel = "Liquidation fee (on debt)";
-  const secondaryStatValue = `${formatUsdcFrom18(entry.feeSnapshot)} USDC`;
+  const secondaryStatValue = `${formatUsdcAmount(entry.feeSnapshot)} USDC`;
 
   const balanceLabel = usdcBal?.formatted
     ? `${Number(usdcBal.formatted).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`
@@ -97,7 +98,7 @@ export function BidModal({ payload, onClose }: BidModalProps) {
   const handlePlaceBid = useCallback(async () => {
     let wei: bigint;
     try {
-      wei = parseUnits(bidInput.replace(/,/g, "").trim() || "0", 18);
+      wei = parseUnits(bidInput.replace(/,/g, "").trim() || "0", HUB_USDC_DECIMALS);
     } catch {
       return;
     }
@@ -113,7 +114,7 @@ export function BidModal({ payload, onClose }: BidModalProps) {
 
   let parseOk = true;
   try {
-    const w = parseUnits(bidInput.replace(/,/g, "").trim() || "0", 18);
+    const w = parseUnits(bidInput.replace(/,/g, "").trim() || "0", HUB_USDC_DECIMALS);
     if (w < minAmountWei) parseOk = false;
   } catch {
     parseOk = false;

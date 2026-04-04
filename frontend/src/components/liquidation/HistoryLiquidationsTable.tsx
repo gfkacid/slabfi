@@ -1,3 +1,4 @@
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { formatUnits } from "viem";
 import { Icon } from "@/components/ui/Icon";
 import { LiquidationTableSection } from "./LiquidationTableSection";
@@ -56,7 +57,7 @@ export function HistoryLiquidationsTable() {
               const statusLabel = row.cancelled ? "Cancelled" : settled ? "Settled" : "Closed";
               const winRaw = row.settlement?.winningBid ?? row.highestBid;
               const win = BigInt(winRaw);
-              const winStr = `${Number(formatUnits(win, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
+              const winStr = `${Number(formatUnits(win, HUB_USDC_DECIMALS)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDC`;
               const ts = row.settlement?.timestampUnix ?? row.deadlineUnix;
               const tx = row.settlement?.txHash;
               const href = explorerBase && tx ? `${explorerBase}/tx/${tx}` : undefined;

@@ -26,16 +26,19 @@ export function useEffectiveLTV(collection: `0x${string}` | undefined, tokenId: 
   });
 }
 
-/** Oracle risk tier for a collection (1–3 typical). */
-export function useCollectionTier(collection: `0x${string}` | undefined) {
+/** Oracle risk tier for a specific token (1–3 typical). */
+export function useTokenTier(
+  collection: `0x${string}` | undefined,
+  tokenId: bigint | undefined,
+) {
   const chainId = useChainId();
   const addr = chainId === hubChain.id ? hubContracts.oracleConsumer : undefined;
 
   return useReadContract({
     address: addr,
     abi: ORACLE_CONSUMER_ABI,
-    functionName: "collectionTier",
-    args: collection ? [collection] : undefined,
-    query: { enabled: Boolean(addr && collection) },
+    functionName: "tokenTier",
+    args: collection !== undefined && tokenId !== undefined ? [collection, tokenId] : undefined,
+    query: { enabled: Boolean(addr && collection !== undefined && tokenId !== undefined) },
   });
 }

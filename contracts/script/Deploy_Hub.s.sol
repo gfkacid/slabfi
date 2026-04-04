@@ -9,7 +9,8 @@ import {LendingPool} from "../src/hub/LendingPool.sol";
 import {AuctionLiquidationManager} from "../src/hub/AuctionLiquidationManager.sol";
 import {CCIPMessageRouter} from "../src/hub/CCIPMessageRouter.sol";
 import {ChainlinkAutomationKeeper} from "../src/hub/ChainlinkAutomationKeeper.sol";
-import {MockUSDC} from "../src/mocks/MockUSDC.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployHub is Script {
@@ -22,8 +23,8 @@ contract DeployHub is Script {
 
         // Placeholder forwarder for hackathon; production: set CRE KeystoneForwarder via setForwarderAddress
         address creForwarder = vm.envOr("CRE_FORWARDER_ADDRESS", address(1));
-        MockUSDC usdc = new MockUSDC();
-        usdc.mint(deployer, 1_000_000e18);
+        address usdcAddr = vm.envAddress("HUB_USDC_ADDRESS");
+        uint8 usdcDecimals = IERC20Metadata(usdcAddr).decimals();
 
         OracleConsumer oracleImpl = new OracleConsumer();
         ERC1967Proxy oracleProxy = new ERC1967Proxy(
@@ -53,7 +54,7 @@ contract DeployHub is Script {
 
         ERC1967Proxy poolProxy = new ERC1967Proxy(
             address(poolImpl),
-            abi.encodeWithSelector(LendingPool.initialize.selector, address(usdc), address(registry))
+            abi.encodeWithSelector(LendingPool.initialize.selector, usdcAddr, address(registry))
         );
         LendingPool pool = LendingPool(address(poolProxy));
 
@@ -64,7 +65,7 @@ contract DeployHub is Script {
                 address(registry),
                 address(pool),
                 address(oracle),
-                address(usdc),
+                usdcAddr,
                 deployer
             )
         );
@@ -95,8 +96,19 @@ contract DeployHub is Script {
 
         liquidationManager.grantRole(liquidationManager.HF_ENGINE_ROLE(), address(hfEngine));
 
-        usdc.approve(address(pool), 100_000e18);
-        pool.deposit(100_000e18);
+        uint256 seedDefault = 1_000 * (10 ** uint256(usdcDecimals));
+        uint256 seedAmount = vm.envOr("HUB_SEED_DEPOSIT_RAW", seedDefault);
+        if (seedAmount > 0) {
+            uint256 bal = IERC20(usdcAddr).balanceOf(deployer);
+            if (bal < seedAmount) {
+                console.log("Skipping seed deposit: deployer USDC below required amount");
+                console.logUint(bal);
+                console.logUint(seedAmount);
+            } else {
+                IERC20(usdcAddr).approve(address(pool), seedAmount);
+                pool.deposit(seedAmount);
+            }
+        }
 
         ChainlinkAutomationKeeper keeper = new ChainlinkAutomationKeeper(
             address(hfEngine),
@@ -113,13 +125,13 @@ contract DeployHub is Script {
         console.log("HealthFactorEngine:", address(hfEngine));
         console.log("CCIPMessageRouter:", address(ccipRouterContract));
         console.log("ChainlinkAutomationKeeper:", address(keeper));
-        console.log("MockUSDC:", address(usdc));
+        console.log("USDC:", usdcAddr);
 
         string memory outPath = vm.envOr("HUB_DEPLOYMENT_OUTPUT", string("deployments/hub.json"));
         string memory json = vm.serializeString("hub", "network", "arc-testnet");
         json = vm.serializeAddress(json, "ccipRouterOnChain", ccipRouter);
         json = vm.serializeAddress(json, "creForwarderAddress", creForwarder);
-        json = vm.serializeAddress(json, "mockUsdc", address(usdc));
+        json = vm.serializeAddress(json, "usdc", usdcAddr);
         json = vm.serializeAddress(json, "oracleConsumer", address(oracle));
         json = vm.serializeAddress(json, "oracleConsumerImplementation", address(oracleImpl));
         json = vm.serializeAddress(json, "ccipMessageRouter", address(ccipRouterContract));

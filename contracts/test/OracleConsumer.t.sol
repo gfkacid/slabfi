@@ -54,6 +54,24 @@ contract OracleConsumerTest is Test {
         assertLe(ltv, 4000);
     }
 
+    function test_SetTokenTier() public {
+        uint256 tid = 42;
+        oracle.setTokenTier(collection, tid, 2);
+        assertEq(oracle.tokenTier(collection, tid), uint8(2));
+    }
+
+    function test_TwoTokensSameCollection_DifferentTiers_DifferentEffectiveLTV() public {
+        uint256 tid1 = 1;
+        uint256 tid2 = 2;
+        oracle.setMockPrice(collection, tid1, 100e8, 1);
+        oracle.setMockPrice(collection, tid2, 100e8, 3);
+        uint256 ltv1 = oracle.getEffectiveLTV(collection, tid1);
+        uint256 ltv3 = oracle.getEffectiveLTV(collection, tid2);
+        assertEq(ltv1, 4000);
+        assertEq(ltv3, 1500);
+        assertGt(ltv1, ltv3);
+    }
+
     function test_RevertWhen_PriceStale() public {
         oracle.setMockPrice(collection, tokenId, 100e8, 1);
         vm.warp(block.timestamp + 27 hours);

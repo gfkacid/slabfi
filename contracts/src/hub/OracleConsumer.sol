@@ -33,8 +33,8 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
     uint256[4] public baseLTV;
     // Liquidation thresholds by tier
     uint256[4] public liquidationThreshold;
-    // collection => tier
-    mapping(address => uint8) public collectionTier;
+    // collection => tokenId => tier (1–3)
+    mapping(address => mapping(uint256 => uint8)) public tokenTier;
 
     uint256 public lastPriceUpdateTime;
 
@@ -87,11 +87,11 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
         uint256 priceUSD,
         uint8 tier
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (tier > 0) {
+            tokenTier[collection][tokenId] = tier;
+        }
         uint256 attestedAt = block.timestamp;
         _updatePrice(collection, tokenId, priceUSD, attestedAt);
-        if (tier > 0) {
-            collectionTier[collection] = tier;
-        }
     }
 
     /// @notice Returns latest price; reverts if stale
@@ -119,7 +119,7 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
     /// @param tokenId Token ID
     /// @return effectiveLTVBps Effective LTV in basis points
     function getEffectiveLTV(address collection, uint256 tokenId) external view returns (uint256 effectiveLTVBps) {
-        uint8 tier = collectionTier[collection];
+        uint8 tier = tokenTier[collection][tokenId];
         if (tier == 0) tier = 1;
         uint256 base = baseLTV[tier];
 
@@ -167,10 +167,10 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
         return y;
     }
 
-    /// @notice Set tier for a collection
-    function setCollectionTier(address collection, uint8 tier) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    /// @notice Set risk tier for a specific NFT (per-token within a collection)
+    function setTokenTier(address collection, uint256 tokenId, uint8 tier) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(tier >= 1 && tier <= 3, "Invalid tier");
-        collectionTier[collection] = tier;
+        tokenTier[collection][tokenId] = tier;
     }
 
     function _updatePrice(
@@ -183,7 +183,7 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
             priceUSD: priceUSD,
             attestedAt: attestedAt,
             updatedAt: block.timestamp,
-            tier: collectionTier[collection] > 0 ? collectionTier[collection] : 1
+            tier: tokenTier[collection][tokenId] > 0 ? tokenTier[collection][tokenId] : uint8(1)
         });
 
         // Append to price history

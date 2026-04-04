@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/ICardFiTypes.sol";
 import "./CollateralRegistry.sol";
 import "./OracleConsumer.sol";
@@ -42,7 +43,7 @@ contract HealthFactorEngine is Initializable, UUPSUpgradeable, AccessControl {
     function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     function recomputePosition(address borrower) public returns (uint256 healthFactor, PositionStatus newStatus) {
-        (uint256 weightedCollateral, uint256 totalDebt) = _computePosition(borrower);
+        (uint256 capacityRaw, uint256 totalDebtRaw) = _computePosition(borrower);
 
         Position memory pos = collateralRegistry.getPosition(borrower);
         for (uint256 i = 0; i < pos.collateralIds.length; i++) {
@@ -53,13 +54,13 @@ contract HealthFactorEngine is Initializable, UUPSUpgradeable, AccessControl {
             }
         }
 
-        (weightedCollateral, totalDebt) = _computePosition(borrower);
+        (capacityRaw, totalDebtRaw) = _computePosition(borrower);
 
-        if (totalDebt == 0) {
+        if (totalDebtRaw == 0) {
             healthFactor = type(uint256).max;
             newStatus = PositionStatus.HEALTHY;
         } else {
-            healthFactor = (weightedCollateral * 1e18) / totalDebt;
+            healthFactor = Math.mulDiv(capacityRaw, 1e18, totalDebtRaw);
             newStatus = _healthFactorToStatus(healthFactor);
         }
 
@@ -84,7 +85,7 @@ contract HealthFactorEngine is Initializable, UUPSUpgradeable, AccessControl {
         uint256 count = 0;
 
         for (uint256 i = 0; i < borrowers.length; i++) {
-            (uint256 hf, PositionStatus status) = recomputePosition(borrowers[i]);
+            (, PositionStatus status) = recomputePosition(borrowers[i]);
             if (status != PositionStatus.HEALTHY) {
                 result[count] = borrowers[i];
                 count++;
@@ -97,36 +98,41 @@ contract HealthFactorEngine is Initializable, UUPSUpgradeable, AccessControl {
         return result;
     }
 
+    /// @notice `collateralValuesUSD` = oracle prices (8 decimals). `totalDebtRaw` = USDC token raw units (6 decimals).
     function previewHealthFactor(
         uint256[] calldata collateralValuesUSD,
         uint8[] calldata tiers,
-        uint256 totalDebtUSD
+        uint256 totalDebtRaw
     ) external pure returns (uint256 healthFactor) {
         require(collateralValuesUSD.length == tiers.length, "Length mismatch");
 
-        uint256 weightedCollateral = 0;
+        uint256 weightedSum8 = 0;
         uint256[4] memory baseLTV = [uint256(0), 4000, 2500, 1500];
 
         for (uint256 i = 0; i < collateralValuesUSD.length; i++) {
             uint256 base = tiers[i] > 0 && tiers[i] <= 3 ? baseLTV[tiers[i]] : 4000;
-            weightedCollateral += (collateralValuesUSD[i] * base) / 10000;
+            weightedSum8 += (collateralValuesUSD[i] * base) / 10000;
         }
 
-        if (totalDebtUSD == 0) return type(uint256).max;
-        return (weightedCollateral * 1e18) / totalDebtUSD;
+        uint256 capacityRaw = Math.mulDiv(weightedSum8, 1e6, 1e8);
+        if (totalDebtRaw == 0) return type(uint256).max;
+        return Math.mulDiv(capacityRaw, 1e18, totalDebtRaw);
     }
 
     function getPositionStatus(address borrower) external view returns (PositionStatus) {
-        (uint256 weightedCollateral, uint256 totalDebt) = _computePosition(borrower);
-        if (totalDebt == 0) return PositionStatus.HEALTHY;
-        uint256 hf = (weightedCollateral * 1e18) / totalDebt;
+        (uint256 capacityRaw, uint256 totalDebtRaw) = _computePosition(borrower);
+        if (totalDebtRaw == 0) return PositionStatus.HEALTHY;
+        uint256 hf = Math.mulDiv(capacityRaw, 1e18, totalDebtRaw);
         return _healthFactorToStatus(hf);
     }
 
-    function _computePosition(address borrower) internal view returns (uint256 weightedCollateral, uint256 totalDebt) {
+    /// @return capacityRaw Weighted borrow capacity in USDC raw units (6 decimals).
+    /// @return totalDebtRaw Outstanding debt in USDC raw units (6 decimals).
+    function _computePosition(address borrower) internal view returns (uint256 capacityRaw, uint256 totalDebtRaw) {
         Position memory pos = collateralRegistry.getPosition(borrower);
-        (,, totalDebt) = lendingPool.outstandingDebt(borrower);
+        (,, totalDebtRaw) = lendingPool.outstandingDebt(borrower);
 
+        uint256 weightedSum8 = 0;
         for (uint256 i = 0; i < pos.collateralIds.length; i++) {
             CollateralItem memory item = collateralRegistry.getCollateralItem(pos.collateralIds[i]);
             if (item.status != CollateralStatus.ACTIVE) continue;
@@ -135,10 +141,10 @@ contract HealthFactorEngine is Initializable, UUPSUpgradeable, AccessControl {
                 uint256 effectiveLTV = oracleConsumer.getEffectiveLTV(item.collection, item.tokenId);
                 bool inPenalty = oracleConsumer.isInStalenessPenaltyWindow(item.collection, item.tokenId);
                 if (inPenalty) effectiveLTV = effectiveLTV / 2;
-                weightedCollateral += (price * effectiveLTV) / 10000;
+                weightedSum8 += (price * effectiveLTV) / 10000;
             } catch {}
         }
-        weightedCollateral = weightedCollateral * 1e10;
+        capacityRaw = Math.mulDiv(weightedSum8, 1e6, 1e8);
     }
 
     function _healthFactorToStatus(uint256 hf) internal pure returns (PositionStatus) {

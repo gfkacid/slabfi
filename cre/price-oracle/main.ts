@@ -21,6 +21,8 @@ import { ORACLE_ON_REPORT_ABI } from './abi'
 const configSchema = z.object({
   schedule: z.string(),
   apiUrl: z.string(),
+  /** Sent as `x-api-key` to Slab.Finance backend `/cards/.../price` */
+  apiKey: z.string().optional(),
   evms: z.array(
     z.object({
       oracleConsumerAddress: z.string(),
@@ -54,7 +56,16 @@ function parsePriceFromBody(body: string): bigint {
 }
 
 const fetchPriceUsd = (sendRequester: HTTPSendRequester, config: Config) => {
-  const response = sendRequester.sendRequest({ url: config.apiUrl, method: 'GET' }).result()
+  const key = config.apiKey?.trim()
+  const request: {
+    url: string
+    method: string
+    headers?: { key: string; value: string }[]
+  } = { url: config.apiUrl, method: 'GET' }
+  if (key) {
+    request.headers = [{ key: 'x-api-key', value: key }]
+  }
+  const response = sendRequester.sendRequest(request).result()
   if (!ok(response)) {
     throw new Error(`HTTP request failed with status: ${response.statusCode}`)
   }

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "setup": "bash scripts/setup.sh",
     "dev": "pnpm --parallel --filter @slabfinance/frontend --filter @slabfinance/backend dev",
     "dev:frontend": "pnpm --filter @slabfinance/frontend dev",
     "dev:backend": "pnpm --filter @slabfinance/backend dev",
@@ -14,7 +15,8 @@
     "build": "pnpm --filter @slabfinance/shared build && prisma generate && pnpm --filter @slabfinance/backend build && pnpm --filter @slabfinance/indexer build && pnpm --filter @slabfinance/frontend build",
     "build:shared": "pnpm --filter @slabfinance/shared build",
     "lint": "pnpm -r lint",
-    "mint:collectibles": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/mint-cardfi-collectibles.ts"
+    "mint:collectibles": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/mint-cardfi-collectibles.ts",
+    "db:seed:cards": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-cards-from-stub.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3"

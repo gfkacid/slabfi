@@ -1,16 +1,20 @@
 import { formatUnits } from "viem";
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 
 const WAD = 10n ** 18n;
 
-/** Hub USDC uses 18 decimals in this app. */
-export const HUB_USDC_DECIMALS = 18;
+export { HUB_USDC_DECIMALS };
 
-export function formatUsd18(value: bigint | undefined): string {
+/** Format hub USDC / pool raw amounts (6 decimals). */
+export function formatUsdc(value: bigint | undefined): string {
   if (value === undefined) return "—";
   const n = Number(formatUnits(value, HUB_USDC_DECIMALS));
   if (!Number.isFinite(n)) return "—";
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+/** @deprecated Use formatUsdc */
+export const formatUsd18 = formatUsdc;
 
 /** utilization() returns WAD-scaled fraction (1e18 = 100%). */
 export function utilizationPercentFromWad(wad: bigint | undefined): number | undefined {
@@ -35,14 +39,17 @@ export function utilizationPercentFromSnapshotWad(wadStr: string | undefined): n
   }
 }
 
-export function formatUsdFromSnapshotString(raw: string | undefined): string {
+export function formatUsdcFromSnapshotString(raw: string | undefined): string {
   if (!raw) return "—";
   try {
-    return formatUsd18(BigInt(raw));
+    return formatUsdc(BigInt(raw));
   } catch {
     return "—";
   }
 }
+
+/** @deprecated Use formatUsdcFromSnapshotString */
+export const formatUsdFromSnapshotString = formatUsdcFromSnapshotString;
 
 export function aprPercentFromSnapshotBps(bpsStr: string | undefined): string {
   if (!bpsStr) return "—";
