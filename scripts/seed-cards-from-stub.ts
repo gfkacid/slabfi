@@ -1,7 +1,8 @@
 /**
  * Upserts `Card` rows from `scripts/data/cardFi-collectibles-metadata.stub.json`
- * for token ids 1..N (row order). Set SEED_CARD_COLLECTION to your Sepolia
- * CardFiCollectible address (0x...). Optional PRICECHARTING_ID_N (1-based) per token.
+ * for token ids 1..N (row order). Each row may include `tier` (1–3); `ltvBps` is
+ * derived to match hub OracleConsumer base LTV. Set SEED_CARD_COLLECTION to your
+ * Sepolia CardFiCollectible address (0x...). Optional PRICECHARTING_ID_N (1-based) per token.
  *
  *   pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-cards-from-stub.ts
  */
@@ -23,7 +24,25 @@ type TokenRow = {
   cardPrinting: string;
   gradeService: string | null;
   grade: number | null;
+  tier?: number;
 };
+
+/** Matches hub OracleConsumer baseLTV for tiers 1–3 (BPS). */
+function ltvBpsForTier(tier: number): number {
+  if (tier === 1) return 4000;
+  if (tier === 2) return 2500;
+  if (tier === 3) return 1500;
+  return 2500;
+}
+
+function tierFromRow(t: TokenRow): number {
+  const x = t.tier;
+  if (x === undefined || x === null) return 2;
+  if (!Number.isInteger(x) || x < 1 || x > 3) {
+    throw new Error(`Invalid tier ${String(x)} — must be 1–3`);
+  }
+  return x;
+}
 
 function loadTokens(scriptDir: string): TokenRow[] {
   const path = join(scriptDir, "data/cardFi-collectibles-metadata.stub.json");
@@ -61,6 +80,8 @@ async function main() {
 
     const pcEnv = process.env[`PRICECHARTING_ID_${i + 1}`]?.trim();
     const pricechartingId = pcEnv || null;
+    const tier = tierFromRow(t);
+    const ltvBps = ltvBpsForTier(tier);
 
     await prisma.card.upsert({
       where: { collection_tokenId: { collection, tokenId } },
@@ -76,8 +97,8 @@ async function main() {
         gradeService,
         grade,
         pricechartingId,
-        tier: 2,
-        ltvBps: 5000,
+        tier,
+        ltvBps,
         latestPriceUsdc: null,
       },
       update: {
@@ -89,6 +110,8 @@ async function main() {
         cardPrinting: t.cardPrinting || null,
         gradeService,
         grade,
+        tier,
+        ltvBps,
         ...(pricechartingId !== null ? { pricechartingId } : {}),
       },
     });

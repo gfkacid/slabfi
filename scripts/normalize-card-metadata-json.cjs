@@ -21,5 +21,16 @@ for (const t of o.tokens) {
   if (t == null || typeof t !== "object") continue;
   if (t.grade == null) t.grade = 0;
   if (t.gradeService == null) t.gradeService = "";
+  if (t.tier == null || t.tier === undefined) {
+    t.tier = 2;
+  } else if (
+    typeof t.tier !== "number" ||
+    !Number.isInteger(t.tier) ||
+    t.tier < 1 ||
+    t.tier > 3
+  ) {
+    console.error("each token.tier must be integer 1–3 if set");
+    process.exit(1);
+  }
 }
 process.stdout.write(JSON.stringify(o));

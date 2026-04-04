@@ -43,7 +43,16 @@ export const HEALTH_FACTOR_ENGINE_ABI = [
 export const ORACLE_CONSUMER_ABI = [
   { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }], name: "getPrice", outputs: [{ name: "", type: "uint256" }, { name: "", type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }], name: "getEffectiveLTV", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
-  { inputs: [{ name: "collection", type: "address" }], name: "collectionTier", outputs: [{ name: "", type: "uint8" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [
+      { name: "collection", type: "address" },
+      { name: "tokenId", type: "uint256" },
+    ],
+    name: "tokenTier",
+    outputs: [{ name: "", type: "uint8" }],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 /** AuctionLiquidationManager (hub) — per-card auctions */
@@ -119,6 +128,9 @@ export const SLAB_COLLECTIBLE_ABI = [
       { name: "cardNumber", type: "string" },
       { name: "cardRarity", type: "string" },
       { name: "cardPrinting", type: "string" },
+      { name: "gradeService", type: "string" },
+      { name: "grade", type: "uint16" },
+      { name: "tier", type: "uint8" },
     ],
     stateMutability: "view",
     type: "function",

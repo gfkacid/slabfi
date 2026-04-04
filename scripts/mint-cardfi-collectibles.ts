@@ -3,9 +3,9 @@
  *
  * Metadata file: `scripts/data/cardFi-collectibles-metadata.stub.json` — top-level
  * object with a `tokens` array (at least one entry). Each entry: cardName, cardImage,
- * setName, cardNumber, cardRarity, cardPrinting, gradeService, grade. `gradeService` and
- * `grade` may be JSON `null` (treated as "" and 0). No tokenId field; ids come from
- * {mintWithMetadata}.
+ * setName, cardNumber, cardRarity, cardPrinting, gradeService, grade, tier (1–3).
+ * `gradeService` and `grade` may be JSON `null` (treated as "" and 0). Omit `tier` to
+ * default to 2. No tokenId field; ids come from {mintWithMetadata}.
  *
  * Contract address: `testnetConfig.source.contracts.slabFinanceCollectible` in shared/config/testnet.ts.
  * Signer: DEPLOYER_PRIVATE_KEY (must be contract owner). Loads repo-root `.env` when present.
@@ -50,6 +50,7 @@ const cardFiCollectibleAbi = [
           { name: "cardPrinting", type: "string" },
           { name: "gradeService", type: "string" },
           { name: "grade", type: "uint16" },
+          { name: "tier", type: "uint8" },
         ],
       },
     ],
@@ -73,6 +74,7 @@ type TokenRow = {
   cardPrinting: string;
   gradeService: string;
   grade: number;
+  tier: number;
 };
 
 function normGradeService(v: unknown): string {
@@ -90,6 +92,17 @@ function normGrade(v: unknown): number {
   }
   if (v < 0 || v > 65535) {
     throw new Error(`grade out of uint16 range: ${v}`);
+  }
+  return v;
+}
+
+function normTier(v: unknown): number {
+  if (v === null || v === undefined) return 2;
+  if (typeof v !== "number" || !Number.isInteger(v)) {
+    throw new Error(`tier must be integer 1–3 or omitted, got ${JSON.stringify(v)}`);
+  }
+  if (v < 1 || v > 3) {
+    throw new Error(`tier must be 1–3, got ${v}`);
   }
   return v;
 }
@@ -115,6 +128,7 @@ function parseTokenRow(row: unknown): TokenRow {
     cardPrinting: str("cardPrinting"),
     gradeService: normGradeService(t.gradeService),
     grade: normGrade(t.grade),
+    tier: normTier(t.tier),
   };
 }
 
@@ -188,6 +202,7 @@ async function main() {
       cardPrinting: t.cardPrinting,
       gradeService: t.gradeService,
       grade: t.grade,
+      tier: t.tier,
     } as const;
 
     const hash = await walletClient.writeContract({

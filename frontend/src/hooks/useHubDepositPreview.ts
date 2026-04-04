@@ -62,8 +62,8 @@ export function useHubExistingCollateral(enabled: boolean) {
           const tier = await hubClient.readContract({
             address: oracle,
             abi: ORACLE_CONSUMER_ABI,
-            functionName: "collectionTier",
-            args: [item.collection],
+            functionName: "tokenTier",
+            args: [item.collection, item.tokenId],
           });
           const t = Number(tier);
           valuesWad.push(price8 * PRICE8_TO_WAD);

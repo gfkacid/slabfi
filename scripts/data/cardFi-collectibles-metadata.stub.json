@@ -8,7 +8,8 @@
       "cardRarity": "SIR",
       "cardPrinting": "Holo",
       "gradeService": null,
-      "grade": null
+      "grade": null,
+      "tier": 1
     },
     {
       "cardName": "Mega Charizard X ex #125",
@@ -18,7 +19,8 @@
       "cardRarity": "SIR",
       "cardPrinting": "Holo",
       "gradeService": null,
-      "grade": null
+      "grade": null,
+      "tier": 1
     },
     {
       "cardName": "Lillie's Clefairy EX #173 - PSA 10",
@@ -28,7 +30,8 @@
       "cardRarity": "Rare",
       "cardPrinting": "Holo",
       "gradeService": "PSA",
-      "grade": 100
+      "grade": 100,
+      "tier": 2
     },
     {
       "cardName": "Misty's Psyduck EX #71 - PSA 10",
@@ -38,7 +41,8 @@
       "cardRarity": "SIR",
       "cardPrinting": "Holo",
       "gradeService": "PSA",
-      "grade": 100
+      "grade": 100,
+      "tier": 2
     },
     {
       "cardName": "Omanyte #52 CGC 9",
@@ -48,7 +52,8 @@
       "cardRarity": "Common",
       "cardPrinting": "Normal",
       "gradeService": "CGC",
-      "grade": 90
+      "grade": 90,
+      "tier": 3
     },
     {
       "cardName": "Charizard #025 - PSA 9",
@@ -58,7 +63,8 @@
       "cardRarity": "Rare",
       "cardPrinting": "Normal",
       "gradeService": "PSA",
-      "grade": 90
+      "grade": 90,
+      "tier": 2
     }
   ]
 }

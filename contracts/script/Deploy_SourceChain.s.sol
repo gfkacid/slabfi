@@ -24,6 +24,7 @@ contract DeploySourceChain is Script {
         uint256 grade;
         string gradeService;
         string setName;
+        uint256 tier;
     }
 
     function run() external {
@@ -56,6 +57,7 @@ contract DeploySourceChain is Script {
         for (uint256 i = 0; i < tokens.length; i++) {
             CardTokenJson memory t = tokens[i];
             require(t.grade <= type(uint16).max, "grade exceeds uint16");
+            require(t.tier >= 1 && t.tier <= 3, "tier must be 1-3");
             collection.mintWithMetadata(
                 deployer,
                 CardFiCollectible.CardMetadata({
@@ -66,7 +68,8 @@ contract DeploySourceChain is Script {
                     cardRarity: t.cardRarity,
                     cardPrinting: t.cardPrinting,
                     gradeService: t.gradeService,
-                    grade: uint16(t.grade)
+                    grade: uint16(t.grade),
+                    tier: uint8(t.tier)
                 })
             );
         }

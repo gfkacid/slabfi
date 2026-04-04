@@ -15,6 +15,8 @@ contract CardFiCollectible is ERC721, Ownable {
         string cardPrinting;
         string gradeService;
         uint16 grade;
+        /// @dev Protocol risk tier 1–3 (maps to hub OracleConsumer base LTV bands)
+        uint8 tier;
     }
 
     mapping(uint256 => CardMetadata) public cardMetadata;
@@ -32,6 +34,7 @@ contract CardFiCollectible is ERC721, Ownable {
 
     /// @notice Mint the next id to `to` and store metadata in one transaction.
     function mintWithMetadata(address to, CardMetadata calldata metadata) external onlyOwner returns (uint256 tokenId) {
+        require(metadata.tier >= 1 && metadata.tier <= 3, "Invalid tier");
         tokenId = _nextTokenId;
         unchecked {
             _nextTokenId = tokenId + 1;
@@ -46,6 +49,7 @@ contract CardFiCollectible is ERC721, Ownable {
 
     function setCardMetadata(uint256 tokenId, CardMetadata calldata metadata) external onlyOwner {
         require(_ownerOf(tokenId) != address(0), "Token does not exist");
+        require(metadata.tier >= 1 && metadata.tier <= 3, "Invalid tier");
         cardMetadata[tokenId] = metadata;
     }
 
@@ -76,7 +80,9 @@ contract CardFiCollectible is ERC721, Ownable {
             ',',
             _attr("Rarity", meta.cardRarity),
             ',',
-            _attr("Printing", meta.cardPrinting)
+            _attr("Printing", meta.cardPrinting),
+            ',',
+            _attr("Tier", _toString(uint256(meta.tier)))
         );
 
         if (bytes(meta.gradeService).length > 0) {

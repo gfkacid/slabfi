@@ -53,6 +53,7 @@ export function useSepoliaSlabCollectibles(enabled = true) {
             args: [BigInt(tokenId)],
           });
           if (meta) {
+            const tierNum = Number(meta[8]);
             nfts.push({
               tokenId,
               name: meta[0] || `Token #${tokenId}`,
@@ -62,6 +63,7 @@ export function useSepoliaSlabCollectibles(enabled = true) {
               cardNumber: meta[3] || undefined,
               cardRarity: meta[4] || undefined,
               cardPrinting: meta[5] || undefined,
+              riskTier: tierNum >= 1 && tierNum <= 3 ? tierNum : undefined,
             });
           } else {
             nfts.push({ tokenId, name: `Token #${tokenId}`, collection: collectionAddr });
