@@ -1,6 +1,7 @@
 {
   "schedule": "0 0 */23 * * *",
-  "apiUrl": "https://api.example.com/v1/cards/1/quote",
+  "apiUrl": "http://localhost:3001/cards/0x0000000000000000000000000000000000000000/1/price",
+  "apiKey": "",
   "evms": [
     {
       "oracleConsumerAddress": "0x0000000000000000000000000000000000000000",

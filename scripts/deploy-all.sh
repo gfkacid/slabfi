@@ -177,18 +177,22 @@ if [[ "${DEPLOY_CRE_WORKFLOW:-}" == "1" ]]; then
     if (cd "$CRE_DIR" && npm ci --omit=dev); then
       BASE_CFG="$CRE_DIR/config.json"
       SCHEDULE=$(jq -r '.schedule' "$BASE_CFG")
-      DEFAULT_API=$(jq -r '.apiUrl' "$BASE_CFG")
-      API_URL="${EXTERNAL_PRICE_API_URL:-$DEFAULT_API}"
       TOKEN_ID="${CRE_PRICE_TOKEN_ID:-$(jq -r '.evms[0].tokenId // "1"' "$BASE_CFG")}"
+      COLL_LOWER=$(printf '%s' "$SEP_COLL" | tr '[:upper:]' '[:lower:]')
+      BACKEND_DEFAULT="http://127.0.0.1:3001/cards/${COLL_LOWER}/${TOKEN_ID}/price"
+      API_URL="${EXTERNAL_PRICE_API_URL:-$BACKEND_DEFAULT}"
+      API_KEY="${SLABFI_API_KEY:-$(jq -r '.apiKey // ""' "$BASE_CFG")}"
       jq -n \
         --arg schedule "$SCHEDULE" \
         --arg apiUrl "$API_URL" \
+        --arg apiKey "$API_KEY" \
         --arg oracle "$ORACLE" \
         --arg collection "$SEP_COLL" \
         --arg tokenId "$TOKEN_ID" \
         '{
           schedule: $schedule,
           apiUrl: $apiUrl,
+          apiKey: $apiKey,
           evms: [{
             oracleConsumerAddress: $oracle,
             chainSelectorName: "arc-testnet",

@@ -1,9 +1,9 @@
 import { useQueries } from "@tanstack/react-query";
 import type { SlabCollectible } from "@slabfinance/shared";
-
-const base = import.meta.env.VITE_EXTERNAL_PRICE_API_BASE as string | undefined;
+import { getApiBase } from "@/lib/api";
 
 export type CardValuation = {
+  /** 6-decimal USDC (micro-USDC), e.g. $172.44 → 172_440_000 */
   priceUSD: number;
   ltvBPS: number;
   tier: number;
@@ -14,10 +14,11 @@ export type CardValuation = {
 
 export async function fetchCardValuation(
   collection: `0x${string}`,
-  tokenId: string
+  tokenId: string,
 ): Promise<CardValuation | null> {
-  if (!base?.trim()) return null;
-  const url = `${base.replace(/\/$/, "")}/api/v1/cards/${collection}/${tokenId}/valuation`;
+  const base = getApiBase();
+  if (!base) return null;
+  const url = `${base}/cards/${encodeURIComponent(collection)}/${encodeURIComponent(tokenId)}/valuation`;
   const res = await fetch(url);
   if (!res.ok) return null;
   const data = (await res.json()) as Partial<CardValuation>;
@@ -39,9 +40,9 @@ export async function fetchCardValuation(
   };
 }
 
-/** priceUSD from API is in cents (see specs/nft-collateral-deposit.md). */
+/** priceUSD is 6-decimal USDC (micro-USDC). */
 export function maxBorrowUsdFromValuation(v: CardValuation): number {
-  return (v.priceUSD / 100) * (v.ltvBPS / 10000);
+  return (v.priceUSD / 1_000_000) * (v.ltvBPS / 10000);
 }
 
 export function useCardValuations(nfts: SlabCollectible[] | undefined, enabled: boolean) {
@@ -49,12 +50,12 @@ export function useCardValuations(nfts: SlabCollectible[] | undefined, enabled: 
     queries: (nfts ?? []).map((nft) => ({
       queryKey: ["card-valuation", nft.collection, nft.tokenId],
       queryFn: () => fetchCardValuation(nft.collection as `0x${string}`, nft.tokenId),
-      enabled: enabled && !!base?.trim() && !!nft.collection,
+      enabled: enabled && !!getApiBase() && !!nft.collection,
       staleTime: 30_000,
     })),
   });
 }
 
 export function isPricingApiConfigured(): boolean {
-  return !!base?.trim();
+  return getApiBase() !== null;
 }

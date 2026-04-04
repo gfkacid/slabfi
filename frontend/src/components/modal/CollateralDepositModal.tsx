@@ -47,8 +47,9 @@ function gradeChip(nft: { cardRarity?: string; cardPrinting?: string }): string 
   return g || "Card";
 }
 
-function centsToWad(cents: number): bigint {
-  return BigInt(Math.round(cents * 10 ** 16));
+/** 6-decimal USDC (micro-USDC) → 18-decimal WAD for HF preview */
+function usdcMicroToWad(micro: number): bigint {
+  return BigInt(Math.round(micro * 10 ** 12));
 }
 
 const MAX_UINT256 = 2n ** 256n - 1n;
@@ -146,7 +147,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
   const newCollateralUsd = useMemo(() => {
     let s = 0;
     for (const v of selectedValuations) {
-      if (v) s += v.priceUSD / 100;
+      if (v) s += v.priceUSD / 1_000_000;
     }
     return s;
   }, [selectedValuations]);
@@ -170,7 +171,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
     selectedList.forEach((nft, i) => {
       const v = selectedValuations[i];
       if (!v) return;
-      values.push(centsToWad(v.priceUSD));
+      values.push(usdcMicroToWad(v.priceUSD));
       const t = v.tier >= 1 && v.tier <= 3 ? v.tier : 2;
       tiers.push(t);
     });
@@ -344,9 +345,10 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
 
           {isConnected && !apiConfigured ? (
             <div className="mb-6 rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-xs text-amber-950">
-              <strong className="font-bold">Pricing API not set.</strong> Set{" "}
-              <code className="rounded bg-white/80 px-1">VITE_EXTERNAL_PRICE_API_BASE</code> for
-              live valuations. You can still lock cards; borrow previews stay approximate.
+              <strong className="font-bold">Backend API not set.</strong> Set{" "}
+              <code className="rounded bg-white/80 px-1">VITE_API_BASE</code> (Nest read API) for
+              live valuations and seeded <code className="rounded bg-white/80 px-1">Card</code> rows.
+              You can still lock cards; borrow previews stay approximate.
             </div>
           ) : null}
 
@@ -502,7 +504,9 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                           {loadingV ? (
                             <p className="mt-0.5 animate-pulse text-sm text-on-surface-variant">…</p>
                           ) : v ? (
-                            <p className="font-bold text-primary">{formatUsd(v.priceUSD / 100)}</p>
+                            <p className="font-bold text-primary">
+                              {formatUsd(v.priceUSD / 1_000_000)}
+                            </p>
                           ) : apiConfigured ? (
                             <p className="text-xs font-bold text-error">N/A</p>
                           ) : (
@@ -591,7 +595,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                         </div>
                       </div>
                       <p className="shrink-0 pl-2 text-sm font-bold text-primary">
-                        {v ? formatUsd(v.priceUSD / 100) : "—"}
+                        {v ? formatUsd(v.priceUSD / 1_000_000) : "—"}
                       </p>
                     </div>
                   );
