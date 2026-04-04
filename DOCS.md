@@ -172,17 +172,22 @@ cast send $CCIP_MESSAGE_ROUTER_ADDRESS \
 
 ### Step 4: Fund CCIP Router
 
-The CCIPMessageRouter on Arc needs native USDC to pay for outbound CCIP messages (UnlockCommand):
+The CCIPMessageRouter on Arc needs native USDC to pay for outbound CCIP messages (UnlockCommand). Arc native USDC uses **6 decimals** (1 USDC = `1000000` smallest units). Prefer:
 
 ```bash
-# Arc uses USDC as native gas token — send USDC to the router
+pnpm ccip:fund-message-router
+```
+
+Or with `cast` (value is in smallest native units):
+
+```bash
 cast send $CCIP_MESSAGE_ROUTER_ADDRESS \
-  --value 0.1ether \
+  --value 1000000 \
   --rpc-url $ARC_TESTNET_RPC \
   --private-key $DEPLOYER_PRIVATE_KEY
 ```
 
-(On Arc, `--value` sends native USDC.)
+If the transfer never confirms, raise gas (see `.env.example`): **`ARC_FUND_CCIP_LEGACY=1`** and **`ARC_FUND_CCIP_GAS_PRICE`** (or **`ARC_FUND_GAS_BUMP_PERCENT`** for EIP-1559). If the deployer’s **`pending` transaction count is ahead of `latest`**, the script **replaces stuck nonces** with high-gas self-transfers before funding (disable with **`ARC_FUND_CCIP_SKIP_UNSTICK=1`**).
 
 ### Step 5: Set Oracle Prices
 

@@ -14,6 +14,10 @@
  * contract's counter). Set the script variable `MINT_RECIPIENT` (below) or env `MINT_RECIPIENT`
  * to send batches to another wallet; default is the deployer address.
  *
+ * RPC: uses `testnetConfig.source.rpcUrl` unless `SEPOLIA_RPC` is set in `.env` (recommended when
+ * `rpc.sepolia.org` times out). Optional `SEPOLIA_RPC_TIMEOUT_MS` (default 120000),
+ * `MINT_RECEIPT_TIMEOUT_MS` for `waitForTransactionReceipt` (default max(4× RPC timeout, 300000)).
+ *
  * From repo root:
  *   pnpm --filter @slabfinance/indexer exec tsx ../scripts/mint-cardfi-collectibles.ts
  *   # or: pnpm mint:collectibles
@@ -210,7 +214,31 @@ async function main() {
   }
 
   const tokens = loadTokens(scriptDir);
-  const transport = http(testnetConfig.source.rpcUrl);
+  const rpcUrl = process.env.SEPOLIA_RPC?.trim() || testnetConfig.source.rpcUrl;
+  const timeoutMs = Number.parseInt(process.env.SEPOLIA_RPC_TIMEOUT_MS || "120000", 10);
+  const rpcTimeout = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 120_000;
+  const rpcFromEnv = Boolean(process.env.SEPOLIA_RPC?.trim());
+  let rpcLabel = rpcUrl;
+  try {
+    rpcLabel = new URL(rpcUrl).host;
+  } catch {
+    /* keep raw if not a URL */
+  }
+  const receiptTimeoutRaw = process.env.MINT_RECEIPT_TIMEOUT_MS;
+  const receiptTimeoutParsed = receiptTimeoutRaw
+    ? Number.parseInt(receiptTimeoutRaw, 10)
+    : Math.max(rpcTimeout * 4, 300_000);
+  const receiptTimeout =
+    Number.isFinite(receiptTimeoutParsed) && receiptTimeoutParsed > 0
+      ? receiptTimeoutParsed
+      : Math.max(rpcTimeout * 4, 300_000);
+
+  console.log(`Sepolia RPC: ${rpcLabel}${rpcFromEnv ? " (SEPOLIA_RPC)" : " (testnet.ts)"}; timeout ${rpcTimeout}ms`);
+
+  const transport = http(rpcUrl, {
+    timeout: rpcTimeout,
+    retryCount: 2,
+  });
   const publicClient = createPublicClient({
     chain: sepolia,
     transport,
@@ -242,7 +270,7 @@ async function main() {
       functionName: "mintWithMetadata",
       args: [recipient, metadata],
     });
-    await publicClient.waitForTransactionReceipt({ hash });
+    await publicClient.waitForTransactionReceipt({ hash, timeout: receiptTimeout });
     const next = await publicClient.readContract({
       address,
       abi: cardFiCollectibleAbi,

@@ -75,6 +75,8 @@ function main() {
   const liquidationManager =
     getStr(hub, "auctionLiquidationManager") ?? getStr(hub, "liquidationManager");
   const hubUsdc = getStr(hub, "usdc") ?? getStr(hub, "mockUsdc");
+  const ccipMessageRouter = getStr(hub, "ccipMessageRouter");
+  const chainlinkAutomationKeeper = getStr(hub, "chainlinkAutomationKeeper");
 
   const collateralAdapter = getStr(sep, "collateralAdapter");
   const collectible =
@@ -88,6 +90,8 @@ function main() {
     ["healthFactorEngine", healthFactorEngine],
     ["liquidationManager", liquidationManager],
     ["usdc", hubUsdc],
+    ["ccipMessageRouter", ccipMessageRouter],
+    ["chainlinkAutomationKeeper", chainlinkAutomationKeeper],
   ];
   const missingHub = requiredHub.filter(([, v]) => !v).map(([k]) => k);
   const missingSep = [
@@ -112,6 +116,8 @@ function main() {
     `healthFactorEngine: "${healthFactorEngine}",`,
     `liquidationManager: "${liquidationManager}",`,
     `usdc: "${hubUsdc}",`,
+    `ccipMessageRouter: "${ccipMessageRouter}",`,
+    `chainlinkAutomationKeeper: "${chainlinkAutomationKeeper}",`,
   ];
   const srcLines = [
     `collateralAdapter: "${collateralAdapter}",`,

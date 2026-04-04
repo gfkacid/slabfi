@@ -1334,9 +1334,10 @@ cast send $CCIP_MESSAGE_ROUTER_ADDRESS \
   --rpc-url $ARC_TESTNET_RPC \
   --private-key $DEPLOYER_PRIVATE_KEY
 
-# 4. Fund CCIP Message Router on Arc with LINK for outbound messages
+# 4. Fund CCIP Message Router on Arc with native USDC (6 decimals) for outbound messages
+#    Or: pnpm ccip:fund-message-router
 cast send $CCIP_MESSAGE_ROUTER_ADDRESS \
-  --value 0.1ether \
+  --value 1000000 \
   --rpc-url $ARC_TESTNET_RPC \
   --private-key $DEPLOYER_PRIVATE_KEY
 

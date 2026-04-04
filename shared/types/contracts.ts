@@ -5,6 +5,9 @@ export interface HubContractAddresses {
   healthFactorEngine: `0x${string}`;
   liquidationManager: `0x${string}`;
   usdc: `0x${string}`;
+  /** Protocol CCIP router on Arc; fund with native USDC for outbound unlock messages. */
+  ccipMessageRouter: `0x${string}`;
+  chainlinkAutomationKeeper: `0x${string}`;
 }
 
 export interface SepoliaContractAddresses {

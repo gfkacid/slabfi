@@ -13,7 +13,7 @@ const arcTestnetBase = defineChain({
   id: ARC_TESTNET_CHAIN_ID,
   name: "Arc Testnet",
   nativeCurrency: {
-    decimals: 18,
+    decimals: 6,
     name: "USDC",
     symbol: "USDC",
   },

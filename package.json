@@ -16,7 +16,10 @@
     "build:shared": "pnpm --filter @slabfinance/shared build",
     "lint": "pnpm -r lint",
     "mint:collectibles": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/mint-cardfi-collectibles.ts",
-    "db:seed:cards": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-cards-from-stub.ts"
+    "db:seed:cards": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-cards-from-stub.ts",
+    "db:seed:indexer-cursors": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-indexer-cursors.ts",
+    "db:fetch:card-prices": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/fetch-card-prices-from-pricecharting.ts",
+    "ccip:fund-message-router": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/fund-ccip-message-router.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3"

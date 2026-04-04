@@ -17,13 +17,15 @@ export const testnetConfig = {
       healthFactorEngine: "0xbE4a32F159Fe8e9E48aDEa1b70c6e16AFdcfb714",
       liquidationManager: "0x7691c741B6CB7F1C79BBc0f34bac0FF32f5A29eb",
       usdc: "0x3600000000000000000000000000000000000000",
+      ccipMessageRouter: "0x969589b618E9b75F4181D3a262420a384df90AD2",
+      chainlinkAutomationKeeper: "0x01DFbAe16B3E7Ac93152c9F26fB3827d1431279d",
       // @slabfi-sync:hub-contracts-end
     } satisfies Record<keyof HubContractAddresses, string>,
   },
   source: {
     chainId: 11155111,
     name: "Ethereum Sepolia",
-    rpcUrl: "https://rpc.sepolia.org",
+    rpcUrl: "https://sepolia.drpc.org",
     ccipRouter: "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59" as const,
     ccipChainSelector: "16015286601757825753",
     contracts: {
@@ -50,6 +52,8 @@ export function hubContractsFromConfig(): HubContractAddresses {
     healthFactorEngine: (c.healthFactorEngine || "") as `0x${string}`,
     liquidationManager: (c.liquidationManager || "") as `0x${string}`,
     usdc: (c.usdc || "") as `0x${string}`,
+    ccipMessageRouter: (c.ccipMessageRouter || "") as `0x${string}`,
+    chainlinkAutomationKeeper: (c.chainlinkAutomationKeeper || "") as `0x${string}`,
   };
 }
 

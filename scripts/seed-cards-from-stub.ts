@@ -1,8 +1,9 @@
 /**
  * Upserts `Card` rows from `scripts/data/cardFi-collectibles-metadata.stub.json`
  * for token ids 1..N (row order). Each row may include `tier` (1–3); `ltvBps` is
- * derived to match hub OracleConsumer base LTV. Set SEED_CARD_COLLECTION to your
- * Sepolia CardFiCollectible address (0x...). Optional PRICECHARTING_ID_N (1-based) per token.
+ * derived to match hub OracleConsumer base LTV. Collection address: optional
+ * SEED_CARD_COLLECTION in `.env`; if unset, uses `testnetConfig.source.contracts.slabFinanceCollectible`.
+ * Optional PRICECHARTING_ID_N (1-based) per token.
  *
  *   pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-cards-from-stub.ts
  */
@@ -12,6 +13,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { isAddress } from "viem";
+import { testnetConfig } from "../shared/config/testnet";
 
 const prisma = new PrismaClient();
 
@@ -58,11 +60,25 @@ async function main() {
   const scriptDir = dirname(fileURLToPath(import.meta.url));
   loadEnv({ path: resolve(scriptDir, "../.env") });
 
-  const collectionRaw = process.env.SEED_CARD_COLLECTION?.trim();
-  if (!collectionRaw || !isAddress(collectionRaw)) {
-    throw new Error("Set SEED_CARD_COLLECTION to a valid 0x address in .env");
+  const fromEnv = process.env.SEED_CARD_COLLECTION?.trim();
+  const fromConfig = testnetConfig.source.contracts.slabFinanceCollectible?.trim();
+  const collectionRaw =
+    fromEnv && isAddress(fromEnv)
+      ? fromEnv
+      : fromConfig && isAddress(fromConfig)
+        ? fromConfig
+        : "";
+  if (!collectionRaw) {
+    throw new Error(
+      "No collectible address: set SEED_CARD_COLLECTION in .env or slabFinanceCollectible in shared/config/testnet.ts",
+    );
   }
   const collection = collectionRaw.toLowerCase();
+  if (fromEnv && isAddress(fromEnv)) {
+    console.log(`[seed-cards] collection from SEED_CARD_COLLECTION`);
+  } else {
+    console.log(`[seed-cards] collection from testnetConfig.source.contracts.slabFinanceCollectible`);
+  }
 
   const tokens = loadTokens(scriptDir);
   let n = 0;

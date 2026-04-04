@@ -158,7 +158,7 @@ export function LiquidationsPage() {
         )}
       </div>
 
-      <LiquidationPromoCard config={meta.promo} />
+      {/* <LiquidationPromoCard config={meta.promo} /> */}
     </div>
   );
 }
