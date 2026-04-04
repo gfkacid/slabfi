@@ -1,0 +1,64 @@
+{
+  "tokens": [
+    {
+      "cardName": "Pikachu ex #276",
+      "cardImage": "https://assets.tcgdex.net/en/me/me02.5/276/high.webp",
+      "setName": "Ascended Heroes",
+      "cardNumber": "276",
+      "cardRarity": "SIR",
+      "cardPrinting": "Holo",
+      "gradeService": null,
+      "grade": null
+    },
+    {
+      "cardName": "Mega Charizard X ex #125",
+      "cardImage": "https://assets.tcgdex.net/en/me/me02/125/high.webp",
+      "setName": "Phantasmal Flames",
+      "cardNumber": "125",
+      "cardRarity": "SIR",
+      "cardPrinting": "Holo",
+      "gradeService": null,
+      "grade": null
+    },
+    {
+      "cardName": "Lillie's Clefairy EX #173 - PSA 10",
+      "cardImage": "https://cardchase-images-prod.s3.eu-north-1.amazonaws.com/raffle_prizes/jtg_lillies_clefairy_ex_173_psa10.jpg",
+      "setName": "Journey Together",
+      "cardNumber": "173",
+      "cardRarity": "Rare",
+      "cardPrinting": "Holo",
+      "gradeService": "PSA",
+      "grade": 100
+    },
+    {
+      "cardName": "Misty's Psyduck EX #71 - PSA 10",
+      "cardImage": "https://cardchase-images-prod.s3.eu-north-1.amazonaws.com/raffle_prizes/jpn-mistys-psyduck71-psa10.jpg",
+      "setName": "Sv9a",
+      "cardNumber": "71",
+      "cardRarity": "SIR",
+      "cardPrinting": "Holo",
+      "gradeService": "PSA",
+      "grade": 100
+    },
+    {
+      "cardName": "Omanyte #52 CGC 9",
+      "cardImage": "https://cardchase-images-prod.s3.eu-north-1.amazonaws.com/raffle_prizes/omanyte-52-cgc9.jpg",
+      "setName": "Fossil",
+      "cardNumber": "52",
+      "cardRarity": "Common",
+      "cardPrinting": "Normal",
+      "gradeService": "CGC",
+      "grade": 90
+    },
+    {
+      "cardName": "Charizard #025 - PSA 9",
+      "cardImage": "https://cardchase-images-prod.s3.eu-north-1.amazonaws.com/raffle_prizes/vv-charizard25-psa9.jpg",
+      "setName": "Vivid Voltage",
+      "cardNumber": "25",
+      "cardRarity": "Rare",
+      "cardPrinting": "Normal",
+      "gradeService": "PSA",
+      "grade": 90
+    }
+  ]
+}

@@ -13,7 +13,8 @@
     "db:studio": "prisma studio",
     "build": "pnpm --filter @slabfinance/shared build && prisma generate && pnpm --filter @slabfinance/backend build && pnpm --filter @slabfinance/indexer build && pnpm --filter @slabfinance/frontend build",
     "build:shared": "pnpm --filter @slabfinance/shared build",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r lint",
+    "mint:collectibles": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/mint-cardfi-collectibles.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3"
