@@ -10,12 +10,14 @@ export const testnetConfig = {
     ccipRouter: "0xdE4E7FED43FAC37EB21aA0643d9852f75332eab8" as const,
     ccipChainSelector: "3034092155422581607",
     contracts: {
+      // @slabfi-sync:hub-contracts-begin
       lendingPool: "",
       collateralRegistry: "",
       oracleConsumer: "",
       healthFactorEngine: "",
       liquidationManager: "",
       usdc: "0x3600000000000000000000000000000000000000",
+      // @slabfi-sync:hub-contracts-end
     } satisfies Record<keyof HubContractAddresses, string>,
   },
   source: {
@@ -25,9 +27,11 @@ export const testnetConfig = {
     ccipRouter: "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59" as const,
     ccipChainSelector: "16015286601757825753",
     contracts: {
+      // @slabfi-sync:source-contracts-begin
       collateralAdapter: "",
       slabFinanceCollectible: "",
       nftVault: "",
+      // @slabfi-sync:source-contracts-end
       usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
     },
   },

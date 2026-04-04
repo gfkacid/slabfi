@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "setup": "bash scripts/setup.sh",
     "dev": "pnpm --parallel --filter @slabfinance/frontend --filter @slabfinance/backend dev",
     "dev:frontend": "pnpm --filter @slabfinance/frontend dev",
     "dev:backend": "pnpm --filter @slabfinance/backend dev",

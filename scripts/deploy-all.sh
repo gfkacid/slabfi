@@ -145,6 +145,7 @@ Copy addresses into [`shared/config/testnet.ts`](../shared/config/testnet.ts) un
 |----------|---------|
 | `DEPLOYER_PRIVATE_KEY` | EOA used on Arc and Sepolia (must hold gas on both) |
 | `DEPLOY_CRE_WORKFLOW` | Set to `1` to run optional CRE CLI deploy after hub + Sepolia (needs `cre` + `CRE_API_KEY`) |
+| `FAIL_ON_CRE_FAILURE` | Set to `1` to exit non-zero if CRE does not complete (`pnpm setup` sets this) |
 | `CRE_API_KEY` | Non-interactive CRE CLI authentication |
 | `EXTERNAL_PRICE_API_URL` | Optional; overrides `apiUrl` in generated `cre/price-oracle/config.deploy.json` |
 | `CRE_PRICE_TOKEN_ID` | Optional token id string for the CRE config (default: first entry in `config.json`) |
@@ -165,6 +166,7 @@ SEP_COLL="$(json_get "$SEPOLIA_JSON" cardFiCollectible)"
 SEP_VAULT="$(json_get "$SEPOLIA_JSON" nftVault)"
 
 CRE_DIR="$REPO_ROOT/cre/price-oracle"
+CRE_COMPLETED=0
 if [[ "${DEPLOY_CRE_WORKFLOW:-}" == "1" ]]; then
   if ! command -v cre >/dev/null 2>&1; then
     echo "CRE skipped: Chainlink CRE CLI not on PATH (install cre, then re-run with DEPLOY_CRE_WORKFLOW=1)."
@@ -207,10 +209,19 @@ if [[ "${DEPLOY_CRE_WORKFLOW:-}" == "1" ]]; then
       set -e
       if [[ "$cre_status" -ne 0 ]]; then
         echo "WARN: cre workflow deploy exited $cre_status (Early Access, target name, or platform limits). Hub and source deploys finished successfully." >&2
+        if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]]; then
+          exit "$cre_status"
+        fi
+      else
+        CRE_COMPLETED=1
       fi
     else
       echo "CRE skipped: npm ci failed in cre/price-oracle (install dependencies manually)."
     fi
+  fi
+  if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]] && [[ "$CRE_COMPLETED" -ne 1 ]]; then
+    echo "CRE workflow did not complete successfully (FAIL_ON_CRE_FAILURE=1)." >&2
+    exit 1
   fi
 fi
 

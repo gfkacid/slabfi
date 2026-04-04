@@ -21,6 +21,28 @@ From the repo root, `pnpm install` pulls workspace packages. Foundry remappings 
 
 ---
 
+## 1b. One-command setup (recommended)
+
+After MySQL is running and you have a root `.env` (see §2), run everything through install, database, contract deploy, **CRE**, and **`shared/config/testnet.ts` sync**:
+
+```bash
+pnpm setup
+```
+
+This executes [`scripts/setup.sh`](scripts/setup.sh). It **preflights** all required tools and env vars (prints everything missing, then exits). It then:
+
+1. Runs **`pnpm install`**
+2. Runs **`pnpm db:generate`** and **`pnpm db:push`**
+3. Runs **`scripts/deploy-all.sh`** with **`DEPLOY_CRE_WORKFLOW=1`** and **`FAIL_ON_CRE_FAILURE=1`** (CRE must succeed or the script fails)
+4. Runs **`scripts/sync-testnet-from-deployments.ts`** to write deployment addresses into the marked regions of [`shared/config/testnet.ts`](shared/config/testnet.ts)
+5. If **`SEED_CARD_COLLECTION`** is set to a valid `0x` address, runs **`pnpm db:seed:cards`**
+
+**Tools on `PATH`:** `node`, `pnpm`, `forge`, `cast`, `jq`, **`cre`** (Chainlink CRE CLI), **`npm`** (for `cre/price-oracle` install inside `deploy-all.sh`).
+
+**Still manual after `pnpm setup`:** fund the hub CCIP router (§6), set oracle prices / wait for CRE (§6), start dev servers (§8), optional verification (§9). The script prints a short reminder at the end.
+
+---
+
 ## 2. Install and environment
 
 ```bash
@@ -46,10 +68,11 @@ cp .env.example frontend/.env
 | `PORT` | Backend (default `3001`). |
 | `VITE_API_BASE` | Backend base URL for the SPA (default dev: `http://localhost:3001`). |
 | `PRICECHARTING_API_KEY` | Card valuations / PriceCharting integration in the API. |
-| `SLABFI_API_KEY` | Protects `GET /cards/:collection/:tokenId/price` (CRE and `deploy-all.sh` generated config). |
+| `SLABFI_API_KEY` | Protects `GET /cards/:collection/:tokenId/price` (CRE and `deploy-all.sh` generated config). **Required for `pnpm setup`.** |
+| `CRE_API_KEY` | Non-interactive auth for the CRE CLI. **Required for `pnpm setup`.** |
 | `INDEXER_POLL_INTERVAL_MS`, `INDEXER_LOG_CHUNK_SIZE` | Indexer tuning. |
 
-**Chain RPCs, CCIP routers/selectors, CRE forwarder, and deployed contract addresses** are not-only-in-env: the single source of truth is [`shared/config/testnet.ts`](shared/config/testnet.ts). Fill contract fields after deployment (see §5).
+**Chain RPCs, CCIP routers/selectors, CRE forwarder, and deployed contract addresses** are not-only-in-env: the single source of truth is [`shared/config/testnet.ts`](shared/config/testnet.ts). After **`pnpm setup`**, contract fields are filled automatically from `contracts/deployments/*.json` (see §5). If you only run `deploy-all.sh`, paste addresses manually or run `scripts/sync-testnet-from-deployments.ts` yourself.
 
 ---
 
@@ -71,7 +94,11 @@ pnpm db:push
 
 Hub must deploy before source; the source stack needs the hub `CCIPMessageRouter` address.
 
-### Option A — one script (recommended)
+### Option A — full repo setup (`pnpm setup`)
+
+Use [§1b](#1b-one-command-setup-recommended): **`pnpm setup`** (wraps `scripts/setup.sh`). This includes install, DB push, deploy, **mandatory CRE**, and syncing [`shared/config/testnet.ts`](shared/config/testnet.ts).
+
+### Option B — deploy contracts only (`deploy-all.sh`)
 
 Set `DEPLOYER_PRIVATE_KEY` in `.env`. From repo root:
 
@@ -88,9 +115,9 @@ This runs:
 
 It also writes **[`DEPLOYMENTS.md`](DEPLOYMENTS.md)** with addresses and a TypeScript snippet for `testnet.ts`.
 
-**Optional CRE workflow** (after hub + Sepolia): set `DEPLOY_CRE_WORKFLOW=1`, install the Chainlink CRE CLI (`cre`) on `PATH`, set `CRE_API_KEY`. Optionally override the price URL with `EXTERNAL_PRICE_API_URL` and token id with `CRE_PRICE_TOKEN_ID`. If the CLI step fails, hub/source deploys may still succeed; check script output.
+**Optional CRE workflow** (after hub + Sepolia): set `DEPLOY_CRE_WORKFLOW=1`, install the Chainlink CRE CLI (`cre`) on `PATH`, set `CRE_API_KEY`. Optionally override the price URL with `EXTERNAL_PRICE_API_URL` and token id with `CRE_PRICE_TOKEN_ID`. If the CLI step fails, hub/source deploys may still succeed; check script output. To fail the script when CRE does not complete, set **`FAIL_ON_CRE_FAILURE=1`** (as `pnpm setup` does).
 
-### Option B — manual (mirror of the script)
+### Option C — manual (mirror of the script)
 
 From `contracts/` after exporting env from config:
 
@@ -128,9 +155,11 @@ You can also register via `cast` as in [DOCS.md](./DOCS.md#step-3-register-adapt
 
 ## 5. Configure the application
 
-Copy addresses into [`shared/config/testnet.ts`](shared/config/testnet.ts) under `hub.contracts` and `source.contracts` (include **`nftVault`** for the indexer). The generated **`DEPLOYMENTS.md`** includes a ready-to-paste snippet; or read `contracts/deployments/hub.json` and `eth-sepolia.json`.
+If you used **`pnpm setup`**, [`shared/config/testnet.ts`](shared/config/testnet.ts) is already updated from `contracts/deployments/hub.json` and `eth-sepolia.json` via [`scripts/sync-testnet-from-deployments.ts`](scripts/sync-testnet-from-deployments.ts) (regions between `// @slabfi-sync:…` comments).
 
-Restart the frontend after changing `testnet.ts` or env files.
+Otherwise, copy addresses into `testnet.ts` under `hub.contracts` and `source.contracts` (include **`nftVault`** for the indexer). The generated **`DEPLOYMENTS.md`** includes a ready-to-paste snippet; or read the deployment JSON files directly. You can also run `pnpm --filter @slabfinance/indexer exec tsx ../scripts/sync-testnet-from-deployments.ts` from the repo root (same as the indexer-relative path used in `deploy-all.sh`).
+
+Restart the frontend after changing `testnet.ts` or env files. After syncing, rebuild shared if needed: `pnpm build:shared`.
 
 ---
 
