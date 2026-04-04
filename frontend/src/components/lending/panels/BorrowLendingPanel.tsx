@@ -18,7 +18,7 @@ import {
 } from "@/hooks";
 import { hubChain, hubContracts } from "@/lib/hub";
 import { formatUsdNumber, price8ToUsdNumber } from "@/lib/hubFormat";
-import { PROTOCOL_TIER_ROWS } from "@slabfinance/shared";
+import { HUB_USDC_DECIMALS, PROTOCOL_TIER_ROWS } from "@slabfinance/shared";
 
 export function BorrowLendingPanel() {
   const { isConnected, chainId } = useAccount();
@@ -35,7 +35,7 @@ export function BorrowLendingPanel() {
   const amountWei = useMemo(() => {
     try {
       if (!amount || amount === ".") return 0n;
-      return parseUnits(amount, 18);
+      return parseUnits(amount, HUB_USDC_DECIMALS);
     } catch {
       return 0n;
     }
@@ -46,18 +46,18 @@ export function BorrowLendingPanel() {
     currentTotalDebt !== undefined ? currentTotalDebt + amountWei : undefined;
 
   const previewHf = usePreviewHealthFactorOnHub(
-    hubSlice.data?.valuesWad,
+    hubSlice.data?.valuesPrice8,
     hubSlice.data?.tiers,
     previewDebt,
     Boolean(
-      hubSlice.data?.valuesWad?.length &&
+      hubSlice.data?.valuesPrice8?.length &&
         amountWei > 0n &&
         previewDebt !== undefined,
     ),
   );
 
   const maxBorrow = credit ?? 0n;
-  const maxStr = formatUnits(maxBorrow, 18);
+  const maxStr = formatUnits(maxBorrow, HUB_USDC_DECIMALS);
 
   const canBorrow =
     isHub &&

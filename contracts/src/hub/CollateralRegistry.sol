@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/ICardFiTypes.sol";
 import "../interfaces/ICCIPMessageRouter.sol";
 import "../interfaces/IHealthFactorEngine.sol";
@@ -167,9 +168,9 @@ contract CollateralRegistry is Initializable, UUPSUpgradeable, AccessControl {
         Position storage pos = positions[borrower];
         if (pos.borrower == address(0)) return 0;
 
-        (,, uint256 totalDebt) = lendingPool.outstandingDebt(borrower);
+        (,, uint256 totalDebtRaw) = lendingPool.outstandingDebt(borrower);
 
-        uint256 weightedCollateral = 0;
+        uint256 weightedSum8 = 0;
         for (uint256 i = 0; i < pos.collateralIds.length; i++) {
             bytes32 cid = pos.collateralIds[i];
             CollateralItem storage item = collateralItems[cid];
@@ -179,13 +180,13 @@ contract CollateralRegistry is Initializable, UUPSUpgradeable, AccessControl {
                 uint256 effectiveLTV = oracleConsumer.getEffectiveLTV(item.collection, item.tokenId);
                 bool inPenalty = oracleConsumer.isInStalenessPenaltyWindow(item.collection, item.tokenId);
                 if (inPenalty) effectiveLTV = effectiveLTV / 2;
-                weightedCollateral += (price * effectiveLTV) / 10000;
+                weightedSum8 += (price * effectiveLTV) / 10000;
             } catch {}
         }
 
-        uint256 maxBorrow = weightedCollateral * 1e10;
-        if (totalDebt >= maxBorrow) return 0;
-        uint256 fromCollateral = maxBorrow - totalDebt;
+        uint256 maxBorrowRaw = Math.mulDiv(weightedSum8, 1e6, 1e8);
+        if (totalDebtRaw >= maxBorrowRaw) return 0;
+        uint256 fromCollateral = maxBorrowRaw - totalDebtRaw;
 
         uint256 liq = lendingPool.availableLiquidity();
         return fromCollateral < liq ? fromCollateral : liq;

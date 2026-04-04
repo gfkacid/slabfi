@@ -74,7 +74,7 @@ function main() {
   const healthFactorEngine = getStr(hub, "healthFactorEngine");
   const liquidationManager =
     getStr(hub, "auctionLiquidationManager") ?? getStr(hub, "liquidationManager");
-  const mockUsdc = getStr(hub, "mockUsdc");
+  const hubUsdc = getStr(hub, "usdc") ?? getStr(hub, "mockUsdc");
 
   const collateralAdapter = getStr(sep, "collateralAdapter");
   const collectible =
@@ -87,7 +87,7 @@ function main() {
     ["oracleConsumer", oracleConsumer],
     ["healthFactorEngine", healthFactorEngine],
     ["liquidationManager", liquidationManager],
-    ["mockUsdc (usdc)", mockUsdc],
+    ["usdc", hubUsdc],
   ];
   const missingHub = requiredHub.filter(([, v]) => !v).map(([k]) => k);
   const missingSep = [
@@ -111,7 +111,7 @@ function main() {
     `oracleConsumer: "${oracleConsumer}",`,
     `healthFactorEngine: "${healthFactorEngine}",`,
     `liquidationManager: "${liquidationManager}",`,
-    `usdc: "${mockUsdc}",`,
+    `usdc: "${hubUsdc}",`,
   ];
   const srcLines = [
     `collateralAdapter: "${collateralAdapter}",`,

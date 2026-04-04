@@ -5,6 +5,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeab
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import "../interfaces/ICardFiTypes.sol";
 import "./CollateralRegistry.sol";
@@ -29,7 +30,8 @@ contract AuctionLiquidationManager is Initializable, UUPSUpgradeable, AccessCont
     /// @notice Portion of excess (after debt + fee) sent to the vault; remainder to treasury (BPS, 10000 = 100%)
     uint256 public surplusShareBPS;
 
-    uint256 public constant MIN_LIQUIDATION_USDC = 50e18;
+    /// @dev Minimum debt to open liquidation (50 USDC in token native decimals).
+    uint256 public constant MIN_LIQUIDATION_USDC_UNITS = 50;
 
     struct Auction {
         address borrower;
@@ -150,7 +152,8 @@ contract AuctionLiquidationManager is Initializable, UUPSUpgradeable, AccessCont
         }
 
         (,, uint256 totalDebt) = lendingPool.outstandingDebt(borrower);
-        require(totalDebt >= MIN_LIQUIDATION_USDC, "Below minimum");
+        uint256 minDebt = MIN_LIQUIDATION_USDC_UNITS * (10 ** uint256(IERC20Metadata(address(usdc)).decimals()));
+        require(totalDebt >= minDebt, "Below minimum");
 
         CollateralItem memory item = collateralRegistry.getCollateralItem(collateralId);
         require(item.lockedAt > 0, "Unknown collateral");

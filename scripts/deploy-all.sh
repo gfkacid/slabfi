@@ -17,7 +17,19 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
   set +a
 fi
 
+# Preserve RPC overrides from .env / environment; print-deploy-env.ts always emits defaults from testnet.ts.
+_HUB_RPC_OVERRIDE="${ARC_TESTNET_RPC:-}"
+_SOURCE_RPC_OVERRIDE="${SEPOLIA_RPC:-}"
+
 eval "$(cd "$REPO_ROOT/indexer" && pnpm exec tsx ../scripts/print-deploy-env.ts)"
+
+if [[ -n "$_HUB_RPC_OVERRIDE" ]]; then
+  export ARC_TESTNET_RPC="$_HUB_RPC_OVERRIDE"
+fi
+if [[ -n "$_SOURCE_RPC_OVERRIDE" ]]; then
+  export SEPOLIA_RPC="$_SOURCE_RPC_OVERRIDE"
+fi
+unset _HUB_RPC_OVERRIDE _SOURCE_RPC_OVERRIDE
 
 if [[ -z "${DEPLOYER_PRIVATE_KEY:-}" ]]; then
   echo "Missing required env var: DEPLOYER_PRIVATE_KEY" >&2
@@ -144,9 +156,8 @@ Copy addresses into [`shared/config/testnet.ts`](../shared/config/testnet.ts) un
 | Variable | Purpose |
 |----------|---------|
 | `DEPLOYER_PRIVATE_KEY` | EOA used on Arc and Sepolia (must hold gas on both) |
-| `DEPLOY_CRE_WORKFLOW` | Set to `1` to run optional CRE CLI deploy after hub + Sepolia (needs `cre` + `CRE_API_KEY`) |
-| `FAIL_ON_CRE_FAILURE` | Set to `1` to exit non-zero if CRE does not complete (`pnpm setup` sets this) |
-| `CRE_API_KEY` | Non-interactive CRE CLI authentication |
+| `DEPLOY_CRE_WORKFLOW` | Set to `1` to run local `cre workflow simulate --broadcast` after hub + Sepolia, then `cast send` `setMockPrice` (needs `cre`, `cast`, reachable price API — default `http://127.0.0.1:3001/...`) |
+| `FAIL_ON_CRE_FAILURE` | Set to `1` to exit non-zero if CRE simulate or on-chain price tx does not complete |
 | `EXTERNAL_PRICE_API_URL` | Optional; overrides `apiUrl` in generated `cre/price-oracle/config.deploy.json` |
 | `CRE_PRICE_TOKEN_ID` | Optional token id string for the CRE config (default: first entry in `config.json`) |
 
@@ -158,7 +169,8 @@ ORACLE="$(json_get "$HUB_JSON" oracleConsumer)"
 POOL="$(json_get "$HUB_JSON" lendingPool)"
 LIQ="$(json_get "$HUB_JSON" auctionLiquidationManager)"
 HF="$(json_get "$HUB_JSON" healthFactorEngine)"
-USDC="$(json_get "$HUB_JSON" mockUsdc)"
+USDC="$(json_get "$HUB_JSON" usdc)"
+[[ -z "$USDC" ]] && USDC="$(json_get "$HUB_JSON" mockUsdc)"
 KEEPER="$(json_get "$HUB_JSON" chainlinkAutomationKeeper)"
 CCIP_ONCHAIN="$(json_get "$HUB_JSON" ccipRouterOnChain)"
 
@@ -170,12 +182,12 @@ CRE_COMPLETED=0
 if [[ "${DEPLOY_CRE_WORKFLOW:-}" == "1" ]]; then
   if ! command -v cre >/dev/null 2>&1; then
     echo "CRE skipped: Chainlink CRE CLI not on PATH (install cre, then re-run with DEPLOY_CRE_WORKFLOW=1)."
-  elif [[ -z "${CRE_API_KEY:-}" ]]; then
-    echo "CRE skipped: set CRE_API_KEY for non-interactive CLI auth (see https://docs.chain.link/cre/reference/cli/authentication)."
+  elif ! command -v cast >/dev/null 2>&1; then
+    echo "CRE skipped: cast (Foundry) not on PATH — needed to submit setMockPrice after simulate."
   elif [[ -z "${ORACLE:-}" || -z "${SEP_COLL:-}" ]]; then
     echo "CRE skipped: missing oracleConsumer or collectible address from deployment JSON."
   else
-    echo "=== Optional: CRE workflow deploy (DEPLOY_CRE_WORKFLOW=1) ==="
+    echo "=== Optional: CRE workflow simulate + on-chain price (DEPLOY_CRE_WORKFLOW=1) ==="
     if (cd "$CRE_DIR" && npm ci --omit=dev); then
       BASE_CFG="$CRE_DIR/config.json"
       SCHEDULE=$(jq -r '.schedule' "$BASE_CFG")
@@ -204,23 +216,49 @@ if [[ "${DEPLOY_CRE_WORKFLOW:-}" == "1" ]]; then
           }]
         }' >"$CRE_DIR/config.deploy.json"
       set +e
-      (cd "$CRE_DIR" && CRE_API_KEY="$CRE_API_KEY" cre workflow deploy . --target arc-testnet-deploy --yes)
+      CRE_OUTPUT=$(cd "$CRE_DIR" && cre workflow simulate . --target arc-testnet-deploy --broadcast 2>&1)
       cre_status=$?
       set -e
       if [[ "$cre_status" -ne 0 ]]; then
-        echo "WARN: cre workflow deploy exited $cre_status (Early Access, target name, or platform limits). Hub and source deploys finished successfully." >&2
+        echo "$CRE_OUTPUT" >&2
+        echo "WARN: cre workflow simulate exited $cre_status (is the backend reachable at the price URL?). Hub and source deploys finished successfully." >&2
         if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]]; then
           exit "$cre_status"
         fi
       else
-        CRE_COMPLETED=1
+        PRICE=$(echo "$CRE_OUTPUT" | sed -n 's/.*Consensus price (8 decimals): \([0-9]*\).*/\1/p' | tail -1)
+        if [[ -z "$PRICE" ]]; then
+          echo "$CRE_OUTPUT" >&2
+          echo "WARN: CRE simulate succeeded but could not parse consensus price from output." >&2
+          if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]]; then
+            exit 1
+          fi
+        else
+          echo "Submitting oracle price on-chain: collection=$SEP_COLL tokenId=$TOKEN_ID price=$PRICE"
+          set +e
+          cast send "$ORACLE" \
+            "setMockPrice(address,uint256,uint256,uint8)" \
+            "$SEP_COLL" "$TOKEN_ID" "$PRICE" 1 \
+            --rpc-url "$ARC_TESTNET_RPC" \
+            --private-key "$DEPLOYER_PRIVATE_KEY"
+          cast_status=$?
+          set -e
+          if [[ "$cast_status" -ne 0 ]]; then
+            echo "WARN: cast send setMockPrice exited $cast_status." >&2
+            if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]]; then
+              exit "$cast_status"
+            fi
+          else
+            CRE_COMPLETED=1
+          fi
+        fi
       fi
     else
       echo "CRE skipped: npm ci failed in cre/price-oracle (install dependencies manually)."
     fi
   fi
   if [[ "${FAIL_ON_CRE_FAILURE:-}" == "1" ]] && [[ "$CRE_COMPLETED" -ne 1 ]]; then
-    echo "CRE workflow did not complete successfully (FAIL_ON_CRE_FAILURE=1)." >&2
+    echo "CRE simulate / on-chain price step did not complete successfully (FAIL_ON_CRE_FAILURE=1)." >&2
     exit 1
   fi
 fi
@@ -254,7 +292,7 @@ _Generated: ${TS}_ (re-run \`scripts/deploy-all.sh\` to refresh.)
 | LendingPool (proxy) | ${POOL} |
 | AuctionLiquidationManager (proxy) | ${LIQ} |
 | HealthFactorEngine (proxy) | ${HF} |
-| MockUSDC | ${USDC} |
+| USDC (hub, ERC-20) | ${USDC} |
 | ChainlinkAutomationKeeper | ${KEEPER} |
 
 _Proxy implementation addresses are stored in \`contracts/deployments/hub.json\`._

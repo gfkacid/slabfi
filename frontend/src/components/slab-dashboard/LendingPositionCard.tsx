@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
+import { formatUnits } from "viem";
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { Icon } from "@/components/ui/Icon";
 import { useUserPosition, useOutstandingDebt, useLendingPoolStats } from "@/hooks";
 import { hubChain } from "@/lib/hub";
-import { aprPercentFromBps, formatUsd18, formatUsdNumber, price8ToUsdNumber } from "@/lib/hubFormat";
+import { aprPercentFromBps, formatUsdc, formatUsdNumber, price8ToUsdNumber } from "@/lib/hubFormat";
 
 const LTV_MAX_PCT = 60;
 
@@ -19,7 +21,8 @@ export function LendingPositionCard() {
   const principal = debtTuple?.[0];
   const interest = debtTuple?.[1];
   const totalDebt = debtTuple?.[2];
-  const debtUsd = totalDebt !== undefined && totalDebt > 0n ? Number(totalDebt) / 1e18 : 0;
+  const debtUsd =
+    totalDebt !== undefined && totalDebt > 0n ? Number(formatUnits(totalDebt, HUB_USDC_DECIMALS)) : 0;
 
   const ltvPct =
     collateralUsd > 0 && debtUsd > 0
@@ -29,7 +32,7 @@ export function LendingPositionCard() {
 
   const borrowApr = aprPercentFromBps(poolStats.borrowAprBps);
   const interestUsd =
-    interest !== undefined && interest > 0n ? formatUsd18(interest) : "0.00";
+    interest !== undefined && interest > 0n ? formatUsdc(interest) : "0.00";
 
   return (
     <section>
@@ -72,7 +75,7 @@ export function LendingPositionCard() {
           </div>
           {principal !== undefined && totalDebt !== undefined ? (
             <p className="text-xs opacity-80">
-              Principal ${formatUsd18(principal)} · Total debt ${formatUsd18(totalDebt)}
+              Principal ${formatUsdc(principal)} · Total debt ${formatUsdc(totalDebt)}
               {collateralUsd > 0 ? ` · Collateral ~$${formatUsdNumber(collateralUsd)}` : ""}
             </p>
           ) : null}

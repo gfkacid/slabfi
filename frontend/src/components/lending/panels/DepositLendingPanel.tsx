@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
-import { LENDING_POOL_ABI, ERC20_ABI } from "@slabfinance/shared";
+import { LENDING_POOL_ABI, ERC20_ABI, HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { UsdcInputField } from "@/components/shared/lending/UsdcInputField";
 import { LendingActionPanel } from "@/components/shared/lending/LendingActionPanel";
 import { lendingGradientPrimary } from "@/components/shared/lending/lendingStyles";
 import { useDeposit, useLendingPoolStats, useUsdcBalance } from "@/hooks";
 import { hubChain, hubContracts } from "@/lib/hub";
-import { aprPercentFromBps, formatUsd18 } from "@/lib/hubFormat";
+import { aprPercentFromBps, formatUsdc } from "@/lib/hubFormat";
 import { useReadContract } from "wagmi";
 
 export function DepositLendingPanel() {
@@ -24,7 +24,7 @@ export function DepositLendingPanel() {
   const amountWei = useMemo(() => {
     try {
       if (!amount || amount === ".") return 0n;
-      return parseUnits(amount, 18);
+      return parseUnits(amount, HUB_USDC_DECIMALS);
     } catch {
       return 0n;
     }
@@ -39,15 +39,15 @@ export function DepositLendingPanel() {
   });
 
   const walletStr =
-    walletBal !== undefined ? formatUsd18(walletBal) : "—";
+    walletBal !== undefined ? formatUsdc(walletBal) : "—";
   const sharesStr =
     previewShares !== undefined && amountWei > 0n
-      ? formatUnits(previewShares, 18)
+      ? formatUnits(previewShares, HUB_USDC_DECIMALS)
       : "0.00";
   const supplyApr = aprPercentFromBps(poolStats.supplyAprBps);
   const estYieldUsd =
     amountWei > 0n && poolStats.supplyAprBps !== undefined
-      ? (Number(formatUnits(amountWei, 18)) * Number(poolStats.supplyAprBps)) / 10000
+      ? (Number(formatUnits(amountWei, HUB_USDC_DECIMALS)) * Number(poolStats.supplyAprBps)) / 10000
       : 0;
 
   const canSubmit =

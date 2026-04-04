@@ -33,7 +33,7 @@ struct CollateralItem {
 struct Position {
     address borrower;
     bytes32[] collateralIds;   // all ACTIVE collateral items
-    uint256 principal;         // USDC borrowed (18 decimals)
+    uint256 principal;         // USDC borrowed (LendingPool / token raw decimals)
     uint256 interestAccrued;  // simple interest accumulator
     uint256 lastInterestUpdate;
     PositionStatus status;

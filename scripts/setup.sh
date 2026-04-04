@@ -32,7 +32,6 @@ done
 missing_env=()
 [[ -z "${DEPLOYER_PRIVATE_KEY:-}" ]] && missing_env+=("DEPLOYER_PRIVATE_KEY")
 [[ -z "${VITE_WALLETCONNECT_PROJECT_ID:-}" ]] && missing_env+=("VITE_WALLETCONNECT_PROJECT_ID")
-[[ -z "${CRE_API_KEY:-}" ]] && missing_env+=("CRE_API_KEY")
 [[ -z "${SLABFI_API_KEY:-}" ]] && missing_env+=("SLABFI_API_KEY")
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
@@ -55,6 +54,25 @@ if [[ ${#missing_tools[@]} -gt 0 || ${#missing_env[@]} -gt 0 || ${#missing_paths
   if [[ ${#missing_paths[@]} -gt 0 ]]; then
     echo "  Missing files: ${missing_paths[*]}" >&2
   fi
+  echo "" >&2
+  echo "Hints:" >&2
+  for t in "${missing_tools[@]}"; do
+    case "$t" in
+      jq) echo "  jq — Debian/Ubuntu: sudo apt install jq  ·  macOS: brew install jq  ·  https://jqlang.org/download/" >&2 ;;
+      cre)
+        echo "  cre — Chainlink CRE CLI: https://docs.chain.link/cre/reference/cli/installation" >&2
+        ;;
+      *) ;;
+    esac
+  done
+  for e in "${missing_env[@]}"; do
+    case "$e" in
+      SLABFI_API_KEY)
+        echo "  SLABFI_API_KEY — add to .env (any secret string; backend uses it for GET /cards/.../price and CRE config.deploy.json)" >&2
+        ;;
+      *) ;;
+    esac
+  done
   exit 1
 fi
 
@@ -65,9 +83,8 @@ echo "=== Prisma generate + db push ==="
 pnpm db:generate
 pnpm db:push
 
-echo "=== Contract deploy + CRE (strict CRE failure) ==="
+echo "=== Contract deploy + CRE simulate (best-effort; backend must be up for price HTTP) ==="
 export DEPLOY_CRE_WORKFLOW=1
-export FAIL_ON_CRE_FAILURE=1
 bash "$REPO_ROOT/scripts/deploy-all.sh"
 
 echo "=== Sync shared/config/testnet.ts from deployments ==="

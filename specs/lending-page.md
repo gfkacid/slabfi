@@ -46,7 +46,7 @@ Navigation labels should use **“Lending”** where a single entry point is des
 **UI requirements**
 
 1. Connect wallet on the **hub chain**; show **USDC balance** (and native gas token if not USDC).
-2. Input **amount** (respect USDC decimals used by deployment — 18 for mock USDC in this repo unless upgraded).
+2. Input **amount** (hub USDC uses **6 decimals**, matching Circle USDC on Arc testnet; Foundry tests use a local `TestUSDC6` helper).
 3. **Approve** `LendingPool` to spend USDC, then **`deposit(amount)`** (or the deployed equivalent) when the contract exposes a public deposit with share minting per PRD.
 4. After success: show **vault shares** (or receipt), **user’s USDC-equivalent position**, and **current supply APR** / utilization if exposed by the contract.
 

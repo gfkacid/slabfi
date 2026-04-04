@@ -1,3 +1,4 @@
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { formatUnits } from "viem";
 import { useCollateralItem, useMinBidIncrementBPS } from "@/hooks";
 import { useModal } from "@/components/modal";
@@ -69,11 +70,11 @@ export function ActiveQueueTableRow({ entry, onPlaceBid, onClaim }: ActiveQueueT
   const minNext = hasBid ? ceilMinNextBid(entry.highestBid, incrementBps) : entry.reservePrice;
   const displayBidTarget = hasBid ? minNext : entry.reservePrice;
 
-  const debtLabel = `${Number(formatUnits(entry.debtShareSnapshot, 18)).toLocaleString(undefined, {
+  const debtLabel = `${Number(formatUnits(entry.debtShareSnapshot, HUB_USDC_DECIMALS)).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} USDC`;
-  const bidLabel = `${Number(formatUnits(displayBidTarget, 18)).toLocaleString(undefined, {
+  const bidLabel = `${Number(formatUnits(displayBidTarget, HUB_USDC_DECIMALS)).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} USDC`;

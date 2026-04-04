@@ -16,5 +16,6 @@ const lines = [
   `export ARC_CHAIN_SELECTOR=${JSON.stringify(h.ccipChainSelector)}`,
   `export SEPOLIA_CHAIN_SELECTOR=${JSON.stringify(s.ccipChainSelector)}`,
   `export CRE_FORWARDER_ADDRESS=${JSON.stringify(testnetConfig.cre.forwarderAddress)}`,
+  `export HUB_USDC_ADDRESS=${JSON.stringify(h.contracts.usdc)}`,
 ];
 console.log(lines.join("\n"));

@@ -23,7 +23,7 @@ From the repo root, `pnpm install` pulls workspace packages. Foundry remappings 
 
 ## 1b. One-command setup (recommended)
 
-After MySQL is running and you have a root `.env` (see §2), run everything through install, database, contract deploy, **CRE**, and **`shared/config/testnet.ts` sync**:
+After MySQL is running and you have a root `.env` (see §2), run everything through install, database, contract deploy, **best-effort CRE simulate** (see below), and **`shared/config/testnet.ts` sync**:
 
 ```bash
 pnpm setup
@@ -33,13 +33,13 @@ This executes [`scripts/setup.sh`](scripts/setup.sh). It **preflights** all requ
 
 1. Runs **`pnpm install`**
 2. Runs **`pnpm db:generate`** and **`pnpm db:push`**
-3. Runs **`scripts/deploy-all.sh`** with **`DEPLOY_CRE_WORKFLOW=1`** and **`FAIL_ON_CRE_FAILURE=1`** (CRE must succeed or the script fails)
+3. Runs **`scripts/deploy-all.sh`** with **`DEPLOY_CRE_WORKFLOW=1`** (local **`cre workflow simulate --broadcast`**, then **`cast send`** **`setMockPrice`**). This step is **best-effort**: the default price URL is `http://127.0.0.1:3001/...`, so the backend must be running for it to succeed; if it fails, hub/source deploys still completed. Re-run **`deploy-all.sh`** with the backend up, or set prices manually (§6).
 4. Runs **`scripts/sync-testnet-from-deployments.ts`** to write deployment addresses into the marked regions of [`shared/config/testnet.ts`](shared/config/testnet.ts)
 5. If **`SEED_CARD_COLLECTION`** is set to a valid `0x` address, runs **`pnpm db:seed:cards`**
 
 **Tools on `PATH`:** `node`, `pnpm`, `forge`, `cast`, `jq`, **`cre`** (Chainlink CRE CLI), **`npm`** (for `cre/price-oracle` install inside `deploy-all.sh`).
 
-**Still manual after `pnpm setup`:** fund the hub CCIP router (§6), set oracle prices / wait for CRE (§6), start dev servers (§8), optional verification (§9). The script prints a short reminder at the end.
+**Still manual after `pnpm setup`:** fund the hub CCIP router (§6), confirm oracle prices (CRE simulate during setup may have skipped if the backend was down — §4 / §6), start dev servers (§8), optional verification (§9). The script prints a short reminder at the end.
 
 ---
 
@@ -68,9 +68,10 @@ cp .env.example frontend/.env
 | `PORT` | Backend (default `3001`). |
 | `VITE_API_BASE` | Backend base URL for the SPA (default dev: `http://localhost:3001`). |
 | `PRICECHARTING_API_KEY` | Card valuations / PriceCharting integration in the API. |
-| `SLABFI_API_KEY` | Protects `GET /cards/:collection/:tokenId/price` (CRE and `deploy-all.sh` generated config). **Required for `pnpm setup`.** |
-| `CRE_API_KEY` | Non-interactive auth for the CRE CLI. **Required for `pnpm setup`.** |
+| `SLABFI_API_KEY` | Protects `GET /cards/:collection/:tokenId/price` (CRE simulate and `deploy-all.sh` generated config). **Required for `pnpm setup`.** |
 | `INDEXER_POLL_INTERVAL_MS`, `INDEXER_LOG_CHUNK_SIZE` | Indexer tuning. |
+
+**CRE:** Local **`cre workflow simulate --broadcast`** does **not** use a Chainlink platform API key (`CRE_API_KEY` is only for **`cre workflow deploy`** when CRE access is available).
 
 **Chain RPCs, CCIP routers/selectors, CRE forwarder, and deployed contract addresses** are not-only-in-env: the single source of truth is [`shared/config/testnet.ts`](shared/config/testnet.ts). After **`pnpm setup`**, contract fields are filled automatically from `contracts/deployments/*.json` (see §5). If you only run `deploy-all.sh`, paste addresses manually or run `scripts/sync-testnet-from-deployments.ts` yourself.
 
@@ -96,7 +97,7 @@ Hub must deploy before source; the source stack needs the hub `CCIPMessageRouter
 
 ### Option A — full repo setup (`pnpm setup`)
 
-Use [§1b](#1b-one-command-setup-recommended): **`pnpm setup`** (wraps `scripts/setup.sh`). This includes install, DB push, deploy, **mandatory CRE**, and syncing [`shared/config/testnet.ts`](shared/config/testnet.ts).
+Use [§1b](#1b-one-command-setup-recommended): **`pnpm setup`** (wraps `scripts/setup.sh`). This includes install, DB push, deploy, **best-effort CRE simulate + on-chain price tx**, and syncing [`shared/config/testnet.ts`](shared/config/testnet.ts).
 
 ### Option B — deploy contracts only (`deploy-all.sh`)
 
@@ -115,7 +116,7 @@ This runs:
 
 It also writes **[`DEPLOYMENTS.md`](DEPLOYMENTS.md)** with addresses and a TypeScript snippet for `testnet.ts`.
 
-**Optional CRE workflow** (after hub + Sepolia): set `DEPLOY_CRE_WORKFLOW=1`, install the Chainlink CRE CLI (`cre`) on `PATH`, set `CRE_API_KEY`. Optionally override the price URL with `EXTERNAL_PRICE_API_URL` and token id with `CRE_PRICE_TOKEN_ID`. If the CLI step fails, hub/source deploys may still succeed; check script output. To fail the script when CRE does not complete, set **`FAIL_ON_CRE_FAILURE=1`** (as `pnpm setup` does).
+**Optional CRE path** (after hub + Sepolia): set **`DEPLOY_CRE_WORKFLOW=1`**, install the Chainlink CRE CLI (`cre`) and ensure **`cast`** (Foundry) is on `PATH`. The script runs **`cre workflow simulate . --target arc-testnet-deploy --broadcast`** (real HTTP + consensus; no CRE platform deploy), parses the logged consensus price, then **`cast send`** **`OracleConsumer.setMockPrice`**. The default price URL hits **`http://127.0.0.1:3001/cards/.../price`** — start the backend first or set **`EXTERNAL_PRICE_API_URL`**. Optionally set **`CRE_PRICE_TOKEN_ID`**. To fail the script when simulate or the on-chain tx does not complete, set **`FAIL_ON_CRE_FAILURE=1`**.
 
 ### Option C — manual (mirror of the script)
 
@@ -167,19 +168,19 @@ Restart the frontend after changing `testnet.ts` or env files. After syncing, re
 
 **Outbound CCIP on Arc** — The hub `CCIPMessageRouter` needs native USDC for outbound messages (e.g. unlock). On Arc, native currency is USDC; send a small amount to the router address (see [DOCS.md](./DOCS.md#step-4-fund-ccip-router) for `cast send` with `--value`).
 
-**Prices** — Collateral moves to ACTIVE after `OracleConsumer` has a price. For development, use `setMockPrice(collection, tokenId, price)` (price is **8 decimals**, e.g. `$150` → `15000000000`). Use addresses from **`DEPLOYMENTS.md`**, `hub.json` / `eth-sepolia.json`, or `shared/config/testnet.ts` after §5:
+**Prices** — Collateral moves to ACTIVE after `OracleConsumer` has a price. For development, use **`setMockPrice(collection, tokenId, priceUSD, tier)`** (price is **8 decimals**, e.g. `$150` → `15000000000`; **`tier`** is `1`–`3`, or `0` to leave tier unchanged). Use addresses from **`DEPLOYMENTS.md`**, `hub.json` / `eth-sepolia.json`, or `shared/config/testnet.ts` after §5:
 
 ```bash
 cd contracts
 eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
 cast send <oracleConsumer_proxy> \
-  "setMockPrice(address,uint256,uint256)" \
-  <cardFiCollectible_on_Sepolia> 1 15000000000 \
+  "setMockPrice(address,uint256,uint256,uint8)" \
+  <cardFiCollectible_on_Sepolia> 1 15000000000 1 \
   --rpc-url "$ARC_TESTNET_RPC" \
   --private-key "$DEPLOYER_PRIVATE_KEY"
 ```
 
-Repeat per token id as needed. Production path: Chainlink CRE + [`cre/price-oracle/`](cre/price-oracle/) (forwarder in `testnet.ts` → `cre.forwarderAddress`).
+Repeat per token id as needed. **CRE today:** simulate locally with [`cre/price-oracle/`](cre/price-oracle/) (`cre workflow simulate ... --broadcast`); **`deploy-all.sh`** can run that and then submit **`setMockPrice`** for you. When CRE platform deploy is available, **`onReport`** via the Keystone forwarder ([`testnet.ts`](shared/config/testnet.ts) → `cre.forwarderAddress`) is the production path.
 
 ---
 

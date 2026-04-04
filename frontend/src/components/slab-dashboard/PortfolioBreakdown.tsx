@@ -3,12 +3,10 @@ import { ProgressBar } from "@/components/slab-dashboard/ProgressBar";
 import { SectionTitle } from "@/components/slab-dashboard/SectionTitle";
 import { useCollateralCatalog, useProtocolStats, useUserPosition, useOutstandingDebt } from "@/hooks";
 import { isApiConfigured } from "@/lib/api";
-import {
-  formatUsd18,
-  formatUsdNumber,
-  price8ToUsdNumber,
-} from "@/lib/hubFormat";
+import { formatUsdNumber, formatUsdc, price8ToUsdNumber } from "@/lib/hubFormat";
 import { useMemo } from "react";
+import { formatUnits } from "viem";
+import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 
 const FILLS = ["bg-secondary", "bg-yellow-400", "bg-tertiary-fixed-dim", "bg-primary/40", "bg-emerald-400"] as const;
 
@@ -52,7 +50,7 @@ export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
   const totalCollateralUsd = loggedInGroups.reduce((a, r) => a + r.usd, 0);
   const debtWad = debtTuple?.[2];
   const debtUsd =
-    debtWad !== undefined && debtWad > 0n ? Number(debtWad) / 1e18 : 0;
+    debtWad !== undefined && debtWad > 0n ? Number(formatUnits(debtWad, HUB_USDC_DECIMALS)) : 0;
   const totalAssetsDisplay =
     totalCollateralUsd > 0 ? `$${formatUsdNumber(totalCollateralUsd)}` : "—";
   const debtDisplay =
@@ -155,7 +153,7 @@ export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
               </p>
               <p className="font-headline text-3xl font-extrabold">{totalAssetsDisplay}</p>
               <p className="mt-2 inline-block rounded bg-error/10 px-2 py-0.5 text-[10px] text-error">
-                Debt {debtWad !== undefined ? `$${formatUsd18(debtWad)}` : "—"}
+                Debt {debtWad !== undefined ? `$${formatUsdc(debtWad)}` : "—"}
               </p>
             </div>
           </div>
