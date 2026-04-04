@@ -11,7 +11,8 @@
  * Signer: DEPLOYER_PRIVATE_KEY (must be contract owner). Loads repo-root `.env` when present.
  *
  * Re-run with the same JSON to mint the same metadata rows again (ids continue from the
- * contract's counter). Change `MINT_RECIPIENT` between runs to send batches to different wallets.
+ * contract's counter). Set the script variable `MINT_RECIPIENT` (below) or env `MINT_RECIPIENT`
+ * to send batches to another wallet; default is the deployer address.
  *
  * From repo root:
  *   pnpm --filter @slabfinance/indexer exec tsx ../scripts/mint-cardfi-collectibles.ts
@@ -21,13 +22,42 @@ import { config as loadEnv } from "dotenv";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createPublicClient, createWalletClient, http, type Address, type Hex } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  getAddress,
+  http,
+  isAddress,
+  type Address,
+  type Hex,
+} from "viem";
 import { sepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { testnetConfig } from "../shared/config/testnet";
 
-/** Replace with the wallet that should receive this batch. */
-const MINT_RECIPIENT = "0x0000000000000000000000000000000000000001" as const satisfies Address;
+/**
+ * Wallet that receives each minted NFT (owner `DEPLOYER_PRIVATE_KEY` still signs txs).
+ * - `null` → use deployer address, or `MINT_RECIPIENT` from `.env` if set to a valid `0x` address.
+ * - Or set a checksummed address here to always mint to that wallet.
+ */
+const MINT_RECIPIENT: Address | null = null;
+
+function resolveMintRecipient(deployer: Address): Address {
+  if (MINT_RECIPIENT !== null) {
+    if (!isAddress(MINT_RECIPIENT)) {
+      throw new Error(`Invalid MINT_RECIPIENT in script (must be 0x address): ${MINT_RECIPIENT}`);
+    }
+    return getAddress(MINT_RECIPIENT);
+  }
+  const fromEnv = process.env.MINT_RECIPIENT?.trim();
+  if (fromEnv) {
+    if (!isAddress(fromEnv)) {
+      throw new Error(`Invalid MINT_RECIPIENT in environment: ${fromEnv}`);
+    }
+    return getAddress(fromEnv);
+  }
+  return deployer;
+}
 
 const METADATA_RELATIVE = "data/cardFi-collectibles-metadata.stub.json";
 
@@ -170,6 +200,7 @@ async function main() {
   }
   const pk = (pkRaw.startsWith("0x") ? pkRaw : `0x${pkRaw}`) as Hex;
   const account = privateKeyToAccount(pk);
+  const recipient = resolveMintRecipient(account.address);
 
   const chainId = testnetConfig.source.chainId;
   if (chainId !== sepolia.id) {
@@ -209,7 +240,7 @@ async function main() {
       address,
       abi: cardFiCollectibleAbi,
       functionName: "mintWithMetadata",
-      args: [MINT_RECIPIENT, metadata],
+      args: [recipient, metadata],
     });
     await publicClient.waitForTransactionReceipt({ hash });
     const next = await publicClient.readContract({
@@ -221,7 +252,7 @@ async function main() {
     console.log(`tokenId ${mintedId}: mintWithMetadata tx ${hash}`);
   }
 
-  console.log("Done. Recipient:", MINT_RECIPIENT);
+  console.log("Done. Recipient:", recipient);
 }
 
 main().catch((e) => {

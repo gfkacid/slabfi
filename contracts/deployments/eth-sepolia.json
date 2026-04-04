@@ -1,0 +1,10 @@
+{
+  "network": "ethereum-sepolia",
+  "sourceCcipRouter": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
+  "sourceChainSelector": "16015286601757825753",
+  "hubChainSelector": "3034092155422581607",
+  "hubCcipMessageRouter": "0x969589b618E9b75F4181D3a262420a384df90AD2",
+  "cardFiCollectible": "0x3E299E9762eE497C5aa8a34eD8260BaeB98B5f60",
+  "nftVault": "0x7a783706CA89603f0Cec64EFC801dA1aD20ad953",
+  "collateralAdapter": "0x68519cd40e0BA62EE6ABc9B5FE02e76e376C8A98"
+}

@@ -50,11 +50,17 @@ contract DeploySourceChain is Script {
         CardTokenJson[] memory tokens = abi.decode(rawTokens, (CardTokenJson[]));
         require(tokens.length > 0, "card metadata: empty tokens array");
 
+        // Each mintWithMetadata can exceed ~25M gas (on-chain metadata). Many public Sepolia RPCs cap
+        // txs at 16,777,216 — set SOURCE_DEPLOY_TOKEN_LIMIT=0 to deploy without seed mints, then mint via UI/script.
+        uint256 mintLimit = vm.envOr("SOURCE_DEPLOY_TOKEN_LIMIT", type(uint256).max);
+        uint256 mintCount = tokens.length;
+        if (mintLimit < mintCount) mintCount = mintLimit;
+
         vm.startBroadcast(deployerPrivateKey);
         address deployer = vm.addr(deployerPrivateKey);
 
         CardFiCollectible collection = new CardFiCollectible();
-        for (uint256 i = 0; i < tokens.length; i++) {
+        for (uint256 i = 0; i < mintCount; i++) {
             CardTokenJson memory t = tokens[i];
             require(t.grade <= type(uint16).max, "grade exceeds uint16");
             require(t.tier >= 1 && t.tier <= 3, "tier must be 1-3");

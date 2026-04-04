@@ -56,37 +56,59 @@ cd "$CONTRACTS"
 
 export HUB_DEPLOYMENT_OUTPUT="deployments/hub.json"
 
-echo "=== Phase 1: Deploy hub on Arc testnet ==="
-forge script script/Deploy_Hub.s.sol:DeployHub --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir -vvv
+if [[ "${ONLY_POST_DEPLOY:-}" != "1" ]]; then
+  if [[ "${SKIP_HUB_DEPLOY:-}" == "1" ]]; then
+    echo "=== Phase 1: Skipped (SKIP_HUB_DEPLOY=1); using existing $HUB_JSON ==="
+  else
+    echo "=== Phase 1: Deploy hub on Arc testnet ==="
+    forge script script/Deploy_Hub.s.sol:DeployHub --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir -vvv
+  fi
 
-HUB_ROUTER="$(json_get "$HUB_JSON" ccipMessageRouter)"
-REGISTRY="$(json_get "$HUB_JSON" collateralRegistry)"
-if [[ -z "$HUB_ROUTER" || -z "$REGISTRY" ]]; then
-  echo "Failed to read hub addresses from $HUB_JSON" >&2
-  exit 1
+  HUB_ROUTER="$(json_get "$HUB_JSON" ccipMessageRouter)"
+  REGISTRY="$(json_get "$HUB_JSON" collateralRegistry)"
+  if [[ -z "$HUB_ROUTER" || -z "$REGISTRY" ]]; then
+    echo "Failed to read hub addresses from $HUB_JSON" >&2
+    exit 1
+  fi
+
+  export HUB_CCIP_ROUTER_ADDRESS="$HUB_ROUTER"
+  export HUB_CHAIN_SELECTOR="$ARC_CHAIN_SELECTOR"
+
+  echo "=== Phase 2: Deploy source chain on Ethereum Sepolia ==="
+  export SOURCE_CCIP_ROUTER="$CCIP_ROUTER_SEPOLIA"
+  export SOURCE_CHAIN_SELECTOR="$SEPOLIA_CHAIN_SELECTOR"
+  export DEPLOYMENT_OUTPUT_FILE="deployments/eth-sepolia.json"
+  export SOURCE_NETWORK_NAME="ethereum-sepolia"
+  # Stub seed mints can exceed public-RPC per-tx gas caps; override with SOURCE_DEPLOY_TOKEN_LIMIT (see .env.example).
+  export SOURCE_DEPLOY_TOKEN_LIMIT="${SOURCE_DEPLOY_TOKEN_LIMIT:-0}"
+  forge script script/Deploy_SourceChain.s.sol:DeploySourceChain --rpc-url "$SEPOLIA_RPC" --broadcast --via-ir -vvv
+
+  SEPOLIA_ADAPTER="$(json_get "$SEPOLIA_JSON" collateralAdapter)"
+  if [[ -z "$SEPOLIA_ADAPTER" ]]; then
+    echo "Failed to read adapter address from $SEPOLIA_JSON" >&2
+    exit 1
+  fi
+
+  export COLLATERAL_REGISTRY_ADDRESS="$REGISTRY"
+  export SEPOLIA_ADAPTER_ADDRESS="$SEPOLIA_ADAPTER"
+
+  echo "=== Phase 3: Register Sepolia adapter on hub (Arc) ==="
+  FORGE_P3=(
+    forge script script/Configure_Hub_Adapters.s.sol:ConfigureHubAdapters
+    --rpc-url "$ARC_TESTNET_RPC"
+    --broadcast
+    --via-ir
+    -vvv
+  )
+  if [[ "${ARC_CONFIGURE_LEGACY:-}" == "1" ]]; then
+    FORGE_P3+=(--legacy --with-gas-price "${ARC_CONFIGURE_GAS_PRICE:-120000000000}")
+  elif [[ -n "${ARC_PRIORITY_GAS_PRICE:-}" ]]; then
+    FORGE_P3+=(--priority-gas-price "$ARC_PRIORITY_GAS_PRICE")
+  fi
+  "${FORGE_P3[@]}"
+else
+  echo "=== ONLY_POST_DEPLOY=1: skipping forge (CRE + DEPLOYMENTS.md only) ==="
 fi
-
-export HUB_CCIP_ROUTER_ADDRESS="$HUB_ROUTER"
-export HUB_CHAIN_SELECTOR="$ARC_CHAIN_SELECTOR"
-
-echo "=== Phase 2: Deploy source chain on Ethereum Sepolia ==="
-export SOURCE_CCIP_ROUTER="$CCIP_ROUTER_SEPOLIA"
-export SOURCE_CHAIN_SELECTOR="$SEPOLIA_CHAIN_SELECTOR"
-export DEPLOYMENT_OUTPUT_FILE="deployments/eth-sepolia.json"
-export SOURCE_NETWORK_NAME="ethereum-sepolia"
-forge script script/Deploy_SourceChain.s.sol:DeploySourceChain --rpc-url "$SEPOLIA_RPC" --broadcast --via-ir -vvv
-
-SEPOLIA_ADAPTER="$(json_get "$SEPOLIA_JSON" collateralAdapter)"
-if [[ -z "$SEPOLIA_ADAPTER" ]]; then
-  echo "Failed to read adapter address from $SEPOLIA_JSON" >&2
-  exit 1
-fi
-
-export COLLATERAL_REGISTRY_ADDRESS="$REGISTRY"
-export SEPOLIA_ADAPTER_ADDRESS="$SEPOLIA_ADAPTER"
-
-echo "=== Phase 3: Register Sepolia adapter on hub (Arc) ==="
-forge script script/Configure_Hub_Adapters.s.sol:ConfigureHubAdapters --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir -vvv
 
 TS="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
 
@@ -164,6 +186,14 @@ Copy addresses into [`shared/config/testnet.ts`](../shared/config/testnet.ts) un
 Forge RPCs, CCIP values, and default `CRE_FORWARDER_ADDRESS` come from `shared/config/testnet.ts` via `eval "$(... print-deploy-env.ts)"` after sourcing `.env` (exports from the script override same-named vars from `.env`).
 GUIDE_EOF
 )"
+
+HUB_ROUTER="$(json_get "$HUB_JSON" ccipMessageRouter)"
+REGISTRY="$(json_get "$HUB_JSON" collateralRegistry)"
+SEPOLIA_ADAPTER="$(json_get "$SEPOLIA_JSON" collateralAdapter)"
+if [[ -z "$HUB_ROUTER" || -z "$REGISTRY" || -z "$SEPOLIA_ADAPTER" ]]; then
+  echo "Missing deployment addresses (ccipMessageRouter, collateralRegistry, or collateralAdapter in JSON)." >&2
+  exit 1
+fi
 
 ORACLE="$(json_get "$HUB_JSON" oracleConsumer)"
 POOL="$(json_get "$HUB_JSON" lendingPool)"
