@@ -1,6 +1,13 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Address } from "viem";
 import { testnetConfig } from "@slabfinance/shared";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// pnpm runs this package with cwd = indexer/; DATABASE_URL usually lives in repo root .env
+loadEnv({ path: resolve(__dirname, "../../.env") });
+loadEnv({ path: resolve(__dirname, "../.env") });
 
 function reqAddr(v: string | undefined): Address | undefined {
   if (!v || v.length < 10) return undefined;

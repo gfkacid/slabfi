@@ -6,6 +6,7 @@ import { TransactionButton } from "@/components/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { sepolia } from "@/lib/chains";
+import { CCIP_EXPLORER_URL, ccipMessageIdFromLockReceipt } from "@/lib/ccipLock";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts";
 import { showToast } from "@/lib/toast";
 
@@ -48,10 +49,16 @@ export function LockPage() {
         value: ccipFee,
       });
       setTxHash(hash);
+      const receipt = await sepoliaClient.waitForTransactionReceipt({ hash });
+      const ccipId = ccipMessageIdFromLockReceipt(receipt, adapterAddr, COLLATERAL_ADAPTER_ABI);
+      const track =
+        ccipId != null
+          ? `CCIP message: ${ccipId.slice(0, 10)}…${ccipId.slice(-8)}. Track at ${CCIP_EXPLORER_URL} — the hub (and indexer) only see collateral after CCIP executes on Arc (often minutes on testnet).`
+          : `NFT locked on Sepolia. The hub updates after CCIP delivers; track the tx on ${CCIP_EXPLORER_URL}.`;
       showToast({
         type: "success",
-        title: "Transaction confirmed",
-        message: "Your NFT has been locked and the hub has been notified.",
+        title: "Lock submitted on Sepolia",
+        message: track,
       });
     } catch (err) {
       console.error(err);

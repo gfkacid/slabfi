@@ -64,7 +64,8 @@ model CardDailyPrice {
 model CollateralItem {
   id             String @id
   hubChainId     String
-  sourceChainId  BigInt
+  /// CCIP chain selectors are uint64; decimal string avoids Prisma/i64 serialization limits.
+  sourceChainId  String @db.VarChar(32)
   collection     String
   tokenId        BigInt
   owner          String

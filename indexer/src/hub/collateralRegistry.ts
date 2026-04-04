@@ -32,12 +32,13 @@ export async function handleCollateralRegistryDecoded(params: {
 
       const rowId = String(item.id).toLowerCase() as `0x${string}`;
 
+      const sourceChainId = item.sourceChainId.toString();
       await prisma.collateralItem.upsert({
         where: { id: rowId },
         create: {
           id: rowId,
           hubChainId,
-          sourceChainId: BigInt(item.sourceChainId),
+          sourceChainId,
           collection: String(item.collection).toLowerCase(),
           tokenId: item.tokenId,
           owner: String(item.owner).toLowerCase(),
@@ -45,7 +46,7 @@ export async function handleCollateralRegistryDecoded(params: {
           lockedAtUnix: item.lockedAt,
         },
         update: {
-          sourceChainId: BigInt(item.sourceChainId),
+          sourceChainId,
           collection: String(item.collection).toLowerCase(),
           tokenId: item.tokenId,
           owner: String(item.owner).toLowerCase(),
@@ -61,7 +62,10 @@ export async function handleCollateralRegistryDecoded(params: {
           kind: "CollateralRegistered",
           actor: owner,
           counterparty: id,
-          amount: BigInt(args.sourceChainId as bigint | number),
+          amount: null,
+          payloadJson: JSON.stringify({
+            sourceChainId: String(args.sourceChainId as bigint),
+          }),
           txHash: tx,
           blockNumber: bn,
           logIndex,

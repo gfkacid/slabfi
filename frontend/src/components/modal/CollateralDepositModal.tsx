@@ -29,6 +29,7 @@ import {
 import { useSepoliaSlabCollectibles } from "@/hooks/useSepoliaSlabCollectibles";
 import { Icon } from "@/components/ui/Icon";
 import { sepolia } from "@/lib/chains";
+import { CCIP_EXPLORER_URL, ccipMessageIdFromLockReceipt } from "@/lib/ccipLock";
 import { CONTRACT_ADDRESSES } from "@/lib/contracts";
 import { hubChain, hubContracts } from "@/lib/hub";
 import { price8ToUsdNumber } from "@/lib/hubFormat";
@@ -263,6 +264,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
         });
       }
 
+      const lastCcipIds: string[] = [];
       for (const nft of selectedList) {
         let ccipFee = 0n;
         try {
@@ -275,20 +277,26 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
         } catch {
           // Older adapters without `quoteCcipFee` rely on Sepolia ETH pre-funded on the contract.
         }
-        await lockWrite({
+        const lockHash = await lockWrite({
           address: adapterAddr,
           abi: COLLATERAL_ADAPTER_ABI,
           functionName: "lockAndNotify",
           args: [BigInt(nft.tokenId), address],
           value: ccipFee,
         });
+        const receipt = await sepoliaClient.waitForTransactionReceipt({ hash: lockHash });
+        const mid = ccipMessageIdFromLockReceipt(receipt, adapterAddr, COLLATERAL_ADAPTER_ABI);
+        if (mid) lastCcipIds.push(mid);
       }
 
+      const ccipHint =
+        lastCcipIds.length > 0
+          ? ` CCIP: ${lastCcipIds[lastCcipIds.length - 1]!.slice(0, 10)}… — hub/indexer update after execution; track ${CCIP_EXPLORER_URL}`
+          : ` Track CCIP at ${CCIP_EXPLORER_URL} until the hub shows your collateral.`;
       showToast({
         type: "success",
         title: "Deposit transactions sent",
-        message:
-          "Cards are locking on Sepolia and CCIP will notify the hub. Check the dashboard for PENDING → ACTIVE status.",
+        message: `Cards locked on Sepolia.${ccipHint}`,
       });
       setSelected(new Set());
       onClose();

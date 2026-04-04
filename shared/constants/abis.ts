@@ -113,6 +113,15 @@ export const LIQUIDATION_MANAGER_ABI = [
 
 export const COLLATERAL_ADAPTER_ABI = [
   {
+    type: "event",
+    name: "Locked",
+    inputs: [
+      { name: "tokenId", type: "uint256", indexed: true },
+      { name: "owner", type: "address", indexed: true },
+      { name: "ccipMessageId", type: "bytes32", indexed: false },
+    ],
+  },
+  {
     inputs: [
       { name: "tokenId", type: "uint256" },
       { name: "hubOwner", type: "address" },

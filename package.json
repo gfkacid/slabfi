@@ -19,12 +19,16 @@
     "db:seed:cards": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-cards-from-stub.ts",
     "db:seed:indexer-cursors": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-indexer-cursors.ts",
     "db:fetch:card-prices": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/fetch-card-prices-from-pricecharting.ts",
-    "ccip:fund-message-router": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/fund-ccip-message-router.ts"
+    "ccip:fund-message-router": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/fund-ccip-message-router.ts",
+    "diagnose:collateral": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/diagnose-collateral-hub.ts",
+    "diagnose:ccip": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/diagnose-ccip-message.ts",
+    "ccip:manual-exec": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/ccip-manual-execute.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3"
   },
   "devDependencies": {
+    "@chainlink/ccip-sdk": "1.4.1",
     "@chainlink/contracts": "^1.5.0",
     "@chainlink/contracts-ccip": "^1.6.0",
     "prisma": "6.19.3",
