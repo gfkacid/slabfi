@@ -2,31 +2,29 @@ import { Icon } from "@/components/ui/Icon";
 import { SlabButton } from "@/components/slab-dashboard/SlabButton";
 import { PanelCard } from "@/components/slab-dashboard/PanelCard";
 import { SectionTitle } from "@/components/slab-dashboard/SectionTitle";
+import { useActivityFeed } from "@/hooks";
+import { formatRelativeTimeSecs } from "@/lib/hubFormat";
+import { hubChain } from "@/lib/hub";
+import type { ActivityFeedItem } from "@/lib/api";
 
 type RecentActivitySectionProps = { guest?: boolean };
 
-const items = [
-  {
-    icon: "check_circle" as const,
-    iconWrap: "bg-tertiary-fixed/20 text-on-tertiary-container",
-    title: "Lock Notice Sent",
-    detail: "CCIP Message ID: 0x4f...a3e",
-    status: "Success",
-    statusClass: "text-on-tertiary-container",
-    time: "2 mins ago",
-  },
-  {
-    icon: "sync" as const,
-    iconWrap: "bg-secondary-fixed/30 text-secondary",
-    title: "Cross-Chain Sync",
-    detail: "Updating Sepolia state",
-    status: "In Progress",
-    statusClass: "text-secondary",
-    time: "15 mins ago",
-  },
-] as const;
+function titleForItem(item: ActivityFeedItem): string {
+  const row = item.row;
+  const kind = typeof row.kind === "string" ? row.kind : "Event";
+  return kind.replace(/([A-Z])/g, " $1").trim() || "Activity";
+}
+
+function detailForItem(item: ActivityFeedItem): string {
+  const row = item.row;
+  const tx = typeof row.txHash === "string" ? row.txHash : "";
+  if (tx.length > 12) return `${tx.slice(0, 8)}…${tx.slice(-4)}`;
+  return item.source === "pool" ? "Lending pool" : "Protocol";
+}
 
 export function RecentActivitySection({ guest = false }: RecentActivitySectionProps) {
+  const { data, isLoading, isError } = useActivityFeed(1, 12);
+
   if (guest) {
     return (
       <section>
@@ -46,36 +44,62 @@ export function RecentActivitySection({ guest = false }: RecentActivitySectionPr
     );
   }
 
+  const items = data?.items ?? [];
+
   return (
     <section>
       <SectionTitle title="Recent Activity" />
       <PanelCard variant="panelTight">
-        <div className="divide-y divide-outline-variant/10">
-          {items.map((item) => (
-            <div
-              key={item.title}
-              className="flex items-center justify-between rounded-xl p-4 transition-colors hover:bg-zinc-100"
-            >
-              <div className="flex items-center gap-4">
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full ${item.iconWrap}`}
-                >
-                  <Icon name={item.icon} className="!text-xl" />
+        {isLoading ? (
+          <div className="space-y-2 p-4">
+            <div className="h-14 animate-pulse rounded-xl bg-surface-container-high" />
+            <div className="h-14 animate-pulse rounded-xl bg-surface-container-high" />
+          </div>
+        ) : isError || items.length === 0 ? (
+          <div className="p-8 text-center text-sm text-on-surface-variant">
+            {isError
+              ? "Could not load activity. Check VITE_API_BASE and the backend."
+              : "No recent indexed activity for this wallet."}
+          </div>
+        ) : (
+          <div className="divide-y divide-outline-variant/10">
+            {items.map((item, idx) => (
+              <div
+                key={`${item.source}-${item.timestampUnix}-${idx}`}
+                className="flex items-center justify-between rounded-xl p-4 transition-colors hover:bg-zinc-100"
+              >
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                      item.source === "pool"
+                        ? "bg-secondary-fixed/30 text-secondary"
+                        : "bg-tertiary-fixed/20 text-on-tertiary-container"
+                    }`}
+                  >
+                    <Icon
+                      name={item.source === "pool" ? "account_balance" : "sync"}
+                      className="!text-xl"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">{titleForItem(item)}</p>
+                    <p className="text-[10px] text-on-surface-variant">{detailForItem(item)}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold">{item.title}</p>
-                  <p className="text-[10px] text-on-surface-variant">{item.detail}</p>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-on-tertiary-container">{hubChain.name}</p>
+                  <p className="text-[10px] text-on-surface-variant">
+                    {formatRelativeTimeSecs(item.timestampUnix)}
+                  </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className={`text-sm font-bold ${item.statusClass}`}>{item.status}</p>
-                <p className="text-[10px] text-on-surface-variant">{item.time}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         <div className="p-3 text-center">
-          <SlabButton variant="textLink">View Transaction History</SlabButton>
+          <SlabButton variant="textLink" type="button" disabled>
+            View Transaction History
+          </SlabButton>
         </div>
       </PanelCard>
     </section>

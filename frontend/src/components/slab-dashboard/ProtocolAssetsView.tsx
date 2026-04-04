@@ -1,5 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useAccount } from "wagmi";
 import { useModal } from "@/components/modal";
 import { showToast } from "@/lib/toast";
 import { ProtocolInsightsPanel } from "@/components/assets/ProtocolInsightsPanel";
@@ -10,66 +11,32 @@ import {
   ProtocolCatalogAssetCard,
   type ProtocolCatalogAssetCardProps,
 } from "@/components/slab-dashboard/ProtocolCatalogAssetCard";
+import { useCollateralCatalog, useUserCollateral } from "@/hooks";
+import type { CollateralItemJson } from "@/lib/api";
+import { formatUsdNumber, price8ToUsdNumber } from "@/lib/hubFormat";
 
-const CATALOG_ASSETS: ProtocolCatalogAssetCardProps[] = [
-  {
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuD3gzgDKNNk0A00k6jG20gr1q4BQa8csg8PR5SkMBd0DV-_VqTAIwd_prVMcnyK5x6ZZUe7G0hRL8GGD_9kOtqaReQ7dNY_GFj57F9-KE_d6-MbhoJzyeq_orntVBWQKGq0m5uDZJHEHQFaXjYZp2hfD04081XmSLmnlMuBK8KYv1DcEEb5Q-d7lek5b9wRkV64Bazv0Klw6ndyhDbcTE6jVSry2mc5lq7BFBAiELzuxFVoaa6TuUWZ6EF5JhRPoOn9HZy3lee7QbE",
-    imageAlt: "Oracle Knight trading card",
-    assetId: "101",
-    title: "Oracle Knight #101",
-    subtitle: "Edition: First Strike • Grade: PSA 10",
-    valuation: "$1,240.00",
-    ltvPercent: 65,
+function itemToCardProps(
+  c: CollateralItemJson,
+  mine: boolean,
+): ProtocolCatalogAssetCardProps {
+  const usd = price8ToUsdNumber(c.latestPriceUsd ?? undefined);
+  const title = c.cardName?.trim() || `Token #${c.tokenId}`;
+  const subtitle = `${c.collection.slice(0, 8)}… · ${c.tokenId}`;
+  const imageUrl =
+    c.cardImage?.trim() ||
+    `https://picsum.photos/seed/${encodeURIComponent(c.id)}/600/800`;
+  return {
+    imageUrl,
+    imageAlt: title,
+    assetId: String(c.tokenId),
+    title,
+    subtitle,
+    valuation: usd > 0 ? `$${formatUsdNumber(usd)}` : "—",
+    ltvPercent: 0,
     health: "healthy",
-    isMine: true,
-  },
-  {
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBKYnEC9xVqYRX4g_NVZmkewaFJ7WU34Bf7pquP3cE644ejdqWRCX0AVQ49pQ3gtnPKXwm3cHXzr3iKffAtU3BmWczE0sJp6JGctAbSNp4VbNkJ-mrroVU9y7T0uAQk5vtU4LR2krI1gdSRpOdn2rVx7pIaPEJeat8XnQ94OLAm8pCWpHpU1LXsQ1Egnl7URrF7kywlI_0p2l1suq3oRq5MyX82Hp0OkLJdfPe1SqOJWc1qbET66jk67yv_C3yRbhK4b74p4jvIF5E",
-    imageAlt: "Oracle Knight variant card",
-    assetId: "102",
-    title: "Oracle Knight #102",
-    subtitle: "Edition: Mythic • Grade: PSA 9.5",
-    valuation: "$890.50",
-    ltvPercent: 42,
-    health: "healthy",
-    isMine: true,
-  },
-  {
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuDYaZVP4XzUbsKtdh3MQNJQTlxr8m4yFKOuA_ADt9V-MGMcokQRZIYPVsYe-1CuuRkTFBuPSSn2UHDmKwgYRkEUdR5fMPD3SmFTv4QrBJ-3JuMP_33KbRYh74onPaBzGcD_YCRQ7o7PexS7866Ylzs93VGVTv08PRF6NalhgzmPuyYQUGlsvwdIyFG5RwTYtb8hohIAPwafohy0MRf3HLRanfJ47yPZhxOKjrwK1NiQgaaYw1PyFhBePvK3mvXe1yzDPcW_aU-wJ5s",
-    imageAlt: "Oracle Knight frost variant",
-    assetId: "103",
-    title: "Oracle Knight #103",
-    subtitle: "Edition: Rare • Grade: BGS 9",
-    valuation: "$2,100.00",
-    ltvPercent: 58,
-    health: "healthy",
-  },
-  {
-    imageUrl: "https://picsum.photos/seed/slabfi-solaris/600/800",
-    imageAlt: "Solaris Dragon trading card",
-    assetId: "442",
-    title: "Solaris Dragon #442",
-    subtitle: "Edition: Genesis • Grade: PSA 10",
-    valuation: "$4,500.00",
-    ltvPercent: 35,
-    health: "healthy",
-  },
-  {
-    imageUrl:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBKYnEC9xVqYRX4g_NVZmkewaFJ7WU34Bf7pquP3cE644ejdqWRCX0AVQ49pQ3gtnPKXwm3cHXzr3iKffAtU3BmWczE0sJp6JGctAbSNp4VbNkJ-mrroVU9y7T0uAQk5vtU4LR2krI1gdSRpOdn2rVx7pIaPEJeat8XnQ94OLAm8pCWpHpU1LXsQ1Egnl7URrF7kywlI_0p2l1suq3oRq5MyX82Hp0OkLJdfPe1SqOJWc1qbET66jk67yv_C3yRbhK4b74p4jvIF5E",
-    imageAlt: "Tidal Wraith trading card",
-    assetId: "781",
-    title: "Tidal Wraith #781",
-    subtitle: "Edition: Torrent • Grade: BGS 8.5",
-    valuation: "$610.25",
-    ltvPercent: 72,
-    health: "warning",
-    isMine: true,
-  },
-];
+    isMine: mine,
+  };
+}
 
 function SegmentToggle({
   value,
@@ -100,7 +67,11 @@ function SegmentToggle({
 export function ProtocolAssetsView() {
   const { openModal } = useModal();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { address } = useAccount();
   const scope: "all" | "mine" = searchParams.get("scope") === "mine" ? "mine" : "all";
+
+  const { data: catalog, isLoading: catLoading } = useCollateralCatalog();
+  const { data: mineList, isLoading: mineLoading } = useUserCollateral();
 
   const setScope = useCallback(
     (v: "all" | "mine") => {
@@ -112,13 +83,25 @@ export function ProtocolAssetsView() {
       }
       setSearchParams(next, { replace: true });
     },
-    [searchParams, setSearchParams]
+    [searchParams, setSearchParams],
   );
 
-  const visible =
-    scope === "all" ? CATALOG_ASSETS : CATALOG_ASSETS.filter((a) => a.isMine);
+  const visible = useMemo(() => {
+    if (scope === "mine") {
+      const list = mineList ?? [];
+      return list.map((c) => ({ key: c.id, props: itemToCardProps(c, true) }));
+    }
+    const list = catalog ?? [];
+    const mineSet = new Set((mineList ?? []).map((x) => x.id.toLowerCase()));
+    return list.map((c) => ({
+      key: c.id,
+      props: itemToCardProps(c, mineSet.has(c.id.toLowerCase())),
+    }));
+  }, [scope, catalog, mineList]);
 
-  const handleWithdraw = useCallback((asset: (typeof CATALOG_ASSETS)[number]) => {
+  const loading = scope === "mine" ? mineLoading : catLoading;
+
+  const handleWithdraw = useCallback((asset: ProtocolCatalogAssetCardProps) => {
     showToast({
       type: "success",
       title: "Withdrawal started",
@@ -138,7 +121,7 @@ export function ProtocolAssetsView() {
       <header className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <span className={`${dashboardType.labelCaps} mb-2 block tracking-widest`}>
-            Global Protocol Catalog / Q3
+            Global Protocol Catalog
           </span>
           <h1 className="font-headline text-3xl font-extrabold tracking-tight text-primary md:text-4xl">
             Protocol Assets
@@ -157,15 +140,27 @@ export function ProtocolAssetsView() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
-        {visible.map((asset) => (
-          <ProtocolCatalogAssetCard
-            key={asset.assetId}
-            {...asset}
-            onWithdraw={asset.isMine ? () => handleWithdraw(asset) : undefined}
-          />
-        ))}
-      </div>
+      {scope === "mine" && !address ? (
+        <p className="text-sm text-on-surface-variant">Connect your wallet to see your collateral.</p>
+      ) : loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((k) => (
+            <div key={k} className="aspect-[3/4] animate-pulse rounded-xl bg-surface-container-high" />
+          ))}
+        </div>
+      ) : visible.length === 0 ? (
+        <p className="text-sm text-on-surface-variant">No collateral in the indexer yet.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+          {visible.map(({ key, props: asset }) => (
+            <ProtocolCatalogAssetCard
+              key={key}
+              {...asset}
+              onWithdraw={asset.isMine ? () => handleWithdraw(asset) : undefined}
+            />
+          ))}
+        </div>
+      )}
     </>
   );
 }

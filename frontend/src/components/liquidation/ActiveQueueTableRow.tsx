@@ -133,7 +133,6 @@ export function ActiveQueueTableRow({ entry, onPlaceBid, onClaim }: ActiveQueueT
               className={LIQUIDATION_BID_BUTTON_CLASS}
               onClick={() =>
                 openModal("bid", {
-                  variant: "live",
                   entry,
                   onPlaceBid,
                 })

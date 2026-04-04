@@ -14,6 +14,12 @@ export class CollateralController {
     return this.collateral.byOwner(address);
   }
 
+  @Get("catalog")
+  @ApiOperation({ summary: "All indexed collateral on the hub (catalog / explore)" })
+  catalog() {
+    return this.collateral.catalog();
+  }
+
   @Get(":id")
   @ApiOperation({ summary: "Single collateral by bytes32 id (hex)" })
   @ApiParam({ name: "id" })

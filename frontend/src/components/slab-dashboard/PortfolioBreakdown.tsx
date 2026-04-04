@@ -1,47 +1,67 @@
 import { PanelCard } from "@/components/slab-dashboard/PanelCard";
 import { ProgressBar } from "@/components/slab-dashboard/ProgressBar";
 import { SectionTitle } from "@/components/slab-dashboard/SectionTitle";
+import { useCollateralCatalog, useProtocolStats, useUserPosition, useOutstandingDebt } from "@/hooks";
+import { isApiConfigured } from "@/lib/api";
+import {
+  formatUsd18,
+  formatUsdNumber,
+  price8ToUsdNumber,
+} from "@/lib/hubFormat";
+import { useMemo } from "react";
 
-const rows = [
-  { name: "Courtyard", value: "$1,240.20 (58%)", pct: 58, fill: "bg-secondary" },
-  { name: "Beezy", value: "$600.00 (28%)", pct: 28, fill: "bg-yellow-400" },
-  { name: "Alt", value: "$300.00 (14%)", pct: 14, fill: "bg-tertiary-fixed-dim" },
-] as const;
+const FILLS = ["bg-secondary", "bg-yellow-400", "bg-tertiary-fixed-dim", "bg-primary/40", "bg-emerald-400"] as const;
 
-const guestRows = [
-  {
-    name: "Courtyard",
-    initial: "C",
-    initialClass: "bg-blue-100 text-blue-600",
-    items: "42 Items",
-    value: "$214,300",
-    delta: "+2.4%",
-    deltaClass: "text-tertiary-fixed-dim",
-  },
-  {
-    name: "Beezy",
-    initial: "B",
-    initialClass: "bg-amber-100 text-amber-600",
-    items: "18 Items",
-    value: "$42,910",
-    delta: "-0.8%",
-    deltaClass: "text-error",
-  },
-  {
-    name: "Alt",
-    initial: "A",
-    initialClass: "bg-zinc-200 text-zinc-800",
-    items: "12 Items",
-    value: "$128,500",
-    delta: "+5.1%",
-    deltaClass: "text-tertiary-fixed-dim",
-  },
-] as const;
+function groupByCollection(
+  items: { collection: string; latestPriceUsd?: string | null }[],
+): { key: string; label: string; usd: number; pct: number }[] {
+  const map = new Map<string, number>();
+  let total = 0;
+  for (const c of items) {
+    const v = price8ToUsdNumber(c.latestPriceUsd ?? undefined);
+    if (v <= 0) continue;
+    const prev = map.get(c.collection) ?? 0;
+    map.set(c.collection, prev + v);
+    total += v;
+  }
+  const rows = [...map.entries()].map(([collection, usd]) => ({
+    key: collection,
+    label: `${collection.slice(0, 6)}…${collection.slice(-4)}`,
+    usd,
+    pct: total > 0 ? Math.round((usd / total) * 100) : 0,
+  }));
+  rows.sort((a, b) => b.usd - a.usd);
+  return rows.map((r) => ({ ...r, pct: total > 0 ? Math.round((r.usd / total) * 100) : 0 }));
+}
 
 type PortfolioBreakdownProps = { guest?: boolean };
 
 export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
+  const { data: catalog, isLoading: catalogLoading } = useCollateralCatalog();
+  const { data: protocol, isLoading: protocolLoading } = useProtocolStats();
+  const position = useUserPosition();
+  const { data: debtTuple } = useOutstandingDebt();
+
+  const guestGroups = useMemo(() => groupByCollection(catalog ?? []), [catalog]);
+
+  const loggedInGroups = useMemo(
+    () => groupByCollection(position.data?.collaterals ?? []),
+    [position.data?.collaterals],
+  );
+
+  const totalCollateralUsd = loggedInGroups.reduce((a, r) => a + r.usd, 0);
+  const debtWad = debtTuple?.[2];
+  const debtUsd =
+    debtWad !== undefined && debtWad > 0n ? Number(debtWad) / 1e18 : 0;
+  const totalAssetsDisplay =
+    totalCollateralUsd > 0 ? `$${formatUsdNumber(totalCollateralUsd)}` : "—";
+  const debtDisplay =
+    debtUsd > 0 ? `-$${formatUsdNumber(debtUsd)}` : debtWad === 0n ? "$0.00" : "—";
+
   if (guest) {
+    const loading = isApiConfigured() && (catalogLoading || protocolLoading);
+    const showRows = guestGroups.length > 0 ? guestGroups.slice(0, 5) : [];
+
     return (
       <section>
         <SectionTitle title="Portfolio Breakdown" />
@@ -49,38 +69,44 @@ export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="font-headline text-xl font-extrabold tracking-tight text-primary">
-                Assets by Platform
+                Protocol collateral by collection
               </h3>
               <span className="rounded bg-secondary-fixed/30 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-secondary">
-                Preview
+                Indexed
               </span>
             </div>
-            <div className="space-y-4">
-              {guestRows.map((row) => (
-                <div
-                  key={row.name}
-                  className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/40"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${row.initialClass}`}
-                    >
-                      {row.initial}
-                    </div>
+            {loading ? (
+              <div className="space-y-3">
+                <div className="h-12 animate-pulse rounded-xl bg-surface-container-high" />
+                <div className="h-12 animate-pulse rounded-xl bg-surface-container-high" />
+              </div>
+            ) : !isApiConfigured() ? (
+              <p className="text-sm text-on-surface-variant">
+                Set <code className="text-xs">VITE_API_BASE</code> to load indexed protocol data.
+              </p>
+            ) : showRows.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">No indexed collateral yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {showRows.map((row, i) => (
+                  <div
+                    key={row.key}
+                    className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-zinc-200/40"
+                  >
                     <div>
-                      <p className="font-headline text-sm font-bold text-primary">{row.name}</p>
-                      <p className="text-xs text-on-surface-variant">{row.items}</p>
+                      <p className="font-headline text-sm font-bold text-primary">{row.label}</p>
+                      <p className="text-xs text-on-surface-variant">{row.pct}% of catalog TVL</p>
                     </div>
+                    <p className="font-headline text-sm font-bold text-primary">
+                      ${formatUsdNumber(row.usd)}
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-headline text-sm font-bold text-primary">{row.value}</p>
-                    <p className={`text-[10px] font-bold ${row.deltaClass}`}>{row.delta}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-center text-xs italic text-on-surface-variant">
-              Sample portfolio data based on ecosystem averages.
+                ))}
+              </div>
+            )}
+            <p className="text-center text-xs text-on-surface-variant">
+              Open positions (indexer):{" "}
+              <span className="font-semibold text-primary">{protocol?.positionCount ?? "—"}</span>
             </p>
           </div>
         </PanelCard>
@@ -95,29 +121,41 @@ export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           <div>
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm font-bold">Assets by Platform</span>
+              <span className="text-sm font-bold">Assets by collection</span>
               <span className="text-xs opacity-60">USD Value</span>
             </div>
-            <div className="space-y-4">
-              {rows.map((row) => (
-                <div key={row.name}>
-                  <div className="mb-1.5 flex justify-between text-xs font-medium">
-                    <span>{row.name}</span>
-                    <span>{row.value}</span>
+            {position.isLoading ? (
+              <div className="h-32 animate-pulse rounded-xl bg-surface-container-high" />
+            ) : loggedInGroups.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">No indexed collateral for this wallet.</p>
+            ) : (
+              <div className="space-y-4">
+                {loggedInGroups.map((row, i) => (
+                  <div key={row.key}>
+                    <div className="mb-1.5 flex justify-between text-xs font-medium">
+                      <span>{row.label}</span>
+                      <span>
+                        ${formatUsdNumber(row.usd)} ({row.pct}%)
+                      </span>
+                    </div>
+                    <ProgressBar
+                      valuePercent={row.pct}
+                      fillClassName={FILLS[i % FILLS.length]}
+                      height="md"
+                    />
                   </div>
-                  <ProgressBar valuePercent={row.pct} fillClassName={row.fill} height="md" />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-center border-outline-variant/10 pl-0 md:border-l md:pl-8">
             <div className="text-center">
               <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                Total Assets
+                Total collateral (indexed)
               </p>
-              <p className="font-headline text-3xl font-extrabold">$2,140.20</p>
+              <p className="font-headline text-3xl font-extrabold">{totalAssetsDisplay}</p>
               <p className="mt-2 inline-block rounded bg-error/10 px-2 py-0.5 text-[10px] text-error">
-                -$600.00 Debt
+                Debt {debtWad !== undefined ? `$${formatUsd18(debtWad)}` : "—"}
               </p>
             </div>
           </div>

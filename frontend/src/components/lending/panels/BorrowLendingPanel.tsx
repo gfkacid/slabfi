@@ -1,10 +1,87 @@
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { useAccount } from "wagmi";
+import { parseUnits, formatUnits } from "viem";
+import { LENDING_POOL_ABI } from "@slabfinance/shared";
 import { TierCollateralCard } from "@/components/shared/lending/TierCollateralCard";
 import { UsdcInputField } from "@/components/shared/lending/UsdcInputField";
 import { LendingActionPanel } from "@/components/shared/lending/LendingActionPanel";
 import { lendingGradientPrimary } from "@/components/shared/lending/lendingStyles";
-import { LENDING_IMAGES } from "@/components/lending/lendingMockAssets";
+import {
+  useAvailableCredit,
+  useBorrow,
+  useUserCollateral,
+  useHubExistingCollateral,
+  useHubOutstandingTotal,
+  usePreviewHealthFactorOnHub,
+  formatHealthFactor,
+} from "@/hooks";
+import { hubChain, hubContracts } from "@/lib/hub";
+import { formatUsdNumber, price8ToUsdNumber } from "@/lib/hubFormat";
+import { PROTOCOL_TIER_ROWS } from "@slabfinance/shared";
 
 export function BorrowLendingPanel() {
+  const { isConnected, chainId } = useAccount();
+  const [amount, setAmount] = useState("");
+  const { data: credit } = useAvailableCredit();
+  const { writeContractAsync, isPending } = useBorrow();
+  const { data: items } = useUserCollateral();
+  const hubSlice = useHubExistingCollateral(Boolean(isConnected && chainId === hubChain.id));
+  const outstanding = useHubOutstandingTotal(Boolean(isConnected && chainId === hubChain.id));
+
+  const poolAddr = hubContracts.lendingPool;
+  const isHub = chainId === hubChain.id;
+
+  const amountWei = useMemo(() => {
+    try {
+      if (!amount || amount === ".") return 0n;
+      return parseUnits(amount, 18);
+    } catch {
+      return 0n;
+    }
+  }, [amount]);
+
+  const currentTotalDebt = outstanding.data?.[2];
+  const previewDebt =
+    currentTotalDebt !== undefined ? currentTotalDebt + amountWei : undefined;
+
+  const previewHf = usePreviewHealthFactorOnHub(
+    hubSlice.data?.valuesWad,
+    hubSlice.data?.tiers,
+    previewDebt,
+    Boolean(
+      hubSlice.data?.valuesWad?.length &&
+        amountWei > 0n &&
+        previewDebt !== undefined,
+    ),
+  );
+
+  const maxBorrow = credit ?? 0n;
+  const maxStr = formatUnits(maxBorrow, 18);
+
+  const canBorrow =
+    isHub &&
+    poolAddr &&
+    amountWei > 0n &&
+    amountWei <= maxBorrow;
+
+  const handleBorrow = async () => {
+    if (!canBorrow || !poolAddr) return;
+    try {
+      await writeContractAsync({
+        address: poolAddr,
+        abi: LENDING_POOL_ABI,
+        functionName: "borrow",
+        args: [amountWei],
+      });
+      setAmount("");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const topCollateral = (items ?? []).filter((c) => c.latestPriceUsd).slice(0, 2);
+
   return (
     <div className="space-y-8">
       <LendingActionPanel id="lending-panel-borrow" labelledBy="lending-tab-borrow">
@@ -19,89 +96,102 @@ export function BorrowLendingPanel() {
             <span className="mb-1 block text-xs font-medium uppercase tracking-wider text-on-primary-container">
               Available to Borrow
             </span>
-            <span className="font-headline text-3xl font-extrabold text-primary">$242,500.00</span>
+            <span className="font-headline text-3xl font-extrabold text-primary">
+              ${Number(maxStr).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
         </div>
 
-        <div className="space-y-8">
-          <UsdcInputField
-            label="Amount to Borrow"
-            headerRight={
-              <button
-                type="button"
-                className="rounded bg-secondary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary transition-colors hover:bg-secondary/20"
-              >
-                Max
-              </button>
-            }
-            tokenClassName="border border-outline-variant/30"
-          />
+        {!isConnected ? (
+          <p className="text-sm text-on-surface-variant">Connect your wallet to borrow.</p>
+        ) : !isHub ? (
+          <p className="text-sm text-amber-800">Switch to {hubChain.name} to borrow.</p>
+        ) : !poolAddr ? (
+          <p className="text-sm text-on-surface-variant">Lending pool not configured.</p>
+        ) : (
+          <div className="space-y-8">
+            <UsdcInputField
+              label="Amount to Borrow"
+              value={amount}
+              onChange={setAmount}
+              headerRight={
+                <button
+                  type="button"
+                  onClick={() => setAmount(maxStr)}
+                  className="rounded bg-secondary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary transition-colors hover:bg-secondary/20"
+                >
+                  Max
+                </button>
+              }
+              tokenClassName="border border-outline-variant/30"
+            />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-low p-5">
-              <span className="mb-1 block text-xs font-semibold text-on-surface-variant">
-                New Health Factor
-              </span>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-headline text-xl font-bold text-primary">1.64</p>
-                <span className="rounded bg-secondary/10 px-2 py-0.5 text-[10px] font-bold text-secondary">
-                  LIVE PREVIEW
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-xl border border-outline-variant/10 bg-surface-container-low p-5">
+                <span className="mb-1 block text-xs font-semibold text-on-surface-variant">
+                  Preview Health Factor
                 </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-headline text-xl font-bold text-primary">
+                    {amountWei > 0n ? formatHealthFactor(previewHf.data) : "—"}
+                  </p>
+                  <span className="rounded bg-secondary/10 px-2 py-0.5 text-[10px] font-bold text-secondary">
+                    LIVE PREVIEW
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-xl border border-outline-variant/10 bg-surface-container-low p-5">
+                <span className="mb-1 block text-xs font-semibold text-on-surface-variant">Borrowing Fee</span>
+                <p className="font-headline text-xl font-bold text-primary">—</p>
+                <p className="text-xs text-on-surface-variant">See pool / governance parameters</p>
               </div>
             </div>
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-low p-5">
-              <span className="mb-1 block text-xs font-semibold text-on-surface-variant">Borrowing Fee</span>
-              <p className="font-headline text-xl font-bold text-primary">
-                0.05% <span className="text-sm font-medium text-on-primary-container">($12.50)</span>
-              </p>
+
+            <div className="pt-4">
+              <button
+                type="button"
+                disabled={!canBorrow || isPending}
+                onClick={handleBorrow}
+                className={`w-full rounded-xl py-5 text-lg font-bold text-on-primary shadow-lg shadow-primary/10 transition-all hover:shadow-primary/20 active:opacity-80 disabled:opacity-50 ${lendingGradientPrimary}`}
+              >
+                {isPending ? "Confirm in wallet…" : "Borrow USDC"}
+              </button>
             </div>
           </div>
-
-          <div className="pt-4">
-            <button
-              type="button"
-              className={`w-full rounded-xl py-5 text-lg font-bold text-on-primary shadow-lg shadow-primary/10 transition-all hover:shadow-primary/20 active:opacity-80 ${lendingGradientPrimary}`}
-            >
-              Borrow USDC
-            </button>
-          </div>
-        </div>
+        )}
       </LendingActionPanel>
 
       <div>
         <div className="mb-6 flex items-center justify-between">
           <h4 className="font-headline text-lg font-bold text-primary">Locked Collateral</h4>
-          <button
-            type="button"
-            className="text-sm font-semibold text-secondary hover:underline"
-          >
+          <Link to="/assets?scope=mine" className="text-sm font-semibold text-secondary hover:underline">
             Manage Assets
-          </button>
+          </Link>
         </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <TierCollateralCard
-            layout="featured"
-            imageSrc={LENDING_IMAGES.charizard1st}
-            imageAlt=""
-            title="Mewtwo GX"
-            subtitle="PSA 10 Gem Mint"
-            tierLabel="Blue Chip"
-            tierBadgeClassName="bg-primary/90 backdrop-blur-md"
-            ltv="40% LTV"
-            valuation="$75,000.00 Val."
-          />
-          <TierCollateralCard
-            layout="featured"
-            imageSrc={LENDING_IMAGES.lugiaHolo}
-            imageAlt=""
-            title="Charizard VMAX"
-            subtitle="Shiny Vault SV107"
-            tierLabel="Growth"
-            tierBadgeClassName="bg-secondary/90 backdrop-blur-md"
-            ltv="25% LTV"
-            valuation="$67,500.00 Val."
-          />
-        </div>
+        {topCollateral.length === 0 ? (
+          <p className="text-sm text-on-surface-variant">No indexed collateral yet. Deposit NFTs from the Lock flow.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {topCollateral.map((c, i) => {
+              const usd = price8ToUsdNumber(c.latestPriceUsd ?? undefined);
+              const tier = PROTOCOL_TIER_ROWS[i % PROTOCOL_TIER_ROWS.length];
+              return (
+                <TierCollateralCard
+                  key={c.id}
+                  layout="featured"
+                  imageSrc={c.cardImage?.trim() || `https://picsum.photos/seed/${c.id}/400/500`}
+                  imageAlt=""
+                  title={c.cardName?.trim() || `Token #${c.tokenId}`}
+                  subtitle={`#${c.tokenId}`}
+                  tierLabel={tier.name}
+                  tierBadgeClassName={i === 0 ? "bg-primary/90 backdrop-blur-md" : "bg-secondary/90 backdrop-blur-md"}
+                  ltv={`${tier.ltvPercent}% max LTV`}
+                  valuation={`$${formatUsdNumber(usd)}`}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 import { ActiveQueueTableRow, type AuctionRow } from "./ActiveQueueTableRow";
-import { MockActiveQueueTableRow } from "./MockActiveQueueTableRow";
-import { ACTIVE_QUEUE_MOCK_ROWS } from "./activeLiquidationMock";
 import { LiquidationTableSection } from "./LiquidationTableSection";
 
 const theadClass =
@@ -14,8 +12,6 @@ type ActiveLiquidationsTableProps = {
   onClaim: (entry: AuctionRow) => Promise<void>;
   emptyMessage?: string;
   gate?: ReactNode;
-  /** When true (e.g. hub connected, queue empty), show Stitch-style example rows. */
-  showMockRows?: boolean;
 };
 
 export function ActiveLiquidationsTable({
@@ -25,7 +21,6 @@ export function ActiveLiquidationsTable({
   onClaim,
   emptyMessage = "No active liquidations.",
   gate,
-  showMockRows = false,
 }: ActiveLiquidationsTableProps) {
   const colSpan = 6;
 
@@ -52,11 +47,9 @@ export function ActiveLiquidationsTable({
           ) : isLoading ? (
             <tr>
               <td className="px-6 py-10 text-on-surface-variant md:px-8" colSpan={colSpan}>
-                Loading…
+                <div className="h-8 max-w-xs animate-pulse rounded-lg bg-surface-container-high" />
               </td>
             </tr>
-          ) : entries.length === 0 && showMockRows ? (
-            ACTIVE_QUEUE_MOCK_ROWS.map((row) => <MockActiveQueueTableRow key={row.id} row={row} />)
           ) : entries.length === 0 ? (
             <tr>
               <td className="px-6 py-10 text-on-surface-variant md:px-8" colSpan={colSpan}>
