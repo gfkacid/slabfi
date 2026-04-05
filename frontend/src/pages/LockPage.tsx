@@ -149,7 +149,7 @@ export function LockPage() {
                   <img
                     src={nft.image}
                     alt={nft.name ?? `#${nft.tokenId}`}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain object-center"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-4xl">🃏</div>

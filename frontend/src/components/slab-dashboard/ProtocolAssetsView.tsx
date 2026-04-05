@@ -13,26 +13,51 @@ import {
 } from "@/components/slab-dashboard/ProtocolCatalogAssetCard";
 import { useCollateralCatalog, useUserCollateral } from "@/hooks";
 import type { CollateralItemJson } from "@/lib/api";
-import { formatUsdNumber, price8ToUsdNumber } from "@/lib/hubFormat";
+import {
+  collateralLatestUsdNumber,
+  formatCardGradeDisplay,
+  formatLtvPercentFromBps,
+  formatUsdNumber,
+} from "@/lib/hubFormat";
 
 function itemToCardProps(
   c: CollateralItemJson,
   mine: boolean,
 ): ProtocolCatalogAssetCardProps {
-  const usd = price8ToUsdNumber(c.latestPriceUsd ?? undefined);
-  const title = c.cardName?.trim() || `Token #${c.tokenId}`;
-  const subtitle = `${c.collection.slice(0, 8)}… · ${c.tokenId}`;
+  const usd = collateralLatestUsdNumber(c);
+  const card = c.card;
+  const title =
+    (card?.cardName ?? c.cardName)?.trim() || `Token #${c.tokenId}`;
+  const subtitle =
+    card?.setName || card?.cardNumber
+      ? [card.setName, card.cardNumber ? `#${card.cardNumber}` : null].filter(Boolean).join(" · ")
+      : `${c.collection.slice(0, 8)}… · ${c.tokenId}`;
   const imageUrl =
-    c.cardImage?.trim() ||
+    (card?.cardImage ?? c.cardImage)?.trim() ||
     `https://picsum.photos/seed/${encodeURIComponent(c.id)}/600/800`;
+
+  let gradeLine: string | null = null;
+  if (card?.gradeService != null && String(card.gradeService).trim() !== "") {
+    const svc = String(card.gradeService).trim();
+    if (card.grade != null) {
+      gradeLine = `${svc} ${formatCardGradeDisplay(card.grade)}`;
+    } else {
+      gradeLine = svc;
+    }
+  }
+
+  const ltvPct = formatLtvPercentFromBps(card?.ltvBps);
+  const ltvPercentLabel = ltvPct ?? "—";
+
   return {
     imageUrl,
     imageAlt: title,
     assetId: String(c.tokenId),
     title,
+    gradeLine,
     subtitle,
     valuation: usd > 0 ? `$${formatUsdNumber(usd)}` : "—",
-    ltvPercent: 0,
+    ltvPercentLabel,
     health: "healthy",
     isMine: mine,
   };

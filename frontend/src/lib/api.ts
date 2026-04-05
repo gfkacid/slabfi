@@ -45,6 +45,21 @@ export type ProtocolStatsResponse = {
   depositorCount: number;
 };
 
+/** Linked `Card` row (by FK or resolved by collection + tokenId). */
+export type CollateralCardMetaJson = {
+  cardName?: string | null;
+  cardImage?: string | null;
+  setName?: string | null;
+  cardNumber?: string | null;
+  gradeService?: string | null;
+  grade?: number | null;
+  tier?: number;
+  /** Max LTV in basis points (e.g. 5000 → 50%). */
+  ltvBps?: number;
+  /** Catalog last price as 6-decimal USDC (bigint → string in JSON). */
+  latestPriceUsdc?: string | null;
+};
+
 export type CollateralItemJson = {
   id: string;
   hubChainId: string;
@@ -58,6 +73,7 @@ export type CollateralItemJson = {
   tokenUri?: string | null;
   cardName?: string | null;
   cardImage?: string | null;
+  card?: CollateralCardMetaJson | null;
 };
 
 export type PositionJson = {

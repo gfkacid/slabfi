@@ -7,9 +7,12 @@ export type ProtocolCatalogAssetCardProps = {
   imageAlt: string;
   assetId: string;
   title: string;
+  /** Grade line, e.g. "PSA 9.5" — omitted when no graded metadata. */
+  gradeLine?: string | null;
   subtitle: string;
   valuation: string;
-  ltvPercent: number;
+  /** LTV percent label without "%", or "—" when unknown. */
+  ltvPercentLabel: string;
   health: CatalogAssetHealth;
   /** User-owned collateral — shows star + Mine badge */
   isMine?: boolean;
@@ -34,9 +37,10 @@ export function ProtocolCatalogAssetCard({
   imageAlt,
   assetId,
   title,
+  gradeLine,
   subtitle,
   valuation,
-  ltvPercent,
+  ltvPercentLabel,
   health,
   isMine = false,
   onWithdraw,
@@ -47,7 +51,7 @@ export function ProtocolCatalogAssetCard({
         <img
           src={imageUrl}
           alt={imageAlt}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="h-full w-full object-contain object-center transition-transform duration-500 group-hover:scale-105"
         />
         {isMine ? (
           <div
@@ -76,7 +80,9 @@ export function ProtocolCatalogAssetCard({
               <p className="text-[9px] font-bold uppercase tracking-tighter text-white opacity-80">
                 LTV Ratio
               </p>
-              <p className="text-base font-extrabold leading-tight text-white">{ltvPercent}%</p>
+              <p className="text-base font-extrabold leading-tight text-white">
+                {ltvPercentLabel === "—" ? "—" : `${ltvPercentLabel}%`}
+              </p>
             </div>
             <div className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold ${healthClass[health]}`}>
               {healthLabel[health]}
@@ -88,9 +94,12 @@ export function ProtocolCatalogAssetCard({
         <h3 className="mb-0.5 truncate font-headline text-sm font-bold text-primary sm:text-base">
           {title}
         </h3>
+        {gradeLine ? (
+          <p className="mb-1 truncate font-headline text-xs font-extrabold text-secondary">{gradeLine}</p>
+        ) : null}
         <p className="mb-3 line-clamp-2 text-[11px] leading-snug text-on-surface-variant">{subtitle}</p>
         <div className="flex items-center justify-between gap-2 border-t border-outline-variant/10 py-2.5">
-          <span className="shrink-0 text-xs font-medium text-on-surface-variant">Valuation</span>
+          <span className="shrink-0 text-xs font-medium text-on-surface-variant">Latest price</span>
           <span className="truncate text-right font-headline text-lg font-extrabold text-primary sm:text-xl">
             {valuation}
           </span>

@@ -8,6 +8,7 @@ import {
   hubChainId,
   hubRpcUrl,
 } from "../lib/hub-config";
+import { mergeCardByCollectionTokenId } from "../collateral/merge-card-metadata";
 
 @Injectable()
 export class PositionsService {
@@ -21,10 +22,12 @@ export class PositionsService {
       where: { borrower },
     });
 
-    const collaterals = await this.prisma.collateralItem.findMany({
+    const collateralRows = await this.prisma.collateralItem.findMany({
       where: { hubChainId: hc, owner: borrower },
       orderBy: { lockedAtUnix: "desc" },
+      include: { card: true },
     });
+    const collaterals = await mergeCardByCollectionTokenId(this.prisma, collateralRows);
 
     const rpc = hubRpcUrl();
     const registry = collateralRegistryAddress();

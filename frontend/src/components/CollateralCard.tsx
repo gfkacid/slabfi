@@ -34,7 +34,7 @@ export function CollateralCard({
           <img
             src={imageUrl}
             alt={name ?? `Token #${tokenId}`}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain object-center"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-gray-400">

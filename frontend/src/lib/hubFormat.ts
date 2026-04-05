@@ -86,6 +86,43 @@ export function price8ToUsdNumber(price8: string | null | undefined): number {
   }
 }
 
+/** `Card.latestPriceUsdc`: 6-decimal USDC integer (JSON string from API). */
+export function priceUsdc6ToUsdNumber(raw: string | number | null | undefined): number {
+  if (raw == null || raw === "") return 0;
+  try {
+    const n = Number(BigInt(String(raw))) / 1e6;
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Display USD for a collateral row: hub oracle `latestPriceUsd` first, else catalog `card.latestPriceUsdc`.
+ */
+export function collateralLatestUsdNumber(c: {
+  latestPriceUsd?: string | null;
+  card?: { latestPriceUsdc?: string | null } | null;
+}): number {
+  const oracle = price8ToUsdNumber(c.latestPriceUsd ?? undefined);
+  if (oracle > 0) return oracle;
+  return priceUsdc6ToUsdNumber(c.card?.latestPriceUsdc ?? undefined);
+}
+
+/** `Card.grade` is stored ×10 (e.g. 95 → 9.5). Whole numbers stay integer; else one decimal. */
+export function formatCardGradeDisplay(storedGrade: number): string {
+  const v = storedGrade / 10;
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+/** `ltvBps` is LTV in basis points (10000 = 100%; e.g. 5000 → 50%). */
+export function formatLtvPercentFromBps(ltvBps: number | null | undefined): string | null {
+  if (ltvBps == null) return null;
+  const p = ltvBps / 100;
+  if (!Number.isFinite(p)) return null;
+  return Number.isInteger(p) ? String(p) : p.toFixed(1);
+}
+
 export function formatUsdNumber(n: number): string {
   if (!Number.isFinite(n)) return "—";
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });

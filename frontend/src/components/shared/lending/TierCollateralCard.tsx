@@ -38,7 +38,7 @@ export function TierCollateralCard({
         <img
           alt={imageAlt}
           src={imageSrc}
-          className={`h-full w-full object-cover ${
+          className={`h-full w-full object-contain object-center ${
             layout === "compact"
               ? "transition-transform duration-500 group-hover:scale-105"
               : "transition-transform duration-700 group-hover:scale-110"

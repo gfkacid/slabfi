@@ -501,7 +501,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                         <img
                           src={nft.image}
                           alt=""
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          className="h-full w-full object-contain object-center transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center text-4xl">🃏</div>
@@ -603,7 +603,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="h-12 w-10 shrink-0 overflow-hidden rounded bg-surface-container">
                           {nft.image ? (
-                            <img src={nft.image} alt="" className="h-full w-full object-cover" />
+                            <img src={nft.image} alt="" className="h-full w-full object-contain object-center" />
                           ) : (
                             <div className="flex h-full items-center justify-center text-lg">🃏</div>
                           )}
