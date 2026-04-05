@@ -15,6 +15,7 @@ export * from "./useLendingPoolStats";
 export * from "./useUserPosition";
 export * from "./useUserCollateral";
 export * from "./useCollateralCatalog";
+export * from "./useLiquidationCollateralDisplay";
 export * from "./useActivityFeed";
 export * from "./useAuctionHistory";
 export * from "./useUsdcBalance";

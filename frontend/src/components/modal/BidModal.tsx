@@ -2,12 +2,13 @@ import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { formatUnits, parseUnits } from "viem";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccount, useBalance, useChainId } from "wagmi";
-import { useCollateralItem, useMinBidIncrementBPS } from "@/hooks";
+import { useLiquidationCollateralDisplay, useMinBidIncrementBPS } from "@/hooks";
 import { BaseModal } from "./BaseModal";
 import type { BidModalPayload } from "./modalTypes";
 import { Icon } from "@/components/ui/Icon";
 import { TransactionButton } from "@/components/TransactionButton";
 import { hubChain, hubContracts } from "@/lib/hub";
+import { CollateralImageFill } from "@/components/shared/lending/CollateralImageFill";
 
 function formatCountdown(seconds: number) {
   const h = Math.floor(seconds / 3600);
@@ -54,7 +55,7 @@ export function BidModal({ payload, onClose }: BidModalProps) {
   const [placePending, setPlacePending] = useState(false);
 
   const entry = payload.entry;
-  const { data: collateralItem } = useCollateralItem(entry.collateralId);
+  const collateralDisplay = useLiquidationCollateralDisplay(entry.collateralId);
 
   const hasBid = entry.highestBid > 0n;
   const minAmountWei = useMemo(() => {
@@ -75,11 +76,6 @@ export function BidModal({ payload, onClose }: BidModalProps) {
 
   const canPlace = !hasBid || nowSec < deadlineSec;
   const countdownSec = hasBid ? Math.max(0, deadlineSec - nowSec) : 0;
-
-  const titleLine =
-    collateralItem !== undefined
-      ? `Token #${collateralItem.tokenId.toString()}`
-      : `${entry.collateralId.slice(0, 6)}…${entry.collateralId.slice(-4)}`;
 
   const vaultLine = `${entry.borrower.slice(0, 5)}…${entry.borrower.slice(-4)}`;
 
@@ -132,15 +128,41 @@ export function BidModal({ payload, onClose }: BidModalProps) {
     <BaseModal open title="Place Your Bid" onClose={onClose}>
       <div className="flex gap-6">
         <div className="h-32 w-24 shrink-0 overflow-hidden rounded-lg bg-surface shadow-md ring-1 ring-outline-variant/20">
-          <div className="flex h-full w-full items-center justify-center text-3xl text-on-surface-variant/40">
-            🃏
-          </div>
+          <CollateralImageFill
+            src={collateralDisplay.imageUrl}
+            alt={collateralDisplay.imageAlt}
+            className="h-full w-full object-cover object-center"
+          />
         </div>
         <div className="flex min-w-0 flex-col justify-center">
           <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-on-primary-container">
             Active auction
           </span>
-          <h4 className="font-headline text-2xl font-extrabold leading-tight text-primary">{titleLine}</h4>
+          <h4 className="font-headline text-2xl font-extrabold leading-tight text-primary">
+            {collateralDisplay.title}
+          </h4>
+          {collateralDisplay.gradeLine ? (
+            <p className="mt-0.5 truncate font-headline text-sm font-extrabold text-secondary">
+              {collateralDisplay.gradeLine}
+            </p>
+          ) : null}
+          {collateralDisplay.subtitle ? (
+            <p className="mt-1 line-clamp-2 text-xs leading-snug text-on-surface-variant">
+              {collateralDisplay.subtitle}
+            </p>
+          ) : null}
+          {collateralDisplay.hasCatalog ? (
+            <p className="mt-2 text-xs font-semibold text-on-surface-variant">
+              Latest price{" "}
+              <span className="font-headline text-primary">{collateralDisplay.valuation}</span>
+              {collateralDisplay.ltvPercentLabel !== "—" ? (
+                <span>
+                  {" "}
+                  · LTV {collateralDisplay.ltvPercentLabel}%
+                </span>
+              ) : null}
+            </p>
+          ) : null}
           <p className="mt-1 font-mono text-xs text-on-surface-variant">{vaultLine}</p>
           <div className="mt-4 flex items-center gap-2 text-sm font-bold text-error">
             <Icon name="schedule" className="text-sm" />

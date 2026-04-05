@@ -57,13 +57,12 @@ function parsePriceFromBody(body: string): bigint {
 
 const fetchPriceUsd = (sendRequester: HTTPSendRequester, config: Config) => {
   const key = config.apiKey?.trim()
-  const request: {
-    url: string
-    method: string
-    headers?: { key: string; value: string }[]
-  } = { url: config.apiUrl, method: 'GET' }
+  const request: { url: string; method: string; headers?: Record<string, string> } = {
+    url: config.apiUrl,
+    method: 'GET',
+  }
   if (key) {
-    request.headers = [{ key: 'x-api-key', value: key }]
+    request.headers = { 'x-api-key': key }
   }
   const response = sendRequester.sendRequest(request).result()
   if (!ok(response)) {

@@ -13,41 +13,22 @@ import {
 } from "@/components/slab-dashboard/ProtocolCatalogAssetCard";
 import { useCollateralCatalog, useUserCollateral } from "@/hooks";
 import type { CollateralItemJson } from "@/lib/api";
-import {
-  collateralDisplayGradeOrTierLine,
-  collateralDisplayImageUrl,
-  collateralDisplaySubtitle,
-  collateralDisplayTitle,
-} from "@/lib/collateralDisplay";
-import { collateralLatestUsdNumber, formatLtvPercentFromBps, formatUsdNumber } from "@/lib/hubFormat";
+import { collateralCatalogPresentation } from "@/lib/collateralDisplay";
 
 function itemToCardProps(
   c: CollateralItemJson,
   mine: boolean,
 ): ProtocolCatalogAssetCardProps {
-  const usd = collateralLatestUsdNumber(c);
-  const card = c.card;
-  const title = collateralDisplayTitle(c);
-  const subtitle = collateralDisplaySubtitle(c);
-  const imageUrl = collateralDisplayImageUrl(c);
-
-  let gradeLine: string | null = collateralDisplayGradeOrTierLine(c);
-  if (gradeLine == null && card?.gradeService != null && String(card.gradeService).trim() !== "") {
-    gradeLine = String(card.gradeService).trim();
-  }
-
-  const ltvPct = formatLtvPercentFromBps(card?.ltvBps);
-  const ltvPercentLabel = ltvPct ?? "—";
-
+  const p = collateralCatalogPresentation(c);
   return {
-    imageUrl,
-    imageAlt: title,
+    imageUrl: p.imageUrl,
+    imageAlt: p.imageAlt,
     assetId: String(c.tokenId),
-    title,
-    gradeLine,
-    subtitle,
-    valuation: usd > 0 ? `$${formatUsdNumber(usd)}` : "—",
-    ltvPercentLabel,
+    title: p.title,
+    gradeLine: p.gradeLine,
+    subtitle: p.subtitle,
+    valuation: p.valuation,
+    ltvPercentLabel: p.ltvPercentLabel,
     health: "healthy",
     isMine: mine,
   };

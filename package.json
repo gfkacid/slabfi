@@ -27,7 +27,8 @@
     "oracle:push-mock": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/push-oracle-mock-from-catalog.ts",
     "oracle:reseed-pending": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/reseed-pending-collateral-oracle.ts",
     "oracle:force-liquidate": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/oracle-force-liquidate.ts",
-    "hub:grant-hf-liquidation": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/hub-grant-hf-on-liquidation-manager.ts"
+    "hub:grant-hf-liquidation": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/hub-grant-hf-on-liquidation-manager.ts",
+    "cre:simulate": "bash scripts/cre-simulate-local.sh"
   },
   "dependencies": {
     "@prisma/client": "6.19.3"

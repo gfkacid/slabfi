@@ -1,18 +1,14 @@
 import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { formatUnits } from "viem";
-import { useCollateralItem, useMinBidIncrementBPS } from "@/hooks";
+import { useLiquidationCollateralDisplay, useMinBidIncrementBPS } from "@/hooks";
 import { useModal } from "@/components/modal";
 import { Icon } from "@/components/ui/Icon";
+import { CollateralImageFill } from "@/components/shared/lending/CollateralImageFill";
 import { LIQUIDATION_BID_BUTTON_CLASS } from "./liquidationConstants";
 
 function shortAddr(addr: string) {
   if (!addr || addr.length < 12) return addr;
   return `${addr.slice(0, 5)}...${addr.slice(-4)}`;
-}
-
-function shortHexId(hex: string) {
-  if (!hex || hex.length < 14) return hex;
-  return `${hex.slice(0, 6)}...${hex.slice(-4)}`;
 }
 
 function formatCountdown(seconds: number) {
@@ -56,7 +52,7 @@ function ceilMinNextBid(highestBid: bigint, incrementBps: bigint): bigint {
 
 export function ActiveQueueTableRow({ entry, onPlaceBid, onClaim }: ActiveQueueTableRowProps) {
   const { openModal } = useModal();
-  const { data: item } = useCollateralItem(entry.collateralId);
+  const collateralDisplay = useLiquidationCollateralDisplay(entry.collateralId);
   const { data: incBps } = useMinBidIncrementBPS();
   const incrementBps = incBps ?? 100n;
 
@@ -79,23 +75,36 @@ export function ActiveQueueTableRow({ entry, onPlaceBid, onClaim }: ActiveQueueT
     maximumFractionDigits: 2,
   })} USDC`;
 
-  const title =
-    item !== undefined
-      ? `Token #${item.tokenId.toString()}`
-      : shortHexId(entry.collateralId);
-
   return (
     <tr className="transition-colors hover:bg-surface-container-high">
       <td className="px-6 py-6 md:px-8">
         <div className="flex items-center gap-4">
           <div className="h-20 w-14 shrink-0 overflow-hidden rounded-md bg-surface shadow-sm ring-1 ring-outline-variant/20">
-            <div className="flex h-full w-full items-center justify-center text-2xl text-on-surface-variant/40">
-              🃏
-            </div>
+            <CollateralImageFill
+              src={collateralDisplay.imageUrl}
+              alt={collateralDisplay.imageAlt}
+              className="h-full w-full object-cover object-center"
+            />
           </div>
           <div className="min-w-0">
-            <p className="font-headline truncate font-bold text-primary">{title}</p>
-            <p className="font-mono text-xs text-on-surface-variant">{shortAddr(entry.borrower)}</p>
+            <p className="font-headline truncate font-bold text-primary">{collateralDisplay.title}</p>
+            {collateralDisplay.gradeLine ? (
+              <p className="truncate font-headline text-xs font-extrabold text-secondary">
+                {collateralDisplay.gradeLine}
+              </p>
+            ) : null}
+            {collateralDisplay.subtitle ? (
+              <p className="truncate text-xs text-on-surface-variant">{collateralDisplay.subtitle}</p>
+            ) : null}
+            {collateralDisplay.hasCatalog ? (
+              <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">
+                <span className="font-semibold text-primary">{collateralDisplay.valuation}</span>
+                {collateralDisplay.ltvPercentLabel !== "—" ? (
+                  <span> · LTV {collateralDisplay.ltvPercentLabel}%</span>
+                ) : null}
+              </p>
+            ) : null}
+            <p className="mt-0.5 font-mono text-xs text-on-surface-variant">{shortAddr(entry.borrower)}</p>
           </div>
         </div>
       </td>

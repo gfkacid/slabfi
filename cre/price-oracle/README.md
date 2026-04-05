@@ -19,10 +19,18 @@ TypeScript [Chainlink CRE](https://docs.chain.link/cre) workflow: cron → HTTP 
 From this directory:
 
 ```bash
-cre workflow simulate . --target local-simulation --broadcast
+cre workflow simulate . --target local-simulation --broadcast --non-interactive --trigger-index 0
 ```
 
-Use `--broadcast` only when you intend to submit transactions during simulation.
+Or from the monorepo root (installs `node_modules` in this folder if missing):
+
+```bash
+pnpm cre:simulate
+```
+
+Use `--broadcast` when you want simulation to submit `writeReport` to the chain. The Chainlink CRE CLI expects **`CRE_ETH_PRIVATE_KEY`** (64 hex chars, optional `0x` prefix). From the repo root, `pnpm cre:simulate` copies **`DEPLOYER_PRIVATE_KEY`** from your environment or repo-root `.env` into `CRE_ETH_PRIVATE_KEY` when the latter is missing or invalid.
+
+**HTTP / 401:** Nest `GET /cards/:collection/:tokenId/price` is protected by **`SLABFI_API_KEY`** (`x-api-key`). The root script **`scripts/cre-simulate-local.sh`** defaults to a **local mock HTTP** response (`priceUsd` in 8 decimals) so `pnpm cre:simulate` works without the API. To exercise the real backend, set **`CRE_SIMULATE_USE_BACKEND=1`**, run Nest on `config.json`’s `apiUrl` host, and ensure **`SLABFI_API_KEY`** is set (env or repo `.env`); the script injects it into the workflow config when `apiKey` is empty.
 
 ## Deploy hub contract
 

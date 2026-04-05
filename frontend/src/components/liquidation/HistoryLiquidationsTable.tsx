@@ -1,13 +1,45 @@
 import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { formatUnits } from "viem";
 import { Icon } from "@/components/ui/Icon";
+import { CollateralImageFill } from "@/components/shared/lending/CollateralImageFill";
 import { LiquidationTableSection } from "./LiquidationTableSection";
-import { useAuctionHistory } from "@/hooks";
+import { useAuctionHistory, useLiquidationCollateralDisplay } from "@/hooks";
 import { hubChain } from "@/lib/hub";
 import { isApiConfigured } from "@/lib/api";
 
 const theadClass =
   "border-b border-outline-variant/10 text-left text-[11px] font-bold uppercase tracking-[0.15em] text-on-primary-container";
+
+function HistoryAuctionAssetCell({
+  collateralId,
+  auctionIdLabel,
+}: {
+  collateralId: string;
+  auctionIdLabel: string;
+}) {
+  const d = useLiquidationCollateralDisplay(collateralId as `0x${string}`);
+  return (
+    <div className="flex items-center gap-3">
+      <div className="h-14 w-10 shrink-0 overflow-hidden rounded-md bg-surface shadow-sm ring-1 ring-outline-variant/20">
+        <CollateralImageFill
+          src={d.imageUrl}
+          alt={d.imageAlt}
+          className="h-full w-full object-cover object-center"
+        />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate font-headline text-sm font-bold text-primary">{d.title}</p>
+        {d.gradeLine ? (
+          <p className="truncate font-headline text-[11px] font-extrabold text-secondary">{d.gradeLine}</p>
+        ) : null}
+        {d.subtitle ? (
+          <p className="truncate text-xs text-on-surface-variant">{d.subtitle}</p>
+        ) : null}
+        <p className="font-mono text-[11px] text-on-surface-variant">{auctionIdLabel}</p>
+      </div>
+    </div>
+  );
+}
 
 export function HistoryLiquidationsTable() {
   const { data, isLoading, isError } = useAuctionHistory(1, 30);
@@ -81,8 +113,10 @@ export function HistoryLiquidationsTable() {
                     </div>
                   </td>
                   <td className="px-6 py-6">
-                    <p className="text-sm font-bold text-primary font-mono">{row.id.slice(0, 10)}…</p>
-                    <p className="text-xs text-on-surface-variant">{row.collateralId.slice(0, 10)}…</p>
+                    <HistoryAuctionAssetCell
+                      collateralId={row.collateralId}
+                      auctionIdLabel={`Auction ${row.id.slice(0, 10)}…`}
+                    />
                   </td>
                   <td className="px-6 py-6">
                     <span className="text-sm font-bold text-primary">{winStr}</span>

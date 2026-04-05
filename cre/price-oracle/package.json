@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "simulate": "cre workflow simulate . --target local-simulation --broadcast"
+    "simulate": "cre workflow simulate . --target local-simulation --broadcast --non-interactive --trigger-index 0"
   },
   "dependencies": {
     "@chainlink/cre-sdk": "^1.5.0",
