@@ -16,7 +16,7 @@ export function StitchDashboardPage() {
   const guest = !isConnected;
 
   const welcomeLine = guest
-    ? "Connect a wallet to view your portfolio, collateral, and on-chain activity."
+    ? "Connect a wallet to view your portfolio, collateral, and activity."
     : address
       ? `Welcome back, ${shortAddress(address)}`
       : "Welcome back";

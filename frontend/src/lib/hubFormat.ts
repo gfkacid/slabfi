@@ -60,19 +60,37 @@ export function aprPercentFromSnapshotBps(bpsStr: string | undefined): string {
   }
 }
 
+const MAX_UINT256 = 2n ** 256n - 1n;
+
+/** On-chain / indexed health factor as WAD bigint → display (2 decimals, or ∞ if max uint). */
+export function formatHealthFactorWadBigint(hf: bigint | undefined): string {
+  if (hf === undefined) return "—";
+  if (hf === MAX_UINT256) return "∞";
+  const x = Number(hf) / 1e18;
+  if (!Number.isFinite(x)) return "—";
+  return x.toFixed(2);
+}
+
 /** Indexed health factor WAD → display string */
 export function formatHealthFactorWad(wadStr: string | null | undefined): string {
   if (!wadStr) return "—";
   try {
-    const hf = BigInt(wadStr);
-    const max = 2n ** 256n - 1n;
-    if (hf === max) return "∞";
-    const x = Number(hf) / 1e18;
-    if (!Number.isFinite(x)) return "—";
-    return x.toFixed(2);
+    return formatHealthFactorWadBigint(BigInt(wadStr));
   } catch {
     return "—";
   }
+}
+
+/** Prefer live engine read; fall back to indexer/API string when the call fails or is unavailable. */
+export function formatDisplayHealthFactor(
+  liveHf: bigint | undefined,
+  liveFailed: boolean,
+  indexedWad: string | null | undefined,
+): string {
+  if (liveHf !== undefined && !liveFailed) {
+    return formatHealthFactorWadBigint(liveHf);
+  }
+  return formatHealthFactorWad(indexedWad);
 }
 
 /** Oracle / indexer price (8 decimals USD). */
@@ -140,6 +158,14 @@ export function formatRelativeTimeSecs(tsStr: string | undefined): string {
 }
 
 /** Map health factor (wad string) to 0–100 progress bar width. */
+export function healthFactorBarPercentFromWadBigint(hf: bigint | undefined): number {
+  if (hf === undefined) return 0;
+  const n = Number(hf) / 1e18;
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  const clamped = Math.min(n / 2, 1);
+  return Math.round(clamped * 100);
+}
+
 export function healthFactorBarPercent(hfStr: string | null | undefined): number {
   if (!hfStr) return 0;
   try {

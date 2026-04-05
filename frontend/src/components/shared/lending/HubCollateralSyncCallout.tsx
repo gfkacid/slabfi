@@ -65,7 +65,7 @@ function CatalogVersusOracleHint({
   if (catalogUsd == null) return null;
   return (
     <p className="mt-3 text-xs leading-relaxed text-amber-950/90">
-      Assets can show <strong>${catalogUsd.toFixed(2)}</strong> from <strong>catalog / indexer</strong> data. Borrowing
+      Assets can show <strong>${catalogUsd.toFixed(2)}</strong> from <strong>catalog</strong> data. Borrowing
       only reads <strong>OracleConsumer</strong> on Arc. If that contract has no fresh price for this NFT,{" "}
       <strong>Sync</strong> cannot activate collateral.
     </p>
@@ -124,13 +124,13 @@ API_BASE=https://your-api \\
 DEPLOYER_PRIVATE_KEY=0x… \\
 pnpm oracle:push-mock -- ${borrowerAddress}
 
-Or: pnpm oracle:reseed-pending  (uses DB + on-chain PENDING check; needs DEPLOYER_PRIVATE_KEY)
+Or: pnpm oracle:reseed-pending  (uses DB + contract PENDING check; needs DEPLOYER_PRIVATE_KEY)
 
 Or without API: PRICE_USD_8DEC=7670000000 ORACLE_TIER=2 DEPLOYER_PRIVATE_KEY=0x… pnpm oracle:push-mock -- ${borrowerAddress}`;
 
   let body: ReactNode;
   if (!slotFetched) {
-    body = <p>Checking on-chain oracle…</p>;
+    body = <p>Checking oracle…</p>;
   } else if (!hasSlot) {
     body = (
       <>

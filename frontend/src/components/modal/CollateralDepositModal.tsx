@@ -291,7 +291,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
 
       const ccipHint =
         lastCcipIds.length > 0
-          ? ` CCIP: ${lastCcipIds[lastCcipIds.length - 1]!.slice(0, 10)}… — hub/indexer update after execution; track ${CCIP_EXPLORER_URL}`
+          ? ` CCIP: ${lastCcipIds[lastCcipIds.length - 1]!.slice(0, 10)}… — balances update after execution; track ${CCIP_EXPLORER_URL}`
           : ` Track CCIP at ${CCIP_EXPLORER_URL} until the hub shows your collateral.`;
       showToast({
         type: "success",
@@ -703,8 +703,8 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
               <span>Safe Zone</span>
             </div>
             <p className="text-[10px] text-on-surface-variant">
-              On-chain <code className="rounded bg-surface-container-high px-1">previewHealthFactor</code>{" "}
-              on {hubChain.name}.
+              <code className="rounded bg-surface-container-high px-1">previewHealthFactor</code> on{" "}
+              {hubChain.name}.
               {!hfEngineConfigured ? " Configure hub contracts for live values." : ""}
             </p>
           </div>

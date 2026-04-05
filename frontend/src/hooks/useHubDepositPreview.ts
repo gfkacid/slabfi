@@ -8,6 +8,7 @@ import {
 } from "@slabfinance/shared";
 import { CollateralStatus } from "@slabfinance/shared";
 import { hubChain, hubContracts } from "@/lib/hub";
+import { formatHealthFactorWadBigint } from "@/lib/hubFormat";
 
 export type HubExistingCollateralSlice = {
   /** Oracle USD prices with 8 decimals (same as `OracleConsumer.getPrice`). */
@@ -116,12 +117,6 @@ export function usePreviewHealthFactorOnHub(
   });
 }
 
-const MAX_UINT256 = 2n ** 256n - 1n;
-
 export function formatHealthFactor(hf: bigint | undefined): string {
-  if (hf === undefined) return "—";
-  if (hf === MAX_UINT256) return "∞";
-  const x = Number(hf) / 1e18;
-  if (!Number.isFinite(x)) return "—";
-  return x.toFixed(2);
+  return formatHealthFactorWadBigint(hf);
 }

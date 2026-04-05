@@ -70,6 +70,7 @@ export const COLLATERAL_REGISTRY_ABI = [
 
 export const HEALTH_FACTOR_ENGINE_ABI = [
   { inputs: [{ name: "collateralValuesUSD", type: "uint256[]" }, { name: "tiers", type: "uint8[]" }, { name: "totalDebtUSD", type: "uint256" }], name: "previewHealthFactor", outputs: [{ name: "", type: "uint256" }], stateMutability: "pure", type: "function" },
+  { inputs: [{ name: "borrower", type: "address" }], name: "getHealthFactor", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
   { inputs: [{ name: "borrower", type: "address" }], name: "getPositionStatus", outputs: [{ name: "", type: "uint8" }], stateMutability: "view", type: "function" },
   {
     inputs: [{ name: "borrower", type: "address" }],
@@ -113,6 +114,16 @@ export const ORACLE_CONSUMER_ABI = [
     type: "function",
   },
   { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }], name: "getEffectiveLTV", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [
+      { name: "collection", type: "address" },
+      { name: "tokenId", type: "uint256" },
+    ],
+    name: "isInStalenessPenaltyWindow",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
   {
     inputs: [
       { name: "collection", type: "address" },

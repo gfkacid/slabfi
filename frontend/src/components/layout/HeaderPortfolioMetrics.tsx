@@ -3,18 +3,25 @@ import { formatUnits } from "viem";
 import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { useAccount } from "wagmi";
 import { Icon } from "@/components/ui/Icon";
-import { useProtocolStats, useUserPosition, useOutstandingDebt, useLendingPoolStats } from "@/hooks";
+import {
+  useProtocolStats,
+  useUserPosition,
+  useOutstandingDebt,
+  useLendingPoolStats,
+  useHealthFactorWad,
+} from "@/hooks";
 import {
   aprPercentFromBps,
   aprPercentFromSnapshotBps,
   collateralLatestUsdNumber,
-  formatHealthFactorWad,
+  formatDisplayHealthFactor,
 } from "@/lib/hubFormat";
 
 export function HeaderPortfolioMetrics() {
   const { address, isConnected } = useAccount();
   const { data: protocol } = useProtocolStats();
   const position = useUserPosition();
+  const liveHf = useHealthFactorWad();
   const { data: debtTuple } = useOutstandingDebt();
   const poolStats = useLendingPoolStats();
 
@@ -61,7 +68,11 @@ export function HeaderPortfolioMetrics() {
               : "—"
       : "—";
 
-  const hfDisplay = formatHealthFactorWad(position.data?.indexedPosition?.healthFactorWad ?? null);
+  const hfDisplay = formatDisplayHealthFactor(
+    liveHf.data,
+    Boolean(liveHf.isError),
+    position.data?.indexedPosition?.healthFactorWad ?? null,
+  );
 
   return (
     <div

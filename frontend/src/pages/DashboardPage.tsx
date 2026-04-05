@@ -260,7 +260,7 @@ export function DashboardPage() {
             <h2 className="mb-4 font-headline text-xl font-extrabold text-primary">Protocol</h2>
             <Card variant="elevated" className="rounded-2xl">
               <p className="text-sm text-on-surface-variant">
-                Pool parameters and liquidations are enforced on-chain. Use the liquidations view to
+                Pool parameters and liquidations are enforced by the protocol. Use the liquidations view to
                 monitor undercollateralized positions.
               </p>
               <Link

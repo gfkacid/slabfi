@@ -65,14 +65,9 @@ export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
         <SectionTitle title="Portfolio Breakdown" />
         <PanelCard variant="panel" className="bg-surface-container-low">
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="font-headline text-xl font-extrabold tracking-tight text-primary">
-                Protocol collateral by collection
-              </h3>
-              <span className="rounded bg-secondary-fixed/30 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-secondary">
-                Indexed
-              </span>
-            </div>
+            <h3 className="font-headline text-xl font-extrabold tracking-tight text-primary">
+              Protocol collateral by collection
+            </h3>
             {loading ? (
               <div className="space-y-3">
                 <div className="h-12 animate-pulse rounded-xl bg-surface-container-high" />
@@ -80,10 +75,10 @@ export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
               </div>
             ) : !isApiConfigured() ? (
               <p className="text-sm text-on-surface-variant">
-                Set <code className="text-xs">VITE_API_BASE</code> to load indexed protocol data.
+                Set <code className="text-xs">VITE_API_BASE</code> to load protocol data.
               </p>
             ) : showRows.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">No indexed collateral yet.</p>
+              <p className="text-sm text-on-surface-variant">No protocol collateral yet.</p>
             ) : (
               <div className="space-y-4">
                 {showRows.map((row, i) => (
@@ -103,7 +98,7 @@ export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
               </div>
             )}
             <p className="text-center text-xs text-on-surface-variant">
-              Open positions (indexer):{" "}
+              Open positions:{" "}
               <span className="font-semibold text-primary">{protocol?.positionCount ?? "—"}</span>
             </p>
           </div>
@@ -125,7 +120,7 @@ export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
             {position.isLoading ? (
               <div className="h-32 animate-pulse rounded-xl bg-surface-container-high" />
             ) : loggedInGroups.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">No indexed collateral for this wallet.</p>
+              <p className="text-sm text-on-surface-variant">No collateral for this wallet yet.</p>
             ) : (
               <div className="space-y-4">
                 {loggedInGroups.map((row, i) => (
@@ -149,7 +144,7 @@ export function PortfolioBreakdown({ guest = false }: PortfolioBreakdownProps) {
           <div className="flex items-center justify-center border-outline-variant/10 pl-0 md:border-l md:pl-8">
             <div className="text-center">
               <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                Total collateral (indexed)
+                Total collateral
               </p>
               <p className="font-headline text-3xl font-extrabold">{totalAssetsDisplay}</p>
               <p className="mt-2 inline-block rounded bg-error/10 px-2 py-0.5 text-[10px] text-error">

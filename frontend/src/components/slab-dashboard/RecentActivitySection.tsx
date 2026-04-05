@@ -59,7 +59,7 @@ export function RecentActivitySection({ guest = false }: RecentActivitySectionPr
           <div className="p-8 text-center text-sm text-on-surface-variant">
             {isError
               ? "Could not load activity. Check VITE_API_BASE and the backend."
-              : "No recent indexed activity for this wallet."}
+              : "No recent activity for this wallet."}
           </div>
         ) : (
           <div className="divide-y divide-outline-variant/10">

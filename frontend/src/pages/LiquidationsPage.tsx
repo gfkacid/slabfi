@@ -50,13 +50,13 @@ export function LiquidationsPage() {
     if (activeTab === "active") {
       return [
         {
-          label: "Active auctions (on-chain)",
+          label: "Active auctions",
           value: String(active.length),
           hint: hubChain.name,
           hintClassName: "text-sm font-medium text-on-surface-variant",
         },
         {
-          label: "Open positions (indexer)",
+          label: "Open positions",
           value: protocol?.positionCount != null ? String(protocol.positionCount) : "—",
         },
         {
@@ -69,7 +69,7 @@ export function LiquidationsPage() {
     const util = utilizationPercentFromSnapshotWad(snap?.utilizationWad);
     return [
       {
-        label: "Resolved auctions (indexer)",
+        label: "Resolved auctions",
         value: history?.total != null ? String(history.total) : "—",
       },
       {
@@ -124,7 +124,7 @@ export function LiquidationsPage() {
     <div className="-mx-6 min-h-full bg-zinc-50 px-6 text-on-surface md:-mx-10 md:px-10">
       <PageHeader
         title="Liquidations"
-        description="When health factor drops below 1, each collateral card is auctioned. Bids are in USDC; anti-sniping extends the deadline. After closing, anyone can claim to settle: debt and fee routing is handled on-chain."
+        description="When health factor drops below 1, each collateral card is auctioned. Bids are in USDC; anti-sniping extends the deadline. After closing, anyone can claim to settle: debt and fees are routed by the protocol."
       />
 
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">

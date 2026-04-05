@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { COLLATERAL_REGISTRY_ABI } from "@slabfinance/shared";
+import { COLLATERAL_REGISTRY_ABI, HEALTH_FACTOR_ENGINE_ABI } from "@slabfinance/shared";
 import type { Address, PublicClient } from "viem";
 import type { DecodedEventLog } from "../utils/poller.js";
 
@@ -8,10 +8,11 @@ export async function handleLendingPoolDecoded(params: {
   client: PublicClient;
   hubChainId: string;
   registry: Address;
+  healthFactorEngine?: Address;
   decoded: DecodedEventLog[];
   blockTs: (bn: bigint) => Promise<bigint>;
 }): Promise<void> {
-  const { prisma, client, hubChainId, registry, decoded, blockTs } = params;
+  const { prisma, client, hubChainId, registry, healthFactorEngine, decoded, blockTs } = params;
   const borrowersToSync = new Set<string>();
 
   for (const ev of decoded) {
@@ -165,6 +166,20 @@ export async function handleLendingPoolDecoded(params: {
       functionName: "getPosition",
       args: [b as Address],
     });
+    let healthFactorWad: bigint | null = null;
+    if (healthFactorEngine) {
+      try {
+        healthFactorWad = await client.readContract({
+          address: healthFactorEngine,
+          abi: HEALTH_FACTOR_ENGINE_ABI,
+          functionName: "getHealthFactor",
+          args: [b as Address],
+        });
+      } catch {
+        healthFactorWad = null;
+      }
+    }
+    const hfPayload = healthFactorWad !== null ? { healthFactorWad } : {};
     await prisma.position.upsert({
       where: { borrower: b },
       create: {
@@ -175,6 +190,7 @@ export async function handleLendingPoolDecoded(params: {
         interestAccrued: pos.interestAccrued,
         lastInterestUpdateUnix: pos.lastInterestUpdate,
         status: pos.status,
+        ...hfPayload,
       },
       update: {
         collateralIdsJson: JSON.stringify(pos.collateralIds),
@@ -182,6 +198,7 @@ export async function handleLendingPoolDecoded(params: {
         interestAccrued: pos.interestAccrued,
         lastInterestUpdateUnix: pos.lastInterestUpdate,
         status: pos.status,
+        ...hfPayload,
       },
     });
   }

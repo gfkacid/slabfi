@@ -126,6 +126,13 @@ contract HealthFactorEngine is Initializable, UUPSUpgradeable, AccessControl {
         return _healthFactorToStatus(hf);
     }
 
+    /// @notice Health factor (WAD). `type(uint256).max` when there is no debt.
+    function getHealthFactor(address borrower) external view returns (uint256) {
+        (uint256 capacityRaw, uint256 totalDebtRaw) = _computePosition(borrower);
+        if (totalDebtRaw == 0) return type(uint256).max;
+        return Math.mulDiv(capacityRaw, 1e18, totalDebtRaw);
+    }
+
     /// @return capacityRaw Weighted borrow capacity in USDC raw units (6 decimals).
     /// @return totalDebtRaw Outstanding debt in USDC raw units (6 decimals).
     function _computePosition(address borrower) internal view returns (uint256 capacityRaw, uint256 totalDebtRaw) {

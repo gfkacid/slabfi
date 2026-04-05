@@ -2,15 +2,30 @@ import {
   POSITION_STATUS_LABELS,
   POSITION_STATUS_BADGE_CLASSES,
 } from "@slabfinance/shared";
-import { usePositionStatus } from "@/hooks/useHealthFactor";
+import { useHealthFactorWad, usePositionStatus, useUserPosition } from "@/hooks";
+import { formatDisplayHealthFactor } from "@/lib/hubFormat";
 
 export function HealthFactorBadge() {
-  const { data: status, isLoading, isError } = usePositionStatus();
+  const { data: status, isLoading: statusLoading, isError: statusError } = usePositionStatus();
+  const liveHf = useHealthFactorWad();
+  const position = useUserPosition();
+  const indexedWad = position.data?.indexedPosition?.healthFactorWad ?? null;
 
-  if (isLoading || isError || status === undefined) {
+  const hfText = formatDisplayHealthFactor(liveHf.data, Boolean(liveHf.isError), indexedWad);
+  const loading = statusLoading || liveHf.isLoading || position.isLoading;
+
+  if (loading) {
     return (
       <span className="rounded-full border px-3 py-1 text-sm font-medium bg-slate-100 text-slate-500 border-slate-200">
-        —
+        …
+      </span>
+    );
+  }
+
+  if (statusError || status === undefined) {
+    return (
+      <span className="rounded-full border px-3 py-1 text-sm font-medium bg-slate-100 text-slate-500 border-slate-200">
+        {hfText}
       </span>
     );
   }
@@ -23,9 +38,9 @@ export function HealthFactorBadge() {
   return (
     <span
       className={`rounded-full border px-3 py-1 text-sm font-medium ${colorClass}`}
-      title={`Health factor status: ${label}`}
+      title={`${label} · health factor ${hfText}`}
     >
-      {label}
+      {hfText}
     </span>
   );
 }

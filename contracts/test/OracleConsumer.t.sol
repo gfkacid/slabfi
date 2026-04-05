@@ -83,4 +83,13 @@ contract OracleConsumerTest is Test {
         assertTrue(oracle.supportsInterface(type(IReceiver).interfaceId));
         assertTrue(oracle.supportsInterface(0x01ffc9a7)); // IERC165
     }
+
+    /// @dev Regression: sigmaBps > BPS used to underflow in getEffectiveLTV and revert HF reads.
+    function test_GetEffectiveLTV_ExtremeVolatilityDoesNotRevert() public {
+        for (uint256 i = 0; i < 20; i++) {
+            oracle.setMockPrice(collection, tokenId, i % 2 == 0 ? 200e8 : 1e8, 1);
+        }
+        uint256 ltv = oracle.getEffectiveLTV(collection, tokenId);
+        assertGe(ltv, 500);
+    }
 }

@@ -42,6 +42,7 @@ async function hubTick(hubClient: PublicClient): Promise<void> {
           client: hubClient,
           hubChainId,
           registry: config.collateralRegistry!,
+          healthFactorEngine: config.healthFactorEngine,
           decoded,
           blockTs,
         });

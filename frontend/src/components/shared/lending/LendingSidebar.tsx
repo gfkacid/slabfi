@@ -1,8 +1,8 @@
 import { lendingGhostBorder, lendingGradientPrimary } from "@/components/shared/lending/lendingStyles";
-import { useProtocolStats, useUserPosition, useOutstandingDebt } from "@/hooks";
+import { useProtocolStats, useUserPosition, useOutstandingDebt, useHealthFactorWad } from "@/hooks";
 import { isApiConfigured } from "@/lib/api";
 import {
-  formatHealthFactorWad,
+  formatDisplayHealthFactor,
   formatUsd18,
   formatUsdFromSnapshotString,
   formatUsdNumber,
@@ -29,6 +29,7 @@ function UtilizationBar({ pctNum }: { pctNum: number | undefined }) {
 export function LendingSidebar() {
   const { data: protocol, isLoading: protoLoading } = useProtocolStats();
   const position = useUserPosition();
+  const liveHf = useHealthFactorWad();
   const { data: debtTuple } = useOutstandingDebt();
 
   const collaterals = position.data?.collaterals ?? [];
@@ -40,7 +41,11 @@ export function LendingSidebar() {
   const borrowedUsd =
     borrowed !== undefined && borrowed > 0n ? formatUsd18(borrowed) : "0.00";
 
-  const hf = formatHealthFactorWad(position.data?.indexedPosition?.healthFactorWad ?? null);
+  const hf = formatDisplayHealthFactor(
+    liveHf.data,
+    Boolean(liveHf.isError),
+    position.data?.indexedPosition?.healthFactorWad ?? null,
+  );
   const st = position.data?.live?.positionStatus;
   const healthLabel =
     st !== null && st !== undefined ? POSITION_STATUS_LABELS[st] ?? "—" : "—";
@@ -63,7 +68,7 @@ export function LendingSidebar() {
         <div className="space-y-6">
           <div>
             <span className="mb-1 block text-xs font-medium text-primary-fixed-dim">
-              Indexed collateral value
+              Collateral value
             </span>
             <p className="font-headline text-2xl font-extrabold">
               {position.isLoading ? "…" : `$${formatUsdNumber(lockedUsd)}`}

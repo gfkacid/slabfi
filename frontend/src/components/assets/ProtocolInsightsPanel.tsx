@@ -65,7 +65,7 @@ export function ProtocolInsightsPanel() {
           <StatCell label="Total Protocol Value (TVL)">
             {loading ? <Shimmer /> : <p className="font-headline text-2xl font-extrabold text-primary">{tvl}</p>}
           </StatCell>
-          <StatCell label="Indexed NFT collateral">
+          <StatCell label="NFT collateral">
             {loading ? <Shimmer /> : <p className="font-headline text-2xl font-extrabold text-secondary">{nftCount}</p>}
           </StatCell>
           <StatCell label="Utilization / borrow vs TVL">

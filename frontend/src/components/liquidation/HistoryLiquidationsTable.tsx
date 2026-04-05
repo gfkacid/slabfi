@@ -30,7 +30,7 @@ export function HistoryLiquidationsTable() {
           {!isApiConfigured() ? (
             <tr>
               <td className="px-6 py-10 text-on-surface-variant md:px-8" colSpan={5}>
-                Set VITE_API_BASE to load auction history from the indexer.
+                Set VITE_API_BASE to load auction history.
               </td>
             </tr>
           ) : isLoading ? (
@@ -48,7 +48,7 @@ export function HistoryLiquidationsTable() {
           ) : !data?.items.length ? (
             <tr>
               <td className="px-6 py-10 text-on-surface-variant md:px-8" colSpan={5}>
-                No settled or cancelled auctions in the indexer.
+                No settled or cancelled auctions on record.
               </td>
             </tr>
           ) : (

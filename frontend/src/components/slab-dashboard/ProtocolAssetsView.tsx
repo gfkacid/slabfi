@@ -120,7 +120,7 @@ export function ProtocolAssetsView() {
     showToast({
       type: "success",
       title: "Withdrawal started",
-      message: `${asset.title} (#${asset.assetId}): confirm the on-chain release in your wallet when prompted. If this NFT backs a loan, repay or close the position in Lending first.`,
+      message: `${asset.title} (#${asset.assetId}): confirm the release in your wallet when prompted. If this NFT backs a loan, repay or close the position in Lending first.`,
     });
   }, []);
 
@@ -164,7 +164,7 @@ export function ProtocolAssetsView() {
           ))}
         </div>
       ) : visible.length === 0 ? (
-        <p className="text-sm text-on-surface-variant">No collateral in the indexer yet.</p>
+        <p className="text-sm text-on-surface-variant">No collateral yet.</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
           {visible.map(({ key, props: asset }) => (

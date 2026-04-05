@@ -124,8 +124,11 @@ contract OracleConsumer is Initializable, UUPSUpgradeable, AccessControl, IRecei
         uint256 base = baseLTV[tier];
 
         uint256 sigmaBps = getPriceVolatility(collection, tokenId);
+        // Cap so (BPS - sigmaBps) never underflows when mock / sparse history yields sigma > 100%
+        if (sigmaBps > BPS) {
+            sigmaBps = BPS;
+        }
         // effectiveLTV = max(baseLTV * (1 - sigma_30d), MIN_LTV_BPS)
-        // sigma_30d is in BPS, so (1 - sigma/10000)
         uint256 adjusted = base * (BPS - sigmaBps) / BPS;
         return adjusted > MIN_LTV_BPS ? adjusted : MIN_LTV_BPS;
     }

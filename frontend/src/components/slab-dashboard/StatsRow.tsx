@@ -8,6 +8,7 @@ import {
   useUserPosition,
   useOutstandingDebt,
   useLendingPoolStats,
+  useHealthFactorWad,
 } from "@/hooks";
 import { formatUnits } from "viem";
 import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
@@ -15,10 +16,11 @@ import { hubChain } from "@/lib/hub";
 import {
   aprPercentFromBps,
   aprPercentFromSnapshotBps,
-  formatHealthFactorWad,
+  formatDisplayHealthFactor,
   formatUsdc,
   formatUsdFromSnapshotString,
   healthFactorBarPercent,
+  healthFactorBarPercentFromWadBigint,
   utilizationPercentFromSnapshotWad,
   utilizationPercentFromWad,
   collateralLatestUsdNumber,
@@ -41,6 +43,7 @@ export function StatsRow({ guest = false }: StatsRowProps) {
   const { data: protocol, isLoading: protocolLoading, isError: protocolError } = useProtocolStats();
   const poolStats = useLendingPoolStats();
   const position = useUserPosition();
+  const liveHf = useHealthFactorWad();
   const { data: debtTuple } = useOutstandingDebt();
 
   const snap = protocol?.latestSnapshot;
@@ -75,13 +78,20 @@ export function StatsRow({ guest = false }: StatsRowProps) {
           : "—";
 
   const hfStr = position.data?.indexedPosition?.healthFactorWad ?? undefined;
-  const hfDisplay = formatHealthFactorWad(hfStr ?? null);
+  const hfDisplay = formatDisplayHealthFactor(
+    liveHf.data,
+    Boolean(liveHf.isError),
+    hfStr ?? null,
+  );
   const statusIdx = position.data?.live?.positionStatus;
   const healthLabel =
     statusIdx !== null && statusIdx !== undefined
       ? POSITION_STATUS_LABELS[statusIdx] ?? "—"
       : "—";
-  const hfBar = healthFactorBarPercent(hfStr);
+  const hfBar =
+    liveHf.data !== undefined && !liveHf.isError
+      ? healthFactorBarPercentFromWadBigint(liveHf.data)
+      : healthFactorBarPercent(hfStr);
 
   const supplyApr =
     snap?.supplyAprBps !== undefined
@@ -181,7 +191,7 @@ export function StatsRow({ guest = false }: StatsRowProps) {
             <h3 className="font-headline text-2xl font-extrabold text-primary">{netWorthDisplay}</h3>
           )}
           <p className="text-[10px] font-semibold text-on-surface-variant">
-            NFT + vault USDC supply − debt (indexed)
+            NFT + vault USDC supply − debt
           </p>
         </div>
         <div className="rounded-lg border border-zinc-200/60 bg-zinc-50/90 p-3">
@@ -208,7 +218,7 @@ export function StatsRow({ guest = false }: StatsRowProps) {
               {healthLabel}
             </span>
           </div>
-          {position.isLoading ? (
+          {position.isLoading || liveHf.isPending ? (
             <ShimmerStat />
           ) : (
             <h3 className="font-headline text-2xl font-extrabold text-on-tertiary-container">{hfDisplay}</h3>

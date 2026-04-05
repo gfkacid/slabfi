@@ -177,7 +177,7 @@ export function BorrowLendingPanel() {
           </Link>
         </div>
         {topCollateral.length === 0 ? (
-          <p className="text-sm text-on-surface-variant">No indexed collateral yet. Deposit NFTs from the Lock flow.</p>
+          <p className="text-sm text-on-surface-variant">No collateral yet. Deposit NFTs from the Lock flow.</p>
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {topCollateral.map((c, i) => {

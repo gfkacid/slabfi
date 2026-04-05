@@ -53,7 +53,7 @@ export function LockPage() {
       const ccipId = ccipMessageIdFromLockReceipt(receipt, adapterAddr, COLLATERAL_ADAPTER_ABI);
       const track =
         ccipId != null
-          ? `CCIP message: ${ccipId.slice(0, 10)}…${ccipId.slice(-8)}. Track at ${CCIP_EXPLORER_URL} — the hub (and indexer) only see collateral after CCIP executes on Arc (often minutes on testnet).`
+          ? `CCIP message: ${ccipId.slice(0, 10)}…${ccipId.slice(-8)}. Track at ${CCIP_EXPLORER_URL} — your balances update after CCIP executes on Arc (often minutes on testnet).`
           : `NFT locked on Sepolia. The hub updates after CCIP delivers; track the tx on ${CCIP_EXPLORER_URL}.`;
       showToast({
         type: "success",
