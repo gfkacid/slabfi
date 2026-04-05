@@ -21,7 +21,7 @@ import {
   healthFactorBarPercent,
   utilizationPercentFromSnapshotWad,
   utilizationPercentFromWad,
-  price8ToUsdNumber,
+  collateralLatestUsdNumber,
 } from "@/lib/hubFormat";
 import { isApiConfigured } from "@/lib/api";
 import { POSITION_STATUS_LABELS } from "@slabfinance/shared";
@@ -56,19 +56,20 @@ export function StatsRow({ guest = false }: StatsRowProps) {
     utilPct !== undefined && Number.isFinite(utilPct) ? `${Math.round(utilPct)}%` : "—";
 
   const collaterals = position.data?.collaterals ?? [];
-  const collateralUsd = collaterals.reduce(
-    (acc, c) => acc + price8ToUsdNumber(c.latestPriceUsd ?? undefined),
-    0,
-  );
+  const collateralUsd = collaterals.reduce((acc, c) => acc + collateralLatestUsdNumber(c), 0);
+  const suppliedUsd =
+    position.onHub && poolStats.supplyAssetsUsdc !== undefined
+      ? Number(formatUnits(poolStats.supplyAssetsUsdc, HUB_USDC_DECIMALS))
+      : 0;
   const debtWad = position.onHub ? (debtTuple?.[2] ?? 0n) : undefined;
   const debtUsd =
     debtWad !== undefined && debtWad > 0n ? Number(formatUnits(debtWad, HUB_USDC_DECIMALS)) : 0;
-  const netWorthUsd = collateralUsd - debtUsd;
+  const netWorthUsd = collateralUsd + suppliedUsd - debtUsd;
   const netWorthDisplay =
-    Number.isFinite(netWorthUsd) && (collateralUsd > 0 || debtUsd > 0)
+    Number.isFinite(netWorthUsd) && (collateralUsd > 0 || suppliedUsd > 0 || debtUsd > 0)
       ? `$${netWorthUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : collateralUsd > 0
-        ? `$${collateralUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : collateralUsd > 0 || suppliedUsd > 0
+        ? `$${(collateralUsd + suppliedUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : debtUsd > 0
           ? `-$${debtUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : "—";
@@ -179,7 +180,9 @@ export function StatsRow({ guest = false }: StatsRowProps) {
           ) : (
             <h3 className="font-headline text-2xl font-extrabold text-primary">{netWorthDisplay}</h3>
           )}
-          <p className="text-[10px] font-semibold text-on-surface-variant">Collateral value − debt (indexed)</p>
+          <p className="text-[10px] font-semibold text-on-surface-variant">
+            NFT + vault USDC supply − debt (indexed)
+          </p>
         </div>
         <div className="rounded-lg border border-zinc-200/60 bg-zinc-50/90 p-3">
           <div className="mb-2 flex items-center justify-between">

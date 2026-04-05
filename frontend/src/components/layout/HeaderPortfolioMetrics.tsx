@@ -7,8 +7,8 @@ import { useProtocolStats, useUserPosition, useOutstandingDebt, useLendingPoolSt
 import {
   aprPercentFromBps,
   aprPercentFromSnapshotBps,
+  collateralLatestUsdNumber,
   formatHealthFactorWad,
-  price8ToUsdNumber,
 } from "@/lib/hubFormat";
 
 export function HeaderPortfolioMetrics() {
@@ -19,17 +19,19 @@ export function HeaderPortfolioMetrics() {
   const poolStats = useLendingPoolStats();
 
   const collaterals = position.data?.collaterals ?? [];
-  const collateralUsd = collaterals.reduce(
-    (acc, c) => acc + price8ToUsdNumber(c.latestPriceUsd ?? undefined),
-    0,
-  );
+  const collateralUsd = collaterals.reduce((acc, c) => acc + collateralLatestUsdNumber(c), 0);
+  const suppliedUsd =
+    poolStats.supplyAssetsUsdc !== undefined
+      ? Number(formatUnits(poolStats.supplyAssetsUsdc, HUB_USDC_DECIMALS))
+      : 0;
   const debtUsd =
     debtTuple?.[2] !== undefined && debtTuple[2] > 0n
       ? Number(formatUnits(debtTuple[2], HUB_USDC_DECIMALS))
       : 0;
-  const netWorthUsd = collateralUsd - debtUsd;
+  const netWorthUsd = collateralUsd + suppliedUsd - debtUsd;
+  const hasNetWorthInputs = collateralUsd > 0 || suppliedUsd > 0 || debtUsd > 0;
   const netWorthDisplay =
-    isConnected && address && (collateralUsd > 0 || debtUsd > 0)
+    isConnected && address && hasNetWorthInputs
       ? netWorthUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       : isConnected && address
         ? "0.00"
