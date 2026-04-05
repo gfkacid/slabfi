@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAccount, usePublicClient, useReadContract } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { LENDING_POOL_ABI, ERC20_ABI, HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { UsdcInputField } from "@/components/shared/lending/UsdcInputField";
@@ -8,11 +9,12 @@ import { lendingGradientPrimary } from "@/components/shared/lending/lendingStyle
 import { useDeposit, useLendingPoolStats, useUsdcBalance } from "@/hooks";
 import { hubChain, hubContracts } from "@/lib/hub";
 import { aprPercentFromBps, formatUsdc } from "@/lib/hubFormat";
-import { useReadContract } from "wagmi";
 
 export function DepositLendingPanel() {
   const { isConnected, chainId } = useAccount();
   const [amount, setAmount] = useState("");
+  const queryClient = useQueryClient();
+  const publicClient = usePublicClient({ chainId: hubChain.id });
   const { writeContractAsync, isPending } = useDeposit();
   const poolStats = useLendingPoolStats();
   const { data: walletBal } = useUsdcBalance();
@@ -58,20 +60,24 @@ export function DepositLendingPanel() {
     (walletBal === undefined || amountWei <= walletBal);
 
   const handleDeposit = async () => {
-    if (!canSubmit || !poolAddr || !usdcAddr) return;
+    if (!canSubmit || !poolAddr || !usdcAddr || !publicClient) return;
     try {
-      await writeContractAsync({
+      const approveHash = await writeContractAsync({
         address: usdcAddr,
         abi: ERC20_ABI,
         functionName: "approve",
         args: [poolAddr, amountWei],
       });
-      await writeContractAsync({
+      await publicClient.waitForTransactionReceipt({ hash: approveHash });
+      const depositHash = await writeContractAsync({
         address: poolAddr,
         abi: LENDING_POOL_ABI,
         functionName: "deposit",
         args: [amountWei],
       });
+      await publicClient.waitForTransactionReceipt({ hash: depositHash });
+      // API protocol headline stats + wagmi contract reads (pool, wallet USDC, shares).
+      await queryClient.invalidateQueries();
       setAmount("");
     } catch (e) {
       console.error(e);

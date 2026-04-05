@@ -57,12 +57,5 @@ export function useRepay() {
 }
 
 export function useDeposit() {
-  const queryClient = useQueryClient();
-  return useWriteContract({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries();
-      },
-    },
-  });
+  return useWriteContract();
 }
