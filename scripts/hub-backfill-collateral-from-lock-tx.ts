@@ -294,14 +294,35 @@ async function main(): Promise<void> {
     console.log("[hub-backfill-collateral] block", receipt.blockNumber.toString());
   } finally {
     if (!hadRouter) {
-      const revHash = await walletClient.writeContract({
-        address: registry,
-        abi: REG_ABI,
-        functionName: "revokeRole",
-        args: [routerRole, account.address],
-      });
-      await publicClient.waitForTransactionReceipt({ hash: revHash });
-      console.log("[hub-backfill-collateral] revoked ROUTER_ROLE", revHash);
+      await new Promise((r) => setTimeout(r, 1500));
+      const block = await publicClient.getBlock({ blockTag: "latest" });
+      const base = block.baseFeePerGas ?? 0n;
+      const mults = [2n, 3n, 4n] as const;
+      const prioSteps = [2_000_000_000n, 4_000_000_000n, 8_000_000_000n] as const;
+      let lastErr: unknown;
+      for (let i = 0; i < mults.length; i++) {
+        try {
+          const maxPriorityFeePerGas = prioSteps[i]!;
+          const maxFeePerGas =
+            (base > 0n ? base * mults[i]! : 80_000_000_000n) + maxPriorityFeePerGas;
+          const revHash = await walletClient.writeContract({
+            address: registry,
+            abi: REG_ABI,
+            functionName: "revokeRole",
+            args: [routerRole, account.address],
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+          });
+          await publicClient.waitForTransactionReceipt({ hash: revHash });
+          console.log("[hub-backfill-collateral] revoked ROUTER_ROLE", revHash);
+          lastErr = undefined;
+          break;
+        } catch (e) {
+          lastErr = e;
+          if (i < mults.length - 1) await new Promise((r) => setTimeout(r, 2500));
+        }
+      }
+      if (lastErr) throw lastErr;
     }
   }
 

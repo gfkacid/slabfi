@@ -24,6 +24,7 @@
     "diagnose:ccip": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/diagnose-ccip-message.ts",
     "ccip:manual-exec": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/ccip-manual-execute.ts",
     "hub:backfill-collateral": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/hub-backfill-collateral-from-lock-tx.ts",
+    "hub:revoke-router-role": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/hub-revoke-router-role.ts",
     "oracle:push-mock": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/push-oracle-mock-from-catalog.ts",
     "oracle:reseed-pending": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/reseed-pending-collateral-oracle.ts",
     "oracle:force-liquidate": "pnpm --filter @slabfinance/indexer exec tsx ../scripts/oracle-force-liquidate.ts",
