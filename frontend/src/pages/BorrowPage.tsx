@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useAccount } from "wagmi";
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 import { HUB_USDC_DECIMALS, LENDING_POOL_ABI } from "@slabfinance/shared";
 import { useAvailableCredit, useBorrow } from "@/hooks";
 import { AmountInput } from "@/components/AmountInput";
 import { TransactionButton } from "@/components/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/Card";
+import { HubCollateralSyncCallout } from "@/components/shared/lending/HubCollateralSyncCallout";
 import { hubChain, hubContracts } from "@/lib/hub";
 
 export function BorrowPage() {
@@ -70,7 +71,7 @@ export function BorrowPage() {
     );
   }
 
-  const maxFormatted = Number((maxBorrow / 10n ** 18n) * 100n) / 100;
+  const maxFormatted = Number(formatUnits(maxBorrow, HUB_USDC_DECIMALS));
   const canBorrow = amountWei > 0n && amountWei <= maxBorrow;
 
   return (
@@ -79,6 +80,8 @@ export function BorrowPage() {
         title="Borrow"
         description="Borrow USDC against your locked collateral. Your borrow amount is capped by your available credit."
       />
+
+      <HubCollateralSyncCallout className="mb-6" />
 
       <Card variant="elevated" className="mb-6">
         <p className="mb-2 text-sm text-on-surface-variant">Available to borrow</p>

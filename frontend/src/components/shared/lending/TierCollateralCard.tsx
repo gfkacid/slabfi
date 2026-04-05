@@ -1,7 +1,8 @@
+import { CollateralImageFill } from "@/components/shared/lending/CollateralImageFill";
 import { lendingGhostBorder } from "@/components/shared/lending/lendingStyles";
 
 type TierCollateralCardProps = {
-  imageSrc: string;
+  imageSrc?: string | null;
   imageAlt: string;
   title: string;
   tierLabel: string;
@@ -35,9 +36,9 @@ export function TierCollateralCard({
       }`.trim()}
     >
       <div className={mediaClass}>
-        <img
-          alt={imageAlt}
+        <CollateralImageFill
           src={imageSrc}
+          alt={imageAlt}
           className={`h-full w-full object-contain object-center ${
             layout === "compact"
               ? "transition-transform duration-500 group-hover:scale-105"

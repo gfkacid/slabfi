@@ -174,7 +174,9 @@ contract CollateralRegistry is Initializable, UUPSUpgradeable, AccessControl {
         for (uint256 i = 0; i < pos.collateralIds.length; i++) {
             bytes32 cid = pos.collateralIds[i];
             CollateralItem storage item = collateralItems[cid];
-            if (item.status != CollateralStatus.ACTIVE) continue;
+            // PENDING = registered before first on-chain oracle read succeeded; still allow capacity
+            // once getPrice works (same economic content as post-activateCollateral).
+            if (item.status != CollateralStatus.ACTIVE && item.status != CollateralStatus.PENDING) continue;
 
             try oracleConsumer.getPrice(item.collection, item.tokenId) returns (uint256 price, uint256) {
                 uint256 effectiveLTV = oracleConsumer.getEffectiveLTV(item.collection, item.tokenId);

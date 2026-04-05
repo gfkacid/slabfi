@@ -1,9 +1,10 @@
+import { CollateralImageFill } from "@/components/shared/lending/CollateralImageFill";
 import { Icon } from "@/components/ui/Icon";
 
 export type CatalogAssetHealth = "healthy" | "warning";
 
 export type ProtocolCatalogAssetCardProps = {
-  imageUrl: string;
+  imageUrl?: string | null;
   imageAlt: string;
   assetId: string;
   title: string;
@@ -48,7 +49,7 @@ export function ProtocolCatalogAssetCard({
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200/60 bg-white shadow-sm transition-all duration-300 hover:shadow-md">
       <div className="relative aspect-[3/4] overflow-hidden bg-zinc-100">
-        <img
+        <CollateralImageFill
           src={imageUrl}
           alt={imageAlt}
           className="h-full w-full object-contain object-center transition-transform duration-500 group-hover:scale-105"

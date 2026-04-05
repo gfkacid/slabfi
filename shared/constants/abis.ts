@@ -33,15 +33,85 @@ export const COLLATERAL_REGISTRY_ABI = [
   { inputs: [{ name: "borrower", type: "address" }], name: "getPosition", outputs: [{ name: "", type: "tuple", components: [{ name: "borrower", type: "address" }, { name: "collateralIds", type: "bytes32[]" }, { name: "principal", type: "uint256" }, { name: "interestAccrued", type: "uint256" }, { name: "lastInterestUpdate", type: "uint256" }, { name: "status", type: "uint8" }] }], stateMutability: "view", type: "function" },
   { inputs: [{ name: "collateralId", type: "bytes32" }], name: "getCollateralItem", outputs: [{ name: "", type: "tuple", components: [{ name: "id", type: "bytes32" }, { name: "sourceChainId", type: "uint64" }, { name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }, { name: "owner", type: "address" }, { name: "lockedAt", type: "uint256" }, { name: "status", type: "uint8" }] }], stateMutability: "view", type: "function" },
   { inputs: [{ name: "collateralId", type: "bytes32" }], name: "initiateUnlock", outputs: [{ name: "", type: "bytes32" }], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "collateralId", type: "bytes32" }], name: "activateCollateral", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [], name: "HF_ENGINE_ROLE", outputs: [{ name: "", type: "bytes32" }], stateMutability: "pure", type: "function" },
+  { inputs: [], name: "DEFAULT_ADMIN_ROLE", outputs: [{ name: "", type: "bytes32" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    name: "hasRole",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    name: "grantRole",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "role", type: "bytes32" },
+      { name: "account", type: "address" },
+    ],
+    name: "revokeRole",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ] as const;
 
 export const HEALTH_FACTOR_ENGINE_ABI = [
   { inputs: [{ name: "collateralValuesUSD", type: "uint256[]" }, { name: "tiers", type: "uint8[]" }, { name: "totalDebtUSD", type: "uint256" }], name: "previewHealthFactor", outputs: [{ name: "", type: "uint256" }], stateMutability: "pure", type: "function" },
   { inputs: [{ name: "borrower", type: "address" }], name: "getPositionStatus", outputs: [{ name: "", type: "uint8" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [{ name: "borrower", type: "address" }],
+    name: "recomputePosition",
+    outputs: [
+      { name: "healthFactor", type: "uint256" },
+      { name: "newStatus", type: "uint8" },
+    ],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
 ] as const;
 
 export const ORACLE_CONSUMER_ABI = [
   { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }], name: "getPrice", outputs: [{ name: "", type: "uint256" }, { name: "", type: "uint256" }], stateMutability: "view", type: "function" },
+  {
+    inputs: [
+      { name: "", type: "address" },
+      { name: "", type: "uint256" },
+    ],
+    name: "prices",
+    outputs: [
+      { name: "priceUSD", type: "uint256" },
+      { name: "attestedAt", type: "uint256" },
+      { name: "updatedAt", type: "uint256" },
+      { name: "tier", type: "uint8" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "collection", type: "address" },
+      { name: "tokenId", type: "uint256" },
+      { name: "priceUSD", type: "uint256" },
+      { name: "tier", type: "uint8" },
+    ],
+    name: "setMockPrice",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
   { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }], name: "getEffectiveLTV", outputs: [{ name: "", type: "uint256" }], stateMutability: "view", type: "function" },
   {
     inputs: [

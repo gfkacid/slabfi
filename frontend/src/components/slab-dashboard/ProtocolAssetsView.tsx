@@ -14,11 +14,12 @@ import {
 import { useCollateralCatalog, useUserCollateral } from "@/hooks";
 import type { CollateralItemJson } from "@/lib/api";
 import {
-  collateralLatestUsdNumber,
-  formatCardGradeDisplay,
-  formatLtvPercentFromBps,
-  formatUsdNumber,
-} from "@/lib/hubFormat";
+  collateralDisplayGradeOrTierLine,
+  collateralDisplayImageUrl,
+  collateralDisplaySubtitle,
+  collateralDisplayTitle,
+} from "@/lib/collateralDisplay";
+import { collateralLatestUsdNumber, formatLtvPercentFromBps, formatUsdNumber } from "@/lib/hubFormat";
 
 function itemToCardProps(
   c: CollateralItemJson,
@@ -26,24 +27,13 @@ function itemToCardProps(
 ): ProtocolCatalogAssetCardProps {
   const usd = collateralLatestUsdNumber(c);
   const card = c.card;
-  const title =
-    (card?.cardName ?? c.cardName)?.trim() || `Token #${c.tokenId}`;
-  const subtitle =
-    card?.setName || card?.cardNumber
-      ? [card.setName, card.cardNumber ? `#${card.cardNumber}` : null].filter(Boolean).join(" · ")
-      : `${c.collection.slice(0, 8)}… · ${c.tokenId}`;
-  const imageUrl =
-    (card?.cardImage ?? c.cardImage)?.trim() ||
-    `https://picsum.photos/seed/${encodeURIComponent(c.id)}/600/800`;
+  const title = collateralDisplayTitle(c);
+  const subtitle = collateralDisplaySubtitle(c);
+  const imageUrl = collateralDisplayImageUrl(c);
 
-  let gradeLine: string | null = null;
-  if (card?.gradeService != null && String(card.gradeService).trim() !== "") {
-    const svc = String(card.gradeService).trim();
-    if (card.grade != null) {
-      gradeLine = `${svc} ${formatCardGradeDisplay(card.grade)}`;
-    } else {
-      gradeLine = svc;
-    }
+  let gradeLine: string | null = collateralDisplayGradeOrTierLine(c);
+  if (gradeLine == null && card?.gradeService != null && String(card.gradeService).trim() !== "") {
+    gradeLine = String(card.gradeService).trim();
   }
 
   const ltvPct = formatLtvPercentFromBps(card?.ltvBps);

@@ -1,4 +1,5 @@
 export * from "./useCollateralRegistry";
+export * from "./useHubCollateralActivation";
 export * from "./useLendingPool";
 export * from "./useHealthFactor";
 export * from "./useOracleConsumer";

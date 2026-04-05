@@ -16,8 +16,14 @@ import {
   usePreviewHealthFactorOnHub,
   formatHealthFactor,
 } from "@/hooks";
+import { HubCollateralSyncCallout } from "@/components/shared/lending/HubCollateralSyncCallout";
 import { hubChain, hubContracts } from "@/lib/hub";
-import { formatUsdNumber, price8ToUsdNumber } from "@/lib/hubFormat";
+import {
+  collateralDisplayImageUrl,
+  collateralDisplaySubtitle,
+  collateralDisplayTitle,
+} from "@/lib/collateralDisplay";
+import { collateralLatestUsdNumber, formatUsdNumber } from "@/lib/hubFormat";
 import { HUB_USDC_DECIMALS, PROTOCOL_TIER_ROWS } from "@slabfinance/shared";
 
 export function BorrowLendingPanel() {
@@ -80,10 +86,12 @@ export function BorrowLendingPanel() {
     }
   };
 
-  const topCollateral = (items ?? []).filter((c) => c.latestPriceUsd).slice(0, 2);
+  /** Show recent locked rows even when hub oracle price is not indexed yet (`latestPriceUsd` empty). */
+  const topCollateral = (items ?? []).slice(0, 2);
 
   return (
     <div className="space-y-8">
+      <HubCollateralSyncCallout />
       <LendingActionPanel id="lending-panel-borrow" labelledBy="lending-tab-borrow">
         <div className="mb-10 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
@@ -173,20 +181,26 @@ export function BorrowLendingPanel() {
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {topCollateral.map((c, i) => {
-              const usd = price8ToUsdNumber(c.latestPriceUsd ?? undefined);
-              const tier = PROTOCOL_TIER_ROWS[i % PROTOCOL_TIER_ROWS.length];
+              const usd = collateralLatestUsdNumber(c);
+              const title = collateralDisplayTitle(c);
+              const tierId = c.card?.tier;
+              const tier =
+                tierId != null
+                  ? PROTOCOL_TIER_ROWS.find((t) => t.tierId === tierId) ??
+                    PROTOCOL_TIER_ROWS[i % PROTOCOL_TIER_ROWS.length]
+                  : PROTOCOL_TIER_ROWS[i % PROTOCOL_TIER_ROWS.length];
               return (
                 <TierCollateralCard
                   key={c.id}
                   layout="featured"
-                  imageSrc={c.cardImage?.trim() || `https://picsum.photos/seed/${c.id}/400/500`}
-                  imageAlt=""
-                  title={c.cardName?.trim() || `Token #${c.tokenId}`}
-                  subtitle={`#${c.tokenId}`}
+                  imageSrc={collateralDisplayImageUrl(c)}
+                  imageAlt={title}
+                  title={title}
+                  subtitle={collateralDisplaySubtitle(c)}
                   tierLabel={tier.name}
                   tierBadgeClassName={i === 0 ? "bg-primary/90 backdrop-blur-md" : "bg-secondary/90 backdrop-blur-md"}
                   ltv={`${tier.ltvPercent}% max LTV`}
-                  valuation={`$${formatUsdNumber(usd)}`}
+                  valuation={usd > 0 ? `$${formatUsdNumber(usd)}` : "—"}
                 />
               );
             })}

@@ -135,7 +135,7 @@ contract HealthFactorEngine is Initializable, UUPSUpgradeable, AccessControl {
         uint256 weightedSum8 = 0;
         for (uint256 i = 0; i < pos.collateralIds.length; i++) {
             CollateralItem memory item = collateralRegistry.getCollateralItem(pos.collateralIds[i]);
-            if (item.status != CollateralStatus.ACTIVE) continue;
+            if (item.status != CollateralStatus.ACTIVE && item.status != CollateralStatus.PENDING) continue;
 
             try oracleConsumer.getPrice(item.collection, item.tokenId) returns (uint256 price, uint256) {
                 uint256 effectiveLTV = oracleConsumer.getEffectiveLTV(item.collection, item.tokenId);

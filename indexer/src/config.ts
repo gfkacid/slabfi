@@ -27,8 +27,15 @@ export const config = {
 
   lendingPool: reqAddr(hub.lendingPool),
   collateralRegistry: reqAddr(hub.collateralRegistry),
+  healthFactorEngine: reqAddr(hub.healthFactorEngine),
   liquidationManager: reqAddr(hub.liquidationManager),
   oracleConsumer: reqAddr(hub.oracleConsumer),
+  /**
+   * Same as hub deployer — must be OracleConsumer `DEFAULT_ADMIN` to call `setMockPrice` after `CollateralRegistered` (PENDING).
+   */
+  deployerPrivateKey: process.env.DEPLOYER_PRIVATE_KEY?.trim() || undefined,
+  /** Optional 8-decimal USD (e.g. 100000000 = $1) when `Card.latestPriceUsdc` is missing */
+  oracleFallbackPriceUsd8: process.env.INDEXER_ORACLE_FALLBACK_PRICE_USD8?.trim(),
   nftVault: reqAddr(src.nftVault),
   collateralAdapter: reqAddr(src.collateralAdapter),
   slabCollectible: reqAddr(src.slabFinanceCollectible),

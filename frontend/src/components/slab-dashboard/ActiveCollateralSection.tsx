@@ -5,68 +5,16 @@ import { ConnectWalletPrompt } from "@/components/slab-dashboard/ConnectWalletPr
 import { SectionTitle } from "@/components/slab-dashboard/SectionTitle";
 import { dashboardSurface } from "@/components/slab-dashboard/dashboardTokens";
 import { useCollateralCatalog, useProtocolStats, useUserCollateral } from "@/hooks";
-import type { CollateralItemJson } from "@/lib/api";
 import { isApiConfigured } from "@/lib/api";
+import { CollateralImageFill } from "@/components/shared/lending/CollateralImageFill";
 import {
-  collateralLatestUsdNumber,
-  formatCardGradeDisplay,
-  formatUsdFromSnapshotString,
-  formatUsdNumber,
-} from "@/lib/hubFormat";
+  collateralDisplayGradeOrTierLine,
+  collateralDisplayImageUrl,
+  collateralDisplaySubtitle,
+  collateralDisplayTitle,
+} from "@/lib/collateralDisplay";
+import { collateralLatestUsdNumber, formatUsdFromSnapshotString, formatUsdNumber } from "@/lib/hubFormat";
 import { sepolia } from "@/lib/chains";
-
-/** Placeholder tiles only when the API is off or the catalog is still empty (marketing preview). */
-const fallbackGuestPreview = [
-  {
-    key: "fallback-a",
-    img: "https://picsum.photos/seed/slabfi-guest-a/400/288",
-    line: "Sample graded card",
-    grade: "PSA 10",
-    value: "Preview",
-  },
-  {
-    key: "fallback-b",
-    img: "https://picsum.photos/seed/slabfi-guest-b/400/288",
-    line: "Sample graded card",
-    grade: "BGS 9.5",
-    value: "Preview",
-  },
-  {
-    key: "fallback-c",
-    img: "https://picsum.photos/seed/slabfi-guest-c/400/288",
-    line: "Sample graded card",
-    grade: "PSA 9",
-    value: "Preview",
-  },
-] as const;
-
-function collateralImageUrl(c: CollateralItemJson): string {
-  const url = (c.card?.cardImage ?? c.cardImage)?.trim();
-  if (url) return url;
-  return `https://picsum.photos/seed/${encodeURIComponent(c.id)}/400/288`;
-}
-
-function collateralTitle(c: CollateralItemJson): string {
-  return (c.card?.cardName ?? c.cardName)?.trim() || `Token #${c.tokenId}`;
-}
-
-function collateralSubtitleLine(c: CollateralItemJson): string {
-  const card = c.card;
-  const parts = [card?.setName?.trim(), card?.cardNumber?.trim() ? `#${card.cardNumber.trim()}` : null].filter(
-    Boolean,
-  ) as string[];
-  if (parts.length) return parts.join(" · ");
-  return "Indexed collateral";
-}
-
-function collateralGradeOrTierLine(c: CollateralItemJson): string {
-  const card = c.card;
-  if (card?.gradeService != null && card.grade != null) {
-    return `${card.gradeService} ${formatCardGradeDisplay(card.grade)}`;
-  }
-  if (card?.tier != null) return `Tier ${card.tier}`;
-  return "Eligible";
-}
 
 type ActiveCollateralSectionProps = {
   guest?: boolean;
@@ -85,19 +33,14 @@ export function ActiveCollateralSection({ guest = false }: ActiveCollateralSecti
         : "";
 
   const guestPreviewRows = useMemo(() => {
-    const list = catalog ?? [];
-    if (list.length === 0) {
-      return fallbackGuestPreview.map((r) => ({ ...r, fromDb: false as const }));
-    }
-    return list.slice(0, 3).map((c) => {
+    return (catalog ?? []).slice(0, 3).map((c) => {
       const usd = collateralLatestUsdNumber(c);
       return {
         key: c.id,
-        img: collateralImageUrl(c),
-        line: collateralSubtitleLine(c),
-        grade: collateralTitle(c),
+        imageUrl: collateralDisplayImageUrl(c),
+        line: collateralDisplaySubtitle(c),
+        grade: collateralDisplayTitle(c),
         value: usd > 0 ? `$${formatUsdNumber(usd)}` : "—",
-        fromDb: true as const,
       };
     });
   }, [catalog]);
@@ -124,16 +67,22 @@ export function ActiveCollateralSection({ guest = false }: ActiveCollateralSecti
                     </div>
                   </div>
                 ))
-              : guestPreviewRows.map((nft) => (
+              : guestPreviewRows.length === 0
+                ? (
+                    <p className="col-span-full py-12 text-center text-sm text-on-surface-variant">
+                      No public collateral in the catalog yet.
+                    </p>
+                  )
+                : guestPreviewRows.map((nft) => (
                   <div
                     key={nft.key}
                     className={`${dashboardSurface.nftCard} overflow-hidden transition-all hover:scale-[1.02]`}
                   >
                     <div className="aspect-[3/4] overflow-hidden rounded-xl bg-surface-container-high">
-                      <img
-                        src={nft.img}
-                        alt=""
-                        className={`h-full w-full object-contain object-center ${nft.fromDb ? "opacity-90" : "opacity-80 grayscale-[0.35]"}`}
+                      <CollateralImageFill
+                        src={nft.imageUrl}
+                        alt={nft.grade}
+                        className="h-full w-full object-contain object-center opacity-90"
                       />
                     </div>
                     <div className="space-y-1 p-4 md:p-5">
@@ -141,9 +90,6 @@ export function ActiveCollateralSection({ guest = false }: ActiveCollateralSecti
                       <p className="font-headline text-base font-extrabold text-primary md:text-lg">{nft.grade}</p>
                       <div className="flex items-center justify-between pt-2">
                         <span className="text-sm font-bold text-primary md:text-base">{nft.value}</span>
-                        <span className="rounded bg-tertiary-container px-1.5 py-0.5 text-[10px] text-tertiary-fixed-dim">
-                          Eligible
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -192,21 +138,26 @@ export function ActiveCollateralSection({ guest = false }: ActiveCollateralSecti
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
           {(items ?? []).slice(0, 8).map((c) => {
-            const title = collateralTitle(c);
-            const img = collateralImageUrl(c);
+            const title = collateralDisplayTitle(c);
             const usd = collateralLatestUsdNumber(c);
-            const metaLabel = collateralSubtitleLine(c);
-            const gradeTier = collateralGradeOrTierLine(c);
+            const metaLabel = collateralDisplaySubtitle(c);
+            const gradeTier = collateralDisplayGradeOrTierLine(c);
             return (
               <div key={c.id} className={dashboardSurface.nftCard}>
                 <div className="relative h-36 bg-zinc-100">
-                  <img src={img} alt="" className="h-full w-full object-contain object-center" />
+                  <CollateralImageFill
+                    src={collateralDisplayImageUrl(c)}
+                    alt={title}
+                    className="h-full w-full object-contain object-center"
+                  />
                   <div className="absolute left-2 top-2 rounded bg-black/40 px-1.5 py-0.5 text-[8px] font-bold uppercase text-white backdrop-blur-md">
                     {sepolia.name}
                   </div>
                 </div>
                 <div className="border-t border-zinc-100 bg-zinc-50/80 p-3">
-                  <p className="text-[8px] font-bold uppercase text-secondary">{gradeTier}</p>
+                  {gradeTier ? (
+                    <p className="text-[8px] font-bold uppercase text-secondary">{gradeTier}</p>
+                  ) : null}
                   <h4 className="truncate text-xs font-bold text-on-surface">{title}</h4>
                   <p className="mt-0.5 truncate text-[9px] text-on-surface-variant">{metaLabel}</p>
                   <p className="mt-0.5 font-headline text-xs font-extrabold text-primary">

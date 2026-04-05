@@ -65,6 +65,11 @@ async function hubTick(hubClient: PublicClient): Promise<void> {
           client: hubClient,
           hubChainId,
           registry: config.collateralRegistry!,
+          hubRpcUrl: config.hubRpcUrl,
+          oracle: config.oracleConsumer,
+          healthFactorEngine: config.healthFactorEngine,
+          deployerPrivateKey: config.deployerPrivateKey,
+          oracleFallbackPriceUsd8: config.oracleFallbackPriceUsd8,
           decoded,
           blockTs,
         });
