@@ -1,39 +1,32 @@
 # Slab.Finance
 
-Slab.Finance is a cross-chain lending protocol that lets you borrow USDC against tokenized collectibles (e.g., trading cards) used as collateral. Lock your NFTs on one chain, borrow on another.
+Slab.Finance is a cross-chain lending protocol: borrow **USDC** on **Solana** against tokenized collectibles. Native Solana NFTs lock into the hub program; **EVM** collateral (e.g. **Polygon** / **Base**) locks via **LayerZero V2** into the same hub.
 
-## How It Works
+## How it works
 
-1. **Lock** — Lock your collectible NFT on Ethereum Sepolia. The NFT is escrowed in a vault and a message is sent via Chainlink CCIP to the hub chain.
-2. **Borrow** — On Arc Testnet, borrow USDC against your locked collateral. Your borrow limit is based on the oracle-attested value of your NFTs and tier-based LTV (loan-to-value) ratios.
-3. **Repay** — Repay your loan (partial or full) in USDC. Interest accrues at a fixed rate (8% APR).
-4. **Unlock** — Once your debt is fully repaid, initiate unlock. The protocol sends a CCIP message back to Sepolia and your NFT is released to your wallet.
+1. **Lock** — On **Polygon** or **Base**, call the **`CollateralAdapterLayerZero`** `lockAndNotify` path (escrow in **`NFTVault`**, LZ message to Solana). Or lock **Solana-native** NFTs into hub PDAs when collections are allowlisted.
+2. **Borrow** — On **Solana mainnet-beta**, borrow **USDC** against **ACTIVE** collateral once the hub oracle has priced it.
+3. **Repay** — Repay in USDC on Solana; interest accrues per pool rules.
+4. **Unlock** — After debt is cleared, complete the unlock flow (including any **LayerZero** return path to the source chain).
 
 ## Architecture
 
-- **Hub chain (Arc Testnet)** — Lending pool, collateral registry, oracle consumer, health factor engine, liquidation manager. All accounting and USDC live here.
-- **Source chain (Ethereum Sepolia)** — NFT vault and collateral adapter. Your collectibles are locked here and messages are sent to/from the hub via CCIP.
+- **Hub (Solana)** — Anchor program **`slab_hub`**: lending, collateral registry, oracle, liquidation, native vaults, LayerZero receive.
+- **Sources (EVM)** — **`protocolConfig.evmSources`**: e.g. **Polygon** (Courtyard integration id) and **Base** (Beezie), each with `chainId`, public `rpcUrl`, **LayerZero endpoint id**, and `contracts` (`collection`, `nftVault`, `collateralAdapterLayerZero`).
 
-The only CCIP lane available for Arc Testnet at the moment is Arc ↔ Ethereum Sepolia, so the protocol uses Sepolia as the source chain for collateral.
+Configuration: [`shared/config/protocol.ts`](shared/config/protocol.ts). Shell exports: **`pnpm print:deploy-env`**. Sync addresses from deploy JSON: **`pnpm sync:protocol`**.
 
-## Key Features
+## Tech stack
 
-- **Oracle-based pricing** — Collateral values come from Chainlink CRE workflows (KeystoneForwarder → `OracleConsumer.onReport`) or admin `setMockPrice` for dev. Tier-based LTV: 40% (high liquidity), 25% (medium), 15% (illiquid).
-- **Health factor** — Your position is HEALTHY (HF ≥ 1.30), WARNING (1.00–1.30), or LIQUIDATABLE (HF < 1.00). New borrows are disabled in WARNING.
-- **Liquidation** — If HF drops below 1.0, your position enters a 6-hour liquidation queue. Liquidators can repay your debt (minus 15% bonus) and receive the NFT after the delay. You can cure the position by repaying or adding collateral before execution.
+- **Hub** — Anchor / Rust (`programs/slab_hub`)
+- **EVM** — Solidity, Foundry, LayerZero OApp (`contracts/src/source/`)
+- **App** — pnpm monorepo: Vite + React, NestJS backend, indexer, Prisma, **`@slabfinance/shared`**
 
-## Tech Stack
+## Quick start
 
-- **Smart contracts** — Solidity, Foundry, OpenZeppelin, Chainlink CCIP
-- **App** — pnpm monorepo: Vite + React frontend, NestJS backend (skeleton), shared TypeScript package; Reown AppKit, Wagmi, Viem
-- **Oracle** — Chainlink CRE (see [`cre/price-oracle/`](cre/price-oracle/)), Chainlink Automation for health factor sweeps
+1. Clone and **`pnpm install`** at the repo root.
+2. Copy **`.env.example`** to **`.env`** and **`frontend/.env`**; set **`VITE_WALLETCONNECT_PROJECT_ID`**.
+3. Run **`pnpm dev:frontend`** and connect **Solana** plus the EVM chain you use for locking.
+4. Fill **`shared/config/protocol.ts`** (or run **`pnpm sync:protocol`** after writing `contracts/deployments/evm/*.json`).
 
-## Quick Start
-
-1. Clone the repo and run `pnpm install` at the repo root.
-2. Copy `.env.example` to `frontend/.env` (or symlink) and set `VITE_WALLETCONNECT_PROJECT_ID`. Deployed contract addresses and chain RPCs live in [`shared/config/testnet.ts`](shared/config/testnet.ts).
-3. Run `pnpm dev:frontend` and connect your wallet to Arc Testnet and Sepolia.
-4. Get testnet USDC on Arc (faucet) and demo collectible NFTs on Sepolia (mint via admin or receive from deployer).
-5. Lock an NFT on Sepolia, then borrow USDC on Arc.
-
-For step-by-step setup and deployment, see [SETUP.md](./SETUP.md). For protocol mechanics and developer reference, see [DOCS.md](./DOCS.md).
+Details: [SETUP.md](./SETUP.md), [DOCS.md](./DOCS.md).

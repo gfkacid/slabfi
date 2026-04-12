@@ -24,17 +24,17 @@
 **Speaker notes**
 
 - **Slab.Finance**: borrow **USDC** against locked collectible NFTs.
-- **Cross-chain by design**: collateral is secured on one network; lending and accounting happen on a **hub** chain—here demo’d on **Ethereum Sepolia** (lock) and **Arc Testnet** (borrow), connected by **Chainlink CCIP**.
+- **Cross-chain by design**: collateral can live on **EVM** networks (**Polygon**, **Base**, …) while lending and accounting run on a **Solana** hub program (`slab_hub`), connected by **LayerZero V2**.
 - Targets collectors, marketplaces, and anyone holding **tokenized** inventory who wants **liquidity** without listing or selling.
 
 ---
 
 ## How it works (user journey)
 
-1. **Lock** — Escrow your NFT in a vault on the source chain; the protocol notifies the hub via CCIP.
-2. **Borrow** — On the hub, borrow USDC up to a **loan-to-value** limit based on **oracle** pricing and asset **tier**.
-3. **Repay** — Pay back USDC; interest accrues on the open position (demo uses a fixed APR).
-4. **Unlock** — When the loan is fully repaid, the hub sends an unlock message; the NFT returns to your wallet.
+1. **Lock** — Escrow your NFT in a vault on the source chain; the adapter sends a **LayerZero** message to the Solana hub.
+2. **Borrow** — On Solana, borrow USDC up to a **loan-to-value** limit based on **oracle** pricing and asset **tier**.
+3. **Repay** — Pay back USDC; interest accrues on the open position.
+4. **Unlock** — When the loan is fully repaid, complete the unlock path (including LZ delivery back to the source chain) so the NFT returns to your wallet.
 
 **Speaker notes**
 
@@ -44,25 +44,25 @@
 
 ## Architecture & risk controls
 
-**Hub (Arc Testnet)** — USDC lending pool, collateral registry, oracle consumer, health factor engine, liquidation flow.
+**Hub (Solana mainnet-beta)** — Anchor program: lending pool, collateral registry, oracle, health factor, liquidation.
 
-**Source (Ethereum Sepolia)** — NFT vault and collateral adapter; only trusted adapters can notify the hub.
+**Source (EVM)** — `NFTVault` + `CollateralAdapterLayerZero` per chain; only configured adapters can notify the hub.
 
-**Chainlink CCIP** — `LOCK_NOTICE` (source → hub) and `UNLOCK_COMMAND` (hub → source) keep the two chains in sync.
+**LayerZero V2** — OApp payloads between each source chain and the Solana destination endpoint id (**30168** in config).
 
-**Risk** — Positions use a **health factor** (healthy / warning / liquidatable). If undercollateralized, a **liquidation queue** gives time to cure before execution; liquidators are incentivized to repay debt and receive collateral.
+**Risk** — Positions use a **health factor** (healthy / warning / liquidatable). If undercollateralized, liquidation flows (per program specs) protect lenders.
 
 **Speaker notes**
 
-- Oracle path uses **Chainlink CRE** in a production-minded setup; hackathon/demo may use **mock prices**—worth saying honestly if you demo mocks.
+- Oracle path is **hub-specific** (signed updates / program rules). Say clearly if a demo uses **mock** prices.
 
 ---
 
 ## Demo & stack (optional closing slide)
 
-**Live demo idea** — Connect wallet → lock demo NFT on Sepolia → borrow USDC on Arc → show dashboard (health, position) → repay partial/full → unlock.
+**Live demo idea** — Connect wallets → lock NFT on **Polygon** or **Base** → borrow USDC on **Solana** → dashboard → repay → unlock.
 
-**Stack** — Solidity / Foundry, CCIP, Vite + React frontend, indexer + API for reads (as in repo).
+**Stack** — Anchor (Rust), Solidity / Foundry, LayerZero, Vite + React, indexer + API.
 
 **Speaker notes**
 

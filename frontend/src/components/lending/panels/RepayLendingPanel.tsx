@@ -6,7 +6,7 @@ import { UsdcInputField } from "@/components/shared/lending/UsdcInputField";
 import { LendingActionPanel } from "@/components/shared/lending/LendingActionPanel";
 import { lendingGradientPrimary } from "@/components/shared/lending/lendingStyles";
 import { useOutstandingDebt, useRepay, useUsdcBalance } from "@/hooks";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 import { formatUsdc } from "@/lib/hubFormat";
 
 export function RepayLendingPanel() {
@@ -18,7 +18,7 @@ export function RepayLendingPanel() {
 
   const poolAddr = hubContracts.lendingPool;
   const usdcAddr = hubContracts.usdc;
-  const isHub = chainId === hubChain.id;
+  const isHub = isHubEvm(chainId);
 
   const principal = debt?.[0] ?? 0n;
   const interest = debt?.[1] ?? 0n;

@@ -34,33 +34,44 @@
 
 ---
 
+## 0. Repository implementation (April 2026)
+
+**Shipped in this repository**
+
+- **Hub:** Solana **mainnet-beta** — Anchor program **`slab_hub`** (lending, collateral registry, oracle, liquidation, native NFT vaults, LayerZero receive).
+- **EVM sources:** **Polygon** and **Base** (extendable via [`shared/config/protocol.ts`](shared/config/protocol.ts) `evmSources`) — **`NFTVault`** + **`CollateralAdapterLayerZero`** (LayerZero V2 OApp), deployed per chain with Foundry.
+- **Config / sync:** [`SETUP.md](./SETUP.md)`, [`DOCS.md](./DOCS.md)`, deployment JSON under `contracts/deployments/evm/`, and **`pnpm sync:protocol`**.
+
+**About sections 1–15 below**
+
+Much of the PRD still describes an **Arc Solidity hub + Chainlink CCIP** reference design (interfaces, HF math, auctions, CRE). That text is **valuable specification** but **not** a line-by-line map to the Solana program or removed hub contracts. See **[`docs/archive/PRD-legacy-evm-hub.md`](docs/archive/PRD-legacy-evm-hub.md)** for a short pointer.
+
+---
+
 ## 1. Overview
 
 ### 1.1 Summary
 
-Slab.Finance is a cross-chain lending protocol that accepts tokenized physical collectibles (e.g. TCG cards on a source chain) as collateral in exchange for USDC loans. **Liquidity providers deposit USDC** into a hub vault; **borrow APR** adjusts with **vault utilization**. The protocol's liquidity and accounting live on **Arc** (Circle's L1), while collateral can be locked across multiple source chains. Chainlink CCIP carries collateral proof messages between source chains and Arc. Card **USD value** and **suggested LTV** come from **`EXTERNAL_PRICE_API`** (see §5.1); on-chain prices are ingested via **Chainlink CRE** workflows that fetch that API under DON consensus and deliver signed reports to **`OracleConsumer`** through **KeystoneForwarder**.
+Slab.Finance is a cross-chain lending protocol that accepts tokenized collectibles as collateral in exchange for **USDC** loans. **Liquidity providers deposit USDC** into the hub; **borrow APR** tracks **vault utilization**. **In this repo**, the hub is **Solana** (`slab_hub`); collateral may be locked on **EVM** chains (**Polygon**, **Base**, …) and notified to the hub via **LayerZero V2**. Card **USD value** and **suggested LTV** still come from **`EXTERNAL_PRICE_API`** (see §5.1) in the product model; on-chain prices are served by the **hub oracle** (implementation-specific signer or instruction path — see program and backend docs). The paragraphs below that reference **Arc**, **CCIP**, and Solidity **`OracleConsumer`** describe the **original target design** retained for requirements and risk analysis.
 
 ### 1.2 Design Principles
 
 - **Extensibility first.** Every source chain integration is encapsulated behind a `ICollateralAdapter` interface. Adding a new chain or tokenization partner is a new adapter deployment, not a protocol upgrade.
 - **Oracle conservatism.** Because collectible prices update infrequently, the system is designed to be safe under stale data: conservative LTV tiers, two-zone health factors, and **per-card liquidation auctions** with anti-sniping (see §7).
-- **Minimal trust surface.** Price data is delivered via Chainlink CRE (consensus-verified HTTP + signed on-chain reports), not pushed by an arbitrary admin key. Cross-chain messages are carried by CCIP, not a custom relayer.
+- **Minimal trust surface.** Prefer attested or consensus-backed price paths where deployed; cross-chain messaging uses **LayerZero** (this repo) rather than ad-hoc relayers. *(Original design: CRE + CCIP — see §5–6.)*
 - **Human-readable transactions.** All user-facing contract functions are covered by ERC-7730 Clear Signing descriptors so hardware wallet users see plain-English summaries, not hex calldata.
-- **USDC-native.** All loans, repayments, and liquidations are denominated in USDC via Circle's native stablecoin on Arc.
+- **USDC-native.** Loans, repayments, and liquidations are denominated in **USDC** on the Solana hub (mainnet USDC mint in config).
 
 ### 1.3 In-Scope (Hackathon)
 
-- Hub chain contracts on Arc testnet
-- Source chain contracts on Polygon (or testnet) for the initial NFT collection
-- Chainlink CRE workflow pushing **EXTERNAL_PRICE_API** results to `OracleConsumer` (or `setMockPrice` for dev)
-- Chainlink CCIP for lock/unlock messages
-- Chainlink Automation for post-oracle health factor sweep
-- Reown AppKit frontend with borrow/repay/collateral UI, **vault deposit/withdraw**, and **utilization-based APR** display
-- ERC-7730 clear signing descriptors for all public functions
+- **Implemented path:** Solana hub program + **Polygon / Base** LayerZero adapters and indexer/frontend wiring
+- Source-chain **`NFTVault`** + **`CollateralAdapterLayerZero`** per EIP-155 chain id in config
+- Reown AppKit frontend with borrow/repay/collateral UI, vault flows as wired to Solana
+- **Original doc targets (partially superseded):** Arc hub contracts, CCIP, CRE → `OracleConsumer`, Chainlink Automation (see §4–6)
 
 ### 1.4 Out-of-Scope (Hackathon)
 
-- Additional source chains (Ronin, Base, Ethereum)
+- Additional source chains beyond those configured (Ronin, etc.) without new `evmSources` entries
 - Additional tokenization partners
 - Governance token / DAO
 - Native mobile app
@@ -72,10 +83,10 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 
 | Term | Definition |
 |---|---|
-| **Hub Chain** | Arc — the chain where the lending pool, collateral registry, and all accounting live |
-| **Source Chain** | Any chain where collateral NFTs reside (currently Polygon) |
-| **CollateralAdapter** | A source-chain contract that locks NFTs and sends CCIP messages to the hub |
-| **CollateralRegistry** | Hub contract that records all cross-chain collateral positions |
+| **Hub Chain** | **Solana** — where `slab_hub` holds lending, registry, oracle, and accounting *(PRD text below often says “Arc” for the historical Solidity hub)* |
+| **Source Chain** | Any EVM chain in **`protocolConfig.evmSources`** (e.g. Polygon for Courtyard, Base for Beezie) |
+| **CollateralAdapter** | Source-chain contract that escrows NFTs and sends **LayerZero** messages to the Solana hub *(interface name retains CCIP-era wording)* |
+| **CollateralRegistry** | Hub-side ledger of collateral *(Solidity name in §4; Solana program implements the role)* |
 | **Health Factor (HF)** | Ratio of weighted collateral value to outstanding debt. HF < 1.0 = undercollateralized |
 | **LTV** | Loan-to-Value ratio. The max fraction of collateral value that can be borrowed |
 | **Effective LTV** | Max borrow as a fraction of collateral value: tier / API-suggested LTV, clamped on-chain, then volatility haircut (§5.3) |
@@ -84,10 +95,10 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 | **Utilization** | `totalBorrowed / totalAssets` — drives dynamic borrow and supply APR |
 | **Oracle Price** | The latest attested daily market price for a specific card (token ID) in USD |
 | **Price Epoch** | The daily window during which an oracle price is considered fresh (0–24h) |
-| **Attestation** | The timestamped price record on `OracleConsumer` after a CRE-signed report (or mock) |
+| **Attestation** | Timestamped on-chain price for a collateral key *(historically `OracleConsumer`; live hub uses program oracle state)* |
 | **Liquidation auction** | Per-card USDC auction when HF &lt; 1; anti-sniping extends the deadline; settlement via `claim` (see §7 and [specs/liquidation-auctions.md](specs/liquidation-auctions.md)) |
 | **Nullifier** | A World ID commitment; not used in this protocol but referenced for future sybil-resistance |
-| **CCIP** | Chainlink Cross-Chain Interoperability Protocol — the message transport layer |
+| **CCIP** | Chainlink CCIP — **not used in this repo**; retained in glossary for §6 message-schema reading |
 | **CRE** | Chainlink Runtime Environment — workflows, triggers, and DON consensus for off-chain + on-chain orchestration |
 | **KeystoneForwarder** | Chainlink contract that validates signed CRE reports and calls `IReceiver.onReport` on the consumer |
 | **ERC-7730** | An Ethereum standard for machine-readable transaction metadata enabling clear signing |
@@ -97,94 +108,45 @@ Slab.Finance is a cross-chain lending protocol that accepts tokenized physical c
 
 ## 3. System Architecture
 
-### 3.1 High-Level Diagram
+### 3.1 High-level diagram (implemented)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              SOURCE CHAIN (Polygon)                          │
-│                                                                              │
-│   User Wallet ──► CollateralAdapter (collection-specific)                    │
-│                        │  lockNFT(tokenId)                                  │
-│                        │  unlockNFT(tokenId, recipient)                     │
-│                        │                                                    │
-│                   NFT Vault (holds escrowed NFTs)                           │
-└─────────────────────────┬───────────────────────────────────────────────────┘
-                           │
-                    CCIP Message
-                    (LockNotice / UnlockCommand)
-                           │
-┌─────────────────────────▼───────────────────────────────────────────────────┐
-│                              HUB CHAIN (Arc)                                 │
-│                                                                              │
-│  ┌─────────────────────┐     ┌──────────────────────────┐                  │
-│  │  CollateralRegistry │◄────│  CCIPMessageRouter       │                  │
-│  │  - positions[]      │     │  - validates sender       │                  │
-│  │  - collateral[]     │     │  - routes by messageType  │                  │
-│  └──────────┬──────────┘     └──────────────────────────┘                  │
-│             │                                                                │
-│             ▼                                                                │
-│  ┌─────────────────────┐     ┌──────────────────────────┐                  │
-│  │  HealthFactorEngine │◄────│  OracleConsumer           │                  │
-│  │  - computeHF()      │     │  - latestPrices[]         │                  │
-│  │  - flagPositions()  │     │  - priceHistory[]         │                  │
-│  └──────────┬──────────┘     │  - onReport() (CRE)      │                  │
-│             │                └────────────┬─────────────┘                  │
-│             ▼                             │                                  │
-│  ┌─────────────────────┐         Chainlink CRE price report               │
-│  │  LendingPool        │                                                    │
-│  │  - deposit/withdraw │     ┌──────────────────────────┐                  │
-│  │  - borrow/repay     │     │  AuctionLiquidationMgr   │                  │
-│  │  - vault shares     │◄────│  - per-card USDC bids    │                  │
-│  │  - util-based APR   │     │  - placeBid / claim      │                  │
-│  └─────────────────────┘     │  - anti-sniping timer    │                  │
-│                               └──────────────────────────┘                  │
-│                                                                              │
-│  ┌──────────────────────────────────────────────────────┐                  │
-│  │  Chainlink Automation Keeper                          │                  │
-│  │  - checkUpkeep(): scans positions after price update │                  │
-│  │  - performUpkeep(): calls flagPositions() in batch   │                  │
-│  └──────────────────────────────────────────────────────┘                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              ORACLE LAYER                                    │
-│                                                                              │
-│  EXTERNAL_PRICE_API    ──► CRE workflow (HTTP + report) ──► OracleConsumer   │
-│  (USDC/USD feeds)      ──► Optional future data feeds ──► OracleConsumer    │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────┐     ┌──────────────────────────────┐
+│   Polygon (Courtyard, …)     │     │   Base (Beezie, …)           │
+│   NFTVault + Adapter (LZ)    │     │   NFTVault + Adapter (LZ)  │
+└──────────────┬───────────────┘     └──────────────┬───────────────┘
+               │    LayerZero V2 (_lzSend)         │
+               └────────────────┬───────────────────┘
+                                ▼
+               ┌────────────────────────────────────┐
+               │  Solana mainnet-beta — slab_hub   │
+               │  registry / pool / oracle / LzRecv │
+               └────────────────────────────────────┘
 ```
 
-### 3.2 Contract Deployment Map
+### 3.2 Deployment map (this repo)
 
-| Contract | Chain | Upgradeable |
+| Component | Where | Notes |
 |---|---|---|
-| `CollateralRegistry` | Arc | Yes (UUPS) |
-| `HealthFactorEngine` | Arc | Yes (UUPS) |
-| `LendingPool` | Arc | Yes (UUPS) |
-| `OracleConsumer` | Arc | Yes (UUPS) |
-| `AuctionLiquidationManager` | Arc | Yes (UUPS) |
-| `CCIPMessageRouter` | Arc | No |
-| `CollateralAdapter_Courtyard` | Polygon | No |
-| `NFTVault_Courtyard` | Polygon | No |
+| `slab_hub` | Solana | Anchor program id in `protocol.ts` |
+| `NFTVault` | Polygon, Base, … | One deployment per `evmSources` entry |
+| `CollateralAdapterLayerZero` | Polygon, Base, … | OApp peered to Solana destination EID **30168** |
+| Indexer + API | off-chain | Polls Solana + every configured EVM source |
 
-All hub contracts use OpenZeppelin UUPS proxy pattern. Source chain contracts are intentionally non-upgradeable — if a source chain contract needs to change, a new adapter is deployed and registered.
+### 3.3 Happy path (implemented shape)
 
-### 3.3 Protocol Flow (Happy Path)
+**Lock → register**
 
-**Borrow flow:**
-1. User calls `CollateralAdapter.lockAndNotify(tokenId)` on Polygon
-2. Adapter transfers NFT to `NFTVault`, emits CCIP `LockNotice` message to Arc
-3. `CCIPMessageRouter` on Arc receives message, calls `CollateralRegistry.registerCollateral()`
-4. `CollateralRegistry` calls `OracleConsumer.getPrice(collection, tokenId)` to get latest attested price
-5. `HealthFactorEngine.recomputePosition(borrower)` is called; HF and borrowable amount updated
-6. User calls `LendingPool.borrow(amount)` on Arc; USDC transferred to user wallet
+1. User calls **`lockAndNotify`** on the adapter on **chain X** (MATIC/ETH for gas + LZ fee).
+2. Adapter escrows the NFT in **`NFTVault`** and sends a **LayerZero** payload to the Solana program.
+3. Hub records collateral (**PENDING** until oracle price exists, then **ACTIVE**).
 
-**Repay & unlock flow:**
-1. User approves USDC and calls `LendingPool.repay(amount)` on Arc
-2. If loan fully repaid, user calls `CollateralRegistry.initiateUnlock(collateralId)`
-3. `CCIPMessageRouter` sends `UnlockCommand` to source chain
-4. `CollateralAdapter` on Polygon receives command, calls `NFTVault.release(tokenId, user)`
-5. NFT returned to user wallet on Polygon
+**Borrow / repay / unlock**
+
+4. User interacts with **`slab_hub`** on Solana for borrow/repay and unlock initiation.
+5. Unlock completion may require **LayerZero** delivery back to chain **X** so **`NFTVault`** releases the NFT.
+
+*(Sections 4–7 below expand Solidity-level interfaces and CCIP-era message shapes for design depth.)*
 
 ---
 
@@ -698,13 +660,13 @@ contract NFTVault {
 
 ## 5. Oracle System
 
-### 5.1 Chainlink CRE Price Workflow & EXTERNAL_PRICE_API
+### 5.1 Hub oracle & EXTERNAL_PRICE_API
 
 #### Overview
 
-**Chainlink CRE** runs a **workflow** on a DON: a **cron trigger** (e.g. every 23h) invokes a callback that uses the **HTTP capability** to call **`EXTERNAL_PRICE_API`** with Byzantine-fault-tolerant consensus on the response. The workflow then **generates a signed report** and submits it on-chain via **`evmClient.writeReport`**, which routes through **KeystoneForwarder** to **`OracleConsumer.onReport(bytes metadata, bytes report)`**. The consumer **ABI-decodes** `report` as `(address collection, uint256 tokenId, uint256 priceUSD)` and stores a **`PriceRecord`**. Reference implementation: [`cre/price-oracle/`](cre/price-oracle/) in this repository.
+The **Solana hub** (`slab_hub` / `slab_oracle` surface) stores attested prices updated by a **trusted backend signer** that fetches off-chain quotes (e.g. PriceCharting), applies policy, and submits **`update_price`**-style instructions. The legacy **Chainlink CRE → EVM OracleConsumer** path has been **removed** from this repository in favor of that push model.
 
-**Off-chain source of truth** for card valuations and suggested LTV is **`EXTERNAL_PRICE_API`**: a partner-agnostic HTTP API (implementations may wrap Courtyard, TCGPlayer aggregates, or internal pricing). The **frontend** calls this API **before** the user locks an NFT so they see **price, effective LTV, and borrowable preview**; the **hub oracle** ingests price updates **via the CRE workflow** (or admin **`setMockPrice`** in development) so on-chain state tracks the consensus-fetched API.
+**Off-chain source of truth** for card valuations and suggested LTV remains **`EXTERNAL_PRICE_API`**: a partner-agnostic HTTP API (implementations may wrap Courtyard, TCGPlayer aggregates, or internal pricing). The **frontend** calls this API **before** the user locks an NFT so they see **price, effective LTV, and borrowable preview**; the **hub oracle** on Solana must be updated so on-chain state matches operational pricing (dev mocks allowed).
 
 #### EXTERNAL_PRICE_API — Request / Response Spec
 
@@ -768,23 +730,18 @@ HTTP `503` — transient upstream failure.
 
 **On-chain mapping:** `OracleConsumer` stores attested `priceUSD` (scaled), `tier`, and `attestedAt`. The API’s `ltvBPS` is **not trusted blindly**: the contract applies `min(max(ltvBPS, MIN_LTV_API), MAX_LTV_API)` and still applies **volatility-adjusted effective LTV** (see §5.3) where history exists.
 
-#### CRE workflow configuration
+#### Backend oracle configuration
 
-- **`config.json`**: `schedule` (cron), `apiUrl` (full URL to the valuation endpoint or a stable quote URL), and `evms[]` with `oracleConsumerAddress`, `chainSelectorName`, `gasLimit`, `collection`, `tokenId`.
-- **`project.yaml` / `workflow.yaml`**: CRE CLI targets and workflow artifact paths (see [`cre/price-oracle/workflow.yaml`](cre/price-oracle/workflow.yaml)).
-- **Secrets:** Use `secrets.yaml` + Vault DON for deployed workflows; local simulation uses `.env` per Chainlink docs.
-- **Forwarder:** Deploy `OracleConsumer` with the **MockKeystoneForwarder** address for simulation or the **KeystoneForwarder** for production on your hub chain; set **`CRE_FORWARDER_ADDRESS`** for `Deploy_Hub.s.sol` or call **`setForwarderAddress`** after deploy.
-
-The workflow encodes **`priceUSD` in 8 decimals** (wei-style integer) to match `OracleConsumer`. If the API returns **cents** or another unit, normalize in the workflow before encoding.
-
-For **`ltvBPS` / `tier`**, extend the report encoding and `_updatePrice` path in a future upgrade, or set tiers via **`setCollectionTier`** / **`setMockPrice`** as today.
+- **Signer:** Store the oracle authority keypair securely (env / KMS); never commit keys.
+- **Schedule:** Cron or event-driven jobs fetch **`EXTERNAL_PRICE_API`** (or PriceCharting) and submit Solana transactions while respecting rate limits and staleness rules.
+- **Encoding:** Match the Anchor instruction args (collection key, token id / mint, **price USD** in the program’s fixed decimals, tier, `attestedAt`).
 
 #### On-chain delivery flow
 
-1. Cron trigger fires on each DON node; HTTP capability fetches **`EXTERNAL_PRICE_API`** under consensus.
-2. Workflow builds **`report = abi.encode(collection, tokenId, priceUSD)`** and **`runtime.report(prepareReportRequest(...))`**.
-3. **`writeReport`** delivers to **`OracleConsumer`** via **KeystoneForwarder**; **`onReport`** checks **`msg.sender == forwarderAddress`**, decodes **`report`**, and calls **`_updatePrice`**.
-4. **`PriceUpdated`** is emitted; **`priceHistory`** is updated.
+1. Backend loads the latest quote for `(collection, tokenId)` from **`EXTERNAL_PRICE_API`** or an indexer-backed cache.
+2. Backend builds and signs a **Solana transaction** calling the oracle program instruction.
+3. The program validates the signer, updates **`PriceRecord`** (or equivalent) storage, and emits an event for indexers.
+4. Collateral registry / lending instructions read the oracle account when computing LTV and health factor.
 5. **`ChainlinkAutomationKeeper`** may sweep positions where configured.
 
 #### Update frequency
@@ -1284,6 +1241,10 @@ The script should:
 ---
 
 ## 13. Deployment Runbook
+
+### 13.0 Superseded commands
+
+The bash and **`forge script`** invocations below target **Arc testnet**, **Sepolia**, and **Chainlink CCIP** scripts that are **not in this repository**. For the current path, follow **[SETUP.md](./SETUP.md)**, **`pnpm print:deploy-env`**, **`pnpm sync:protocol`**, and **`contracts/script/Deploy_EvmSourceLayerZero.s.sol`**. The remainder of §13 is **historical reference** only.
 
 ### 13.1 Prerequisites
 

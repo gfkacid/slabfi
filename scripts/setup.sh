@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full setup from SETUP.md: install, DB, deploy-all + CRE, sync testnet.ts, optional card seed.
+# Full setup from SETUP.md: install, DB, deploy helper print, sync protocol.ts from evm/*.json, optional card seed.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,7 +23,7 @@ source "$REPO_ROOT/.env"
 set +a
 
 missing_tools=()
-for cmd in node pnpm forge cast jq cre npm; do
+for cmd in node pnpm forge cast jq; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     missing_tools+=("$cmd")
   fi
@@ -32,7 +32,6 @@ done
 missing_env=()
 [[ -z "${DEPLOYER_PRIVATE_KEY:-}" ]] && missing_env+=("DEPLOYER_PRIVATE_KEY")
 [[ -z "${VITE_WALLETCONNECT_PROJECT_ID:-}" ]] && missing_env+=("VITE_WALLETCONNECT_PROJECT_ID")
-[[ -z "${SLABFI_API_KEY:-}" ]] && missing_env+=("SLABFI_API_KEY")
 
 if [[ -z "${DATABASE_URL:-}" ]]; then
   missing_env+=("DATABASE_URL")
@@ -41,7 +40,7 @@ elif [[ ! "${DATABASE_URL}" =~ ^mysql(2)?:// ]]; then
 fi
 
 missing_paths=()
-[[ ! -f "$REPO_ROOT/shared/config/testnet.ts" ]] && missing_paths+=("shared/config/testnet.ts")
+[[ ! -f "$REPO_ROOT/shared/config/protocol.ts" ]] && missing_paths+=("shared/config/protocol.ts")
 
 if [[ ${#missing_tools[@]} -gt 0 || ${#missing_env[@]} -gt 0 || ${#missing_paths[@]} -gt 0 ]]; then
   echo "Setup preflight failed. Fix the following, then re-run." >&2
@@ -59,16 +58,13 @@ if [[ ${#missing_tools[@]} -gt 0 || ${#missing_env[@]} -gt 0 || ${#missing_paths
   for t in "${missing_tools[@]}"; do
     case "$t" in
       jq) echo "  jq — Debian/Ubuntu: sudo apt install jq  ·  macOS: brew install jq  ·  https://jqlang.org/download/" >&2 ;;
-      cre)
-        echo "  cre — Chainlink CRE CLI: https://docs.chain.link/cre/reference/cli/installation" >&2
-        ;;
       *) ;;
     esac
   done
   for e in "${missing_env[@]}"; do
     case "$e" in
       SLABFI_API_KEY)
-        echo "  SLABFI_API_KEY — add to .env (any secret string; backend uses it for GET /cards/.../price and CRE config.deploy.json)" >&2
+        echo "  SLABFI_API_KEY — optional; backend uses it for GET /cards/.../price when set" >&2
         ;;
       *) ;;
     esac
@@ -83,12 +79,15 @@ echo "=== Prisma generate + db push ==="
 pnpm db:generate
 pnpm db:push
 
-echo "=== Contract deploy + CRE simulate (best-effort; backend must be up for price HTTP) ==="
-export DEPLOY_CRE_WORKFLOW=1
+echo "=== Deploy env print (see scripts/deploy-all.sh output) ==="
 bash "$REPO_ROOT/scripts/deploy-all.sh"
 
-echo "=== Sync shared/config/testnet.ts from deployments ==="
-(cd "$REPO_ROOT/indexer" && pnpm exec tsx ../scripts/sync-testnet-from-deployments.ts)
+if [[ -f "$REPO_ROOT/contracts/deployments/evm/polygon.json" ]] || [[ -f "$REPO_ROOT/contracts/deployments/evm/base.json" ]]; then
+  echo "=== Sync shared/config/protocol.ts from contracts/deployments/evm/*.json ==="
+  (cd "$REPO_ROOT/indexer" && pnpm exec tsx ../scripts/sync-protocol-from-deployments.ts)
+else
+  echo "Skipping protocol sync: no contracts/deployments/evm/{polygon,base}.json yet."
+fi
 
 if [[ -n "${SEED_CARD_COLLECTION:-}" ]]; then
   if [[ "${SEED_CARD_COLLECTION}" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
@@ -104,10 +103,9 @@ cat <<'EOF'
 Setup finished.
 
 Do next (manual):
-  • Fund the hub CCIP router with native USDC on Arc (see DOCS.md — fund CCIP router).
-  • Set an oracle price: CRE workflow and/or setMockPrice on OracleConsumer (see SETUP.md §6).
+  • Deploy Solana hub (Anchor) and EVM LayerZero stacks; run pnpm sync:protocol when evm/*.json exists.
+  • Fund LayerZero / SOL for executors (see DOCS.md).
   • Run the app: pnpm dev (or pnpm dev:frontend, pnpm dev:backend, pnpm dev:indexer).
-  • Verify contracts: SETUP.md §9; API docs at http://localhost:3001/api when the backend is up.
 
-If you change shared/config/testnet.ts, rebuild consumers: pnpm build:shared
+If you change shared/config/protocol.ts, rebuild consumers: pnpm build:shared
 EOF

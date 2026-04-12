@@ -5,7 +5,7 @@ import {
   isApiConfigured,
   type PositionDetailResponse,
 } from "@/lib/api";
-import { hubChain } from "@/lib/hub";
+import { hubChain, isHubEvm } from "@/lib/hub";
 import { useOutstandingDebt } from "./useLendingPool";
 
 /**
@@ -14,7 +14,7 @@ import { useOutstandingDebt } from "./useLendingPool";
 export function useUserPosition() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const onHub = chainId === hubChain.id;
+  const onHub = isHubEvm(chainId);
 
   const positionQuery = useQuery({
     queryKey: ["position-detail", address],

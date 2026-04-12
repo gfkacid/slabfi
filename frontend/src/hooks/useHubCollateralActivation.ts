@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccount, useChainId, useReadContracts, useWriteContract } from "wagmi";
 import { COLLATERAL_REGISTRY_ABI, HEALTH_FACTOR_ENGINE_ABI } from "@slabfinance/shared";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 import { usePosition } from "./useCollateralRegistry";
 
 /** Matches `CollateralStatus.PENDING` on-chain (see COLLATERAL_STATUS_LABELS). */
@@ -23,7 +23,7 @@ export function useHubPendingCollateralIds() {
   const chainId = useChainId();
   const { data: position } = usePosition();
   const registry =
-    chainId === hubChain.id && hubContracts.collateralRegistry
+    isHubEvm(chainId) && hubContracts.collateralRegistry
       ? hubContracts.collateralRegistry
       : undefined;
   const ids = position?.collateralIds ?? [];
@@ -82,9 +82,11 @@ function useRecomputeHubPosition() {
 /** Runs `HealthFactorEngine.recomputePosition` for the connected wallet (activates PENDING when oracle succeeds). */
 export function useSyncHubCollateralForBorrow() {
   const { address } = useAccount();
+  const chainId = useChainId();
   const { writeContractAsync, isPending, error } = useRecomputeHubPosition();
 
   const sync = async () => {
+    if (!isHubEvm(chainId)) return;
     const engine = hubContracts.healthFactorEngine;
     if (!address || !engine) return;
     await writeContractAsync({

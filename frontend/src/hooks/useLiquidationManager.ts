@@ -6,14 +6,14 @@ import {
   useChainId,
 } from "wagmi";
 import { LIQUIDATION_MANAGER_ABI } from "@slabfinance/shared";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 import { useQueryClient } from "@tanstack/react-query";
 import { keccak256, encodePacked, type Hex } from "viem";
 import type { AuctionRow } from "@/components/liquidation/ActiveQueueTableRow";
 
 export function useMinBidIncrementBPS() {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.liquidationManager : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.liquidationManager : undefined;
 
   return useReadContract({
     address: addr,
@@ -25,7 +25,7 @@ export function useMinBidIncrementBPS() {
 
 export function useActiveAuctionIds() {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.liquidationManager : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.liquidationManager : undefined;
 
   return useReadContract({
     address: addr,
@@ -38,7 +38,7 @@ export function useActiveAuctionIds() {
 /** Resolves active auction IDs to full `AuctionRow` structs. */
 export function useActiveAuctionRows() {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.liquidationManager : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.liquidationManager : undefined;
   const { data: ids, ...rest } = useActiveAuctionIds();
 
   const contracts = useMemo(

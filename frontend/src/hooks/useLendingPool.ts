@@ -1,12 +1,12 @@
 import { useAccount, useReadContract, useWriteContract, useChainId } from "wagmi";
 import { LENDING_POOL_ABI } from "@slabfinance/shared";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 import { useQueryClient } from "@tanstack/react-query";
 
 export function useOutstandingDebt() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.lendingPool : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.lendingPool : undefined;
 
   return useReadContract({
     address: addr,
@@ -19,7 +19,7 @@ export function useOutstandingDebt() {
 /** LP-facing vault size: idle USDC + outstanding borrows − protocol reserves (view-accrues). */
 export function useTotalAssets() {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.lendingPool : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.lendingPool : undefined;
 
   return useReadContract({
     address: addr,
@@ -30,7 +30,7 @@ export function useTotalAssets() {
 
 export function useBorrow() {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.lendingPool : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.lendingPool : undefined;
   const queryClient = useQueryClient();
 
   return useWriteContract({
@@ -44,7 +44,7 @@ export function useBorrow() {
 
 export function useRepay() {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.lendingPool : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.lendingPool : undefined;
   const queryClient = useQueryClient();
 
   return useWriteContract({

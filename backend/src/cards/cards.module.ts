@@ -9,5 +9,6 @@ import { PrismaModule } from "../prisma/prisma.module";
   imports: [PrismaModule, ConfigModule],
   controllers: [CardsController],
   providers: [CardsService, ApiKeyGuard],
+  exports: [CardsService],
 })
 export class CardsModule {}

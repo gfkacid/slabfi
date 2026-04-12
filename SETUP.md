@@ -1,8 +1,8 @@
 # Slab.Finance setup and deployment
 
-End-to-end steps from a clean clone to a running protocol: contracts on **Arc Testnet** (hub) and **Ethereum Sepolia** (source), MySQL, optional card catalog seed, and local app services.
+From a clean clone to a running stack: **Solana** hub (`slab_hub` on mainnet-beta), **EVM** source contracts on **Polygon** and/or **Base** (LayerZero V2), MySQL, optional card catalog seed, and local app services.
 
-For protocol mechanics, CCIP details, and specs, see [DOCS.md](./DOCS.md).
+For protocol mechanics and repo layout, see [DOCS.md](./DOCS.md).
 
 ---
 
@@ -11,35 +11,33 @@ For protocol mechanics, CCIP details, and specs, see [DOCS.md](./DOCS.md).
 | Requirement | Notes |
 |---------------|--------|
 | [Foundry](https://book.getfoundry.sh/getting-started/installation) | `forge`, `cast` on `PATH` |
-| Node.js 18+ and [pnpm](https://pnpm.io/) | Install deps from repo root |
+| Node.js 18+ and [pnpm](https://pnpm.io/) | Install from repo root |
 | [jq](https://jqlang.org/) | Used by `scripts/deploy-all.sh` |
 | MySQL 8+ | Local or hosted; no Docker Compose in-repo |
-| Wallets funded on both chains | **Arc**: native USDC as gas ([Circle faucet](https://faucet.circle.com)). **Sepolia**: ETH ([Sepolia faucet](https://sepoliafaucet.com)) |
+| Wallets funded | **Solana**: SOL on mainnet-beta for fees and LZ delivery. **Polygon**: MATIC. **Base**: ETH. |
 | Reown / WalletConnect | [Project ID](https://dashboard.reown.com/) for `VITE_WALLETCONNECT_PROJECT_ID` |
 
-From the repo root, `pnpm install` pulls workspace packages. Foundry remappings expect Chainlink packages under **repo root** `node_modules` (root `package.json` devDependencies).
+Foundry remappings use LayerZero packages under [`contracts/lib/`](contracts/lib/). Run `pnpm install` at the repo root.
 
 ---
 
 ## 1b. One-command setup (recommended)
 
-After MySQL is running and you have a root `.env` (see §2), run everything through install, database, contract deploy, **best-effort CRE simulate** (see below), and **`shared/config/testnet.ts` sync**:
+After MySQL is running and you have a root `.env` (see §2):
 
 ```bash
 pnpm setup
 ```
 
-This executes [`scripts/setup.sh`](scripts/setup.sh). It **preflights** all required tools and env vars (prints everything missing, then exits). It then:
+This runs [`scripts/setup.sh`](scripts/setup.sh). It:
 
 1. Runs **`pnpm install`**
 2. Runs **`pnpm db:generate`** and **`pnpm db:push`**
-3. Runs **`scripts/deploy-all.sh`** with **`DEPLOY_CRE_WORKFLOW=1`** (local **`cre workflow simulate --broadcast`**, then **`cast send`** **`setMockPrice`**). This step is **best-effort**: the default price URL is `http://127.0.0.1:3001/...`, so the backend must be running for it to succeed; if it fails, hub/source deploys still completed. Re-run **`deploy-all.sh`** with the backend up, or set prices manually (§6).
-4. Runs **`scripts/sync-testnet-from-deployments.ts`** to write deployment addresses into the marked regions of [`shared/config/testnet.ts`](shared/config/testnet.ts)
+3. Runs **`scripts/deploy-all.sh`** (prints `pnpm print:deploy-env`-style exports; does **not** auto-deploy contracts)
+4. If **`contracts/deployments/evm/polygon.json`** or **`contracts/deployments/evm/base.json`** exists, runs **`scripts/sync-protocol-from-deployments.ts`** to patch [`shared/config/protocol.ts`](shared/config/protocol.ts) between `// @slabfi-sync:…` markers
 5. If **`SEED_CARD_COLLECTION`** is set to a valid `0x` address, runs **`pnpm db:seed:cards`**
 
-**Tools on `PATH`:** `node`, `pnpm`, `forge`, `cast`, `jq`, **`cre`** (Chainlink CRE CLI), **`npm`** (for `cre/price-oracle` install inside `deploy-all.sh`).
-
-**Still manual after `pnpm setup`:** fund the hub CCIP router (§6), confirm oracle prices (CRE simulate during setup may have skipped if the backend was down — §4 / §6), start dev servers (§8), optional verification (§9). The script prints a short reminder at the end.
+**Still manual after `pnpm setup`:** deploy the Solana program and each EVM stack, wire LayerZero peers, fund paths, configure oracle prices (§6), start dev servers (§8).
 
 ---
 
@@ -48,169 +46,112 @@ This executes [`scripts/setup.sh`](scripts/setup.sh). It **preflights** all requ
 ```bash
 pnpm install
 cp .env.example .env
-# Vite reads frontend/.env — copy or symlink:
 cp .env.example frontend/.env
 # or: ln -s ../.env frontend/.env
 ```
 
-**Required for deploy + app**
-
 | Variable | Purpose |
 |----------|---------|
-| `DEPLOYER_PRIVATE_KEY` | EOA for `forge` on Arc and Sepolia (gas on both chains). Never commit real keys. |
-| `VITE_WALLETCONNECT_PROJECT_ID` | Wallet UI (in `frontend/.env` or symlinked root `.env`). |
-| `DATABASE_URL` | MySQL URL for Nest + indexer, e.g. `mysql://user:pass@127.0.0.1:3306/slabfinance`. |
+| `DEPLOYER_PRIVATE_KEY` | EOA for `forge` on Polygon/Base. Never commit real keys. |
+| `VITE_WALLETCONNECT_PROJECT_ID` | Wallet UI (`frontend/.env`). |
+| `DATABASE_URL` | MySQL for Nest + indexer. |
+| `SLABFI_API_KEY` | Optional; backend uses it for protected card price routes when set. |
 
-**Common optional**
+**RPC overrides (optional):** `SOLANA_RPC_URL`, `POLYGON_RPC_URL`, `BASE_RPC_URL` — indexer and apps read these; defaults are in [`shared/config/protocol.ts`](shared/config/protocol.ts).
 
-| Variable | Purpose |
-|----------|---------|
-| `PORT` | Backend (default `3001`). |
-| `VITE_API_BASE` | Backend base URL for the SPA (default dev: `http://localhost:3001`). |
-| `PRICECHARTING_API_KEY` | Card valuations / PriceCharting integration in the API. |
-| `SLABFI_API_KEY` | Protects `GET /cards/:collection/:tokenId/price` (CRE simulate and `deploy-all.sh` generated config). **Required for `pnpm setup`.** |
-| `INDEXER_POLL_INTERVAL_MS`, `INDEXER_LOG_CHUNK_SIZE` | Indexer tuning. |
-
-**CRE:** Local **`cre workflow simulate --broadcast`** does **not** use a Chainlink platform API key (`CRE_API_KEY` is only for **`cre workflow deploy`** when CRE access is available).
-
-**Chain RPCs, CCIP routers/selectors, CRE forwarder, and deployed contract addresses** are not-only-in-env: the single source of truth is [`shared/config/testnet.ts`](shared/config/testnet.ts). After **`pnpm setup`**, contract fields are filled automatically from `contracts/deployments/*.json` (see §5). If you only run `deploy-all.sh`, paste addresses manually or run `scripts/sync-testnet-from-deployments.ts` yourself.
+**Single source of truth for chain ids, LayerZero endpoint ids, program id, and contract addresses:** [`shared/config/protocol.ts`](shared/config/protocol.ts). After deploy JSON exists, run **`pnpm sync:protocol`**. See [DEPLOYMENTS.md](./DEPLOYMENTS.md).
 
 ---
 
 ## 3. Database
 
-1. Create a database (e.g. `slabfinance`).
-2. Set `DATABASE_URL` in `.env`.
-3. From repo root:
-
 ```bash
 pnpm db:generate
 pnpm db:push
-# or tracked migrations: pnpm db:migrate
+# or: pnpm db:migrate
 ```
 
 ---
 
 ## 4. Deploy contracts
 
-Hub must deploy before source; the source stack needs the hub `CCIPMessageRouter` address.
-
-### Option A — full repo setup (`pnpm setup`)
-
-Use [§1b](#1b-one-command-setup-recommended): **`pnpm setup`** (wraps `scripts/setup.sh`). This includes install, DB push, deploy, **best-effort CRE simulate + on-chain price tx**, and syncing [`shared/config/testnet.ts`](shared/config/testnet.ts).
-
-### Option B — deploy contracts only (`deploy-all.sh`)
-
-Set `DEPLOYER_PRIVATE_KEY` in `.env`. From repo root:
+### Solana hub
 
 ```bash
-chmod +x scripts/deploy-all.sh
-./scripts/deploy-all.sh
+cd programs/slab_hub
+anchor build
+anchor deploy --provider.cluster mainnet-beta
 ```
 
-This runs:
+Put the program id in `protocol.ts` → `hub.programs.slabHub`.
 
-1. **Phase 1 (Arc)** — `forge script script/Deploy_Hub.s.sol:DeployHub` → writes [`contracts/deployments/hub.json`](contracts/deployments/hub.json).
-2. **Phase 2 (Sepolia)** — `Deploy_SourceChain.s.sol:DeploySourceChain` → [`contracts/deployments/eth-sepolia.json`](contracts/deployments/eth-sepolia.json).
-3. **Phase 3 (Arc)** — `Configure_Hub_Adapters.s.sol:ConfigureHubAdapters` registers the Sepolia adapter on the hub.
+### EVM source (per chain)
 
-It also writes **[`DEPLOYMENTS.md`](DEPLOYMENTS.md)** with addresses and a TypeScript snippet for `testnet.ts`.
+From repo root, inspect exports:
 
-**Optional CRE path** (after hub + Sepolia): set **`DEPLOY_CRE_WORKFLOW=1`**, install the Chainlink CRE CLI (`cre`) and ensure **`cast`** (Foundry) is on `PATH`. The script runs **`cre workflow simulate . --target arc-testnet-deploy --broadcast`** (real HTTP + consensus; no CRE platform deploy), parses the logged consensus price, then **`cast send`** **`OracleConsumer.setMockPrice`**. The default price URL hits **`http://127.0.0.1:3001/cards/.../price`** — start the backend first or set **`EXTERNAL_PRICE_API_URL`**. Optionally set **`CRE_PRICE_TOKEN_ID`**. To fail the script when simulate or the on-chain tx does not complete, set **`FAIL_ON_CRE_FAILURE=1`**.
+```bash
+pnpm print:deploy-env
+```
 
-### Option C — manual (mirror of the script)
-
-From `contracts/` after exporting env from config:
+Then from `contracts/` (set env from your RPC provider and LayerZero docs):
 
 ```bash
 cd contracts
-eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
-export HUB_DEPLOYMENT_OUTPUT=deployments/hub.json
-forge script script/Deploy_Hub.s.sol:DeployHub --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir -vvv
+# Example — Polygon; repeat for Base with BASE_* / chain 8453 / output deployments/evm/base.json
+export LZ_ENDPOINT=<Polygon LayerZero Endpoint V2>
+export LZ_DST_EID=30168
+export COLLECTION=<ERC-721 collection>
+export SOURCE_CHAIN_ID=137
+export DEPLOYMENT_OUTPUT_FILE=deployments/evm/polygon.json
+export NETWORK_KEY=polygon
+forge script script/Deploy_EvmSourceLayerZero.s.sol:DeployEvmSourceLayerZero \
+  --rpc-url "$POLYGON_RPC_URL" --broadcast --via-ir -vvv
 ```
 
-Read `ccipMessageRouter` from `deployments/hub.json`, then:
+Run **`pnpm sync:protocol`** so the indexer and frontend pick up `nftVault`, `collateralAdapterLayerZero`, and `collection`.
 
-```bash
-eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
-export HUB_CCIP_ROUTER_ADDRESS=<ccipMessageRouter_from_hub.json>
-export HUB_CHAIN_SELECTOR="$ARC_CHAIN_SELECTOR"
-export SOURCE_CCIP_ROUTER="$CCIP_ROUTER_SEPOLIA"
-export SOURCE_CHAIN_SELECTOR="$SEPOLIA_CHAIN_SELECTOR"
-export DEPLOYMENT_OUTPUT_FILE=deployments/eth-sepolia.json
-export SOURCE_NETWORK_NAME=ethereum-sepolia
-forge script script/Deploy_SourceChain.s.sol:DeploySourceChain --rpc-url "$SEPOLIA_RPC" --broadcast --via-ir -vvv
-```
-
-Then register the adapter (use `collateralRegistry` from hub JSON and `collateralAdapter` from Sepolia JSON):
-
-```bash
-export COLLATERAL_REGISTRY_ADDRESS=<collateralRegistry_from_hub.json>
-export SEPOLIA_ADAPTER_ADDRESS=<collateralAdapter_from_eth-sepolia.json>
-forge script script/Configure_Hub_Adapters.s.sol:ConfigureHubAdapters --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir -vvv
-```
-
-You can also register via `cast` as in [DOCS.md](./DOCS.md#step-3-register-adapter-on-hub) if you prefer.
+[`scripts/deploy-all.sh`](scripts/deploy-all.sh) prints the same high-level reminders and `print-deploy-env` output.
 
 ---
 
 ## 5. Configure the application
 
-If you used **`pnpm setup`**, [`shared/config/testnet.ts`](shared/config/testnet.ts) is already updated from `contracts/deployments/hub.json` and `eth-sepolia.json` via [`scripts/sync-testnet-from-deployments.ts`](scripts/sync-testnet-from-deployments.ts) (regions between `// @slabfi-sync:…` comments).
-
-Otherwise, copy addresses into `testnet.ts` under `hub.contracts` and `source.contracts` (include **`nftVault`** for the indexer). The generated **`DEPLOYMENTS.md`** includes a ready-to-paste snippet; or read the deployment JSON files directly. You can also run `pnpm --filter @slabfinance/indexer exec tsx ../scripts/sync-testnet-from-deployments.ts` from the repo root (same as the indexer-relative path used in `deploy-all.sh`).
-
-Restart the frontend after changing `testnet.ts` or env files. After syncing, rebuild shared if needed: `pnpm build:shared`.
+1. Ensure [`shared/config/protocol.ts`](shared/config/protocol.ts) has program id, `evmSources.*.contracts`, and `integrations` ids you use in the UI.
+2. Rebuild shared if you edited it: **`pnpm build:shared`**
+3. Restart the frontend after config or env changes.
 
 ---
 
-## 6. Fund CCIP and set oracle prices
+## 6. LayerZero fees and oracle prices
 
-**Outbound CCIP on Arc** — The hub `CCIPMessageRouter` needs native USDC for outbound messages (e.g. unlock). On Arc, native currency is USDC; send a small amount to the router address (see [DOCS.md](./DOCS.md#step-4-fund-ccip-router) for `cast send` with `--value`).
-
-**Prices** — Collateral moves to ACTIVE after `OracleConsumer` has a price. For development, use **`setMockPrice(collection, tokenId, priceUSD, tier)`** (price is **8 decimals**, e.g. `$150` → `15000000000`; **`tier`** is `1`–`3`, or `0` to leave tier unchanged). Use addresses from **`DEPLOYMENTS.md`**, `hub.json` / `eth-sepolia.json`, or `shared/config/testnet.ts` after §5:
-
-```bash
-cd contracts
-eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
-cast send <oracleConsumer_proxy> \
-  "setMockPrice(address,uint256,uint256,uint8)" \
-  <cardFiCollectible_on_Sepolia> 1 15000000000 1 \
-  --rpc-url "$ARC_TESTNET_RPC" \
-  --private-key "$DEPLOYER_PRIVATE_KEY"
-```
-
-Repeat per token id as needed. **CRE today:** simulate locally with [`cre/price-oracle/`](cre/price-oracle/) (`cre workflow simulate ... --broadcast`); **`deploy-all.sh`** can run that and then submit **`setMockPrice`** for you. When CRE platform deploy is available, **`onReport`** via the Keystone forwarder ([`testnet.ts`](shared/config/testnet.ts) → `cre.forwarderAddress`) is the production path.
+- **EVM → Solana:** `_lzSend` pays **native gas** on the source chain (POL, ETH, etc.); Solana side needs **SOL** for rent and executor tips.
+- **Oracle:** Collateral becomes **ACTIVE** after the hub oracle has a price for that key (see backend / program docs).
 
 ---
 
 ## 7. Seed the card catalog (optional)
 
-Upserts `Card` rows from [`scripts/data/cardFi-collectibles-metadata.stub.json`](scripts/data/cardFi-collectibles-metadata.stub.json) (token ids `1..N` by row order).
-
-1. Set `SEED_CARD_COLLECTION` in `.env` to your deployed **CardFiCollectible** address on Sepolia (`0x...`).
-2. Optionally set `PRICECHARTING_ID_1`, `PRICECHARTING_ID_2`, … for PriceCharting lookups.
+1. Set `SEED_CARD_COLLECTION` in `.env` to the **Polygon** collection address used in Courtyard (must match `protocolConfig.evmSources.polygon.contracts.collection` when you use that integration).
+2. Optionally set `PRICECHARTING_ID_*` for PriceCharting lookups.
 3. Run:
 
 ```bash
 pnpm db:seed:cards
 ```
 
-**Related (on-chain, not DB):** `pnpm mint:collectibles` runs [`scripts/mint-cardfi-collectibles.ts`](scripts/mint-cardfi-collectibles.ts) against the address in `testnet.ts`; use when you need additional mints, not for Prisma seeding.
-
 ---
 
 ## 8. Run the stack
 
-Requires `DATABASE_URL` and populated `shared/config/testnet.ts` for indexer/frontend.
+Requires `DATABASE_URL` and populated **`shared/config/protocol.ts`**.
 
 ```bash
 pnpm dev:frontend   # http://localhost:3000
 pnpm dev:backend    # http://localhost:3001
-pnpm dev:indexer    # polls chains → MySQL
+pnpm dev:indexer    # Solana hub tick + EVM source polls → MySQL
 ```
 
-Or frontend + backend together:
+Or:
 
 ```bash
 pnpm dev
@@ -226,28 +167,23 @@ pnpm run build
 
 ## 9. Verify
 
-`print-deploy-env.ts` exports RPCs and chain selectors only; substitute **hub contract addresses** from `shared/config/testnet.ts` or `contracts/deployments/hub.json`:
-
 ```bash
-cd contracts
-eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
-cast call <lendingPool_proxy> "totalAssets()" --rpc-url "$ARC_TESTNET_RPC"
-cast call <ccipMessageRouter_app> "collateralRegistry()" --rpc-url "$ARC_TESTNET_RPC"
-cast call <ccipMessageRouter_app> "trustedAdapters(uint64)" "$SEPOLIA_CHAIN_SELECTOR" --rpc-url "$ARC_TESTNET_RPC"
+pnpm print:deploy-env
+# Solana: solana account / Anchor CLI for program accounts
+# EVM: cast call against NFTVault / CollateralAdapterLayerZero on each chain
 ```
 
 **API** — Swagger UI: `http://localhost:3001/api`.
 
 ---
 
-## 10. End-to-end flow (checklist)
+## 10. End-to-end checklist
 
-1. Start backend + indexer + frontend; ensure oracle prices and CCIP funding are set.
-2. **Liquidity** — On Arc, deposit USDC into the lending pool when the deployed ABI exposes the current deposit entrypoint (see [DOCS.md](./DOCS.md) PRD / vault specs).
-3. **Collateral** — On Sepolia, hold demo `CardFiCollectible` tokens (deploy script mints samples; admin can mint more).
-4. **Lock** — Approve the collateral adapter, call `lockAndNotify`, pay CCIP fee (ETH on Sepolia). Track the transfer on [CCIP Explorer](https://ccip.chain.link).
-5. **Price** — Ensure oracle has a price for that collection/token (mock or CRE).
-6. **Borrow** — On Arc, borrow USDC against registered collateral.
-7. **Repay / unlock** — Repay debt, then `initiateUnlock` on the hub; wait for unlock CCIP to Sepolia.
+1. Start backend + indexer + frontend; ensure oracle prices and LZ paths are funded.
+2. **Liquidity** — Deposit USDC into the Solana pool per program / UI.
+3. **Collateral** — Hold NFTs on **Polygon** or **Base** (per integration).
+4. **Lock** — Approve the adapter, call `lockAndNotify`, pay native gas for LayerZero. Track [LayerZero Scan](https://layerzeroscan.com/).
+5. **Borrow** — On Solana, borrow USDC against registered collateral.
+6. **Repay / unlock** — Repay on Solana; complete unlock / LayerZero delivery per program and adapter configuration.
 
-More detail: [DOCS.md § Running the Full Flow](./DOCS.md#running-the-full-flow).
+More detail: [DOCS.md](./DOCS.md).

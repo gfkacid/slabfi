@@ -4,7 +4,7 @@ import type { Address } from "viem";
 import { isAddress } from "viem";
 import { HEALTH_FACTOR_ENGINE_ABI } from "@slabfinance/shared";
 import { PositionStatus } from "@slabfinance/shared";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 import { computeHubHealthFactorWad } from "@/lib/computeHubHealthFactorWad";
 
 export { PositionStatus };
@@ -12,7 +12,7 @@ export { PositionStatus };
 export function usePositionStatus() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.healthFactorEngine : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.healthFactorEngine : undefined;
 
   return useReadContract({
     address: addr,
@@ -31,7 +31,7 @@ export function useHealthFactorWad() {
   const { address } = useAccount();
   const chainId = useChainId();
   const client = usePublicClient({ chainId: hubChain.id });
-  const onHub = chainId === hubChain.id;
+  const onHub = isHubEvm(chainId);
 
   const engine = hubContracts.healthFactorEngine;
   const reg = hubContracts.collateralRegistry;
@@ -86,7 +86,7 @@ export function usePreviewHealthFactor(
   totalDebtUSD: bigint | undefined
 ) {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.healthFactorEngine : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.healthFactorEngine : undefined;
   const canCall =
     addr && collateralValuesUSD && tiers && totalDebtUSD !== undefined && totalDebtUSD >= 0n;
 

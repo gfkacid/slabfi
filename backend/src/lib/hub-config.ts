@@ -1,25 +1,34 @@
+import { Connection } from "@solana/web3.js";
 import type { Address } from "viem";
-import { hubContractsFromConfig, testnetConfig } from "@slabfinance/shared";
+import { hubProgramsFromConfig, protocolConfig, SOLANA_HUB_CHAIN_ID } from "@slabfinance/shared";
 
 export function hubChainId(): string {
-  return String(testnetConfig.hub.chainId);
+  return SOLANA_HUB_CHAIN_ID;
 }
 
-export function hubRpcUrl(): string | undefined {
-  return testnetConfig.hub.rpcUrl;
+export function hubRpcUrl(): string {
+  return process.env.SOLANA_RPC_URL?.trim() || protocolConfig.hub.rpcUrl;
 }
 
+export function hubConnection(): Connection {
+  return new Connection(hubRpcUrl(), "confirmed");
+}
+
+export function slabHubProgramId(): string {
+  return process.env.SLAB_HUB_PROGRAM_ID?.trim() || hubProgramsFromConfig().slabHub;
+}
+
+/** @deprecated EVM hub registry; Solana hub uses program accounts instead. */
 export function lendingPoolAddress(): Address | undefined {
-  const a = hubContractsFromConfig().lendingPool;
-  return a && a.length >= 10 ? a : undefined;
+  return undefined;
 }
 
+/** @deprecated */
 export function collateralRegistryAddress(): Address | undefined {
-  const a = hubContractsFromConfig().collateralRegistry;
-  return a && a.length >= 10 ? a : undefined;
+  return undefined;
 }
 
+/** @deprecated */
 export function healthFactorEngineAddress(): Address | undefined {
-  const a = hubContractsFromConfig().healthFactorEngine;
-  return a && a.length >= 10 ? a : undefined;
+  return undefined;
 }

@@ -7,7 +7,7 @@ import { BaseModal } from "./BaseModal";
 import type { BidModalPayload } from "./modalTypes";
 import { Icon } from "@/components/ui/Icon";
 import { TransactionButton } from "@/components/TransactionButton";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 import { CollateralImageFill } from "@/components/shared/lending/CollateralImageFill";
 
 function formatCountdown(seconds: number) {
@@ -41,7 +41,7 @@ export function BidModal({ payload, onClose }: BidModalProps) {
   const { address } = useAccount();
   const chainId = useChainId();
   const usdcAddr = hubContracts.usdc;
-  const onHub = chainId === hubChain.id;
+  const onHub = isHubEvm(chainId);
   const { data: usdcBal } = useBalance({
     address,
     token: usdcAddr || undefined,

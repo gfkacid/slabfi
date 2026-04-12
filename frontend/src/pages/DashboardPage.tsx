@@ -16,7 +16,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/ui/Icon";
 import { Button, LinkButton } from "@/components/ui/Button";
-import { hubChain } from "@/lib/hub";
+import { hubChain, isHubEvm } from "@/lib/hub";
 import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
 import { formatUnits } from "viem";
 
@@ -27,7 +27,7 @@ export function DashboardPage() {
   const { data: position } = usePosition();
   const { data: debt } = useOutstandingDebt();
 
-  const isHubChain = chainId === hubChain.id;
+  const isHubChain = isHubEvm(chainId);
 
   if (!isConnected) {
     return (
@@ -151,7 +151,7 @@ export function DashboardPage() {
             ) : (
               <Card variant="muted" className="p-8 text-center">
                 <p className="text-sm text-on-surface-variant">
-                  No collateral locked. Lock NFTs on Ethereum Sepolia to get started.
+                  No collateral locked. Lock NFTs on Polygon or Base (per integration) to get started.
                 </p>
                 <Button
                   type="button"

@@ -6,8 +6,8 @@ This document specifies the **Lending** experience: a single place where users i
 
 ## 1. Goals
 
-- **One mental model:** “Lending” = supply liquidity, take a loan, or pay back — all on the **hub chain** (Arc Testnet; see `shared/config/testnet.ts`).
-- **Clear prerequisites:** Borrowing is only possible when the user has **eligible collateral** registered on the hub from **locked NFTs on the source chain** (Ethereum Sepolia) and the oracle has priced those positions.
+- **One mental model:** “Lending” = supply liquidity, take a loan, or pay back — all on the **hub chain** (Solana mainnet-beta; see [`shared/config/protocol.ts`](../shared/config/protocol.ts)).
+- **Clear prerequisites:** Borrowing is only possible when the user has **eligible collateral** registered on the hub from **locked NFTs on an EVM source** (e.g. Polygon or Base per integration) and the oracle has priced those positions.
 - **Safe UX:** Show **available credit**, **outstanding debt**, **principal vs interest**, and **health factor** when relevant; never let the user submit a borrow above `availableCredit` or a repay above total debt.
 
 ---
@@ -17,9 +17,9 @@ This document specifies the **Lending** experience: a single place where users i
 | Concern | Chain |
 |--------|--------|
 | Deposit, borrow, repay | **Hub** only (same wallet session as the borrower’s hub address) |
-| Lock NFTs as collateral | **Source** (Sepolia) — see [PRD.md](../PRD.md) lock flow and `/lock` |
+| Lock NFTs as collateral | **Source** (EVM — Polygon / Base / …) — see [DOCS.md](../DOCS.md) and `/lock` |
 
-The Lending page does **not** submit NFT transfers; it only reads hub state (`CollateralRegistry`, `LendingPool`, `OracleConsumer`, `HealthFactorEngine` as needed). If the user has not yet locked cards on Sepolia, the UI should explain that and link to **Lock collateral**.
+The Lending page does **not** submit NFT transfers; it only reads **Solana hub** state (IDL / RPC views as wired). If the user has not yet locked NFTs on a configured source chain, the UI should explain that and link to **Lock collateral**.
 
 ---
 
@@ -46,7 +46,7 @@ Navigation labels should use **“Lending”** where a single entry point is des
 **UI requirements**
 
 1. Connect wallet on the **hub chain**; show **USDC balance** (and native gas token if not USDC).
-2. Input **amount** (hub USDC uses **6 decimals**, matching Circle USDC on Arc testnet; Foundry tests use a local `TestUSDC6` helper).
+2. Input **amount** (hub USDC uses **6 decimals** on Solana mainnet; local tests may use a mock mint).
 3. **Approve** `LendingPool` to spend USDC, then **`deposit(amount)`** (or the deployed equivalent) when the contract exposes a public deposit with share minting per PRD.
 4. After success: show **vault shares** (or receipt), **user’s USDC-equivalent position**, and **current supply APR** / utilization if exposed by the contract.
 
@@ -63,7 +63,7 @@ Navigation labels should use **“Lending”** where a single entry point is des
 
 **Prerequisites (all must be satisfied for `availableCredit > 0`)**
 
-1. User has called **`lockAndNotify`** on Sepolia so the hub has a **`CollateralRegistry`** entry for their **`hubOwner`** address.
+1. User has called **`lockAndNotify`** on a configured **EVM source chain** so the hub has a collateral entry for their **hub owner** address.
 2. Oracle has a **non-stale** price for `(collection, tokenId)` and collateral status is at least **ACTIVE** (or the registry’s `availableCredit` logic returns a positive cap).
 3. **Health factor** and **position status** allow new borrows (e.g. not in **WARNING** / **LIQUIDATABLE** per protocol rules).
 
@@ -73,7 +73,7 @@ Navigation labels should use **“Lending”** where a single entry point is des
 2. Display **available to borrow** = `CollateralRegistry.availableCredit(borrower)` (or equivalent).
 3. Amount input **capped** at available credit; optional **slider** and **live HF preview** via `previewHealthFactor` when collateral tiers and debt are known.
 4. Primary action: **`LendingPool.borrow(amount)`** — no separate approval (USDC is sent *to* the user).
-5. Empty state: **“No borrowing power”** with copy that explains locking NFTs on Sepolia and waiting for oracle / ACTIVE status.
+5. Empty state: **“No borrowing power”** with copy that explains locking NFTs on **Polygon / Base** (per product wiring) and waiting for oracle / ACTIVE status.
 
 **Errors**
 

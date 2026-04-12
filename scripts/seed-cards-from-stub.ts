@@ -2,7 +2,7 @@
  * Upserts `Card` rows from `scripts/data/cardFi-collectibles-metadata.stub.json`
  * for token ids 1..N (row order). Each row may include `tier` (1–3); `ltvBps` is
  * derived to match hub OracleConsumer base LTV. Collection address: optional
- * SEED_CARD_COLLECTION in `.env`; if unset, uses `testnetConfig.source.contracts.slabFinanceCollectible`.
+ * SEED_CARD_COLLECTION in `.env`; if unset, uses `protocolConfig.evmSources.polygon.contracts.collection`.
  * Optional PRICECHARTING_ID_N (1-based) per token.
  *
  *   pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-cards-from-stub.ts
@@ -13,7 +13,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
 import { isAddress } from "viem";
-import { testnetConfig } from "../shared/config/testnet";
+import { protocolConfig } from "../shared/config/protocol";
 
 const prisma = new PrismaClient();
 
@@ -61,7 +61,7 @@ async function main() {
   loadEnv({ path: resolve(scriptDir, "../.env") });
 
   const fromEnv = process.env.SEED_CARD_COLLECTION?.trim();
-  const fromConfig = testnetConfig.source.contracts.slabFinanceCollectible?.trim();
+  const fromConfig = protocolConfig.evmSources.polygon.contracts.collection?.trim();
   const collectionRaw =
     fromEnv && isAddress(fromEnv)
       ? fromEnv
@@ -70,14 +70,14 @@ async function main() {
         : "";
   if (!collectionRaw) {
     throw new Error(
-      "No collectible address: set SEED_CARD_COLLECTION in .env or slabFinanceCollectible in shared/config/testnet.ts",
+      "No collectible address: set SEED_CARD_COLLECTION in .env or polygon.collection in shared/config/protocol.ts",
     );
   }
   const collection = collectionRaw.toLowerCase();
   if (fromEnv && isAddress(fromEnv)) {
     console.log(`[seed-cards] collection from SEED_CARD_COLLECTION`);
   } else {
-    console.log(`[seed-cards] collection from testnetConfig.source.contracts.slabFinanceCollectible`);
+    console.log(`[seed-cards] collection from protocolConfig.evmSources.polygon.contracts.collection`);
   }
 
   const tokens = loadTokens(scriptDir);

@@ -1,7 +1,10 @@
 import type { Abi, Hash, TransactionReceipt } from "viem";
 import { getAddress, parseEventLogs } from "viem";
 
-/** Official CCIP UI (search by message id). Permissionless re-execution: `pnpm ccip:manual-exec -- <id>` on Arc. */
+/** LayerZero Scan (cross-chain message tracking). */
+export const LAYERZERO_SCAN_URL = "https://layerzeroscan.com";
+
+/** @deprecated CCIP replaced by LayerZero; kept for legacy receipts. */
 export const CCIP_EXPLORER_URL = "https://ccip.chain.link";
 
 export function ccipAtlasApiUrl(ccipMessageId: Hash): string {

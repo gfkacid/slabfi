@@ -1,11 +1,11 @@
 import { useAccount, useChainId, useReadContract } from "wagmi";
 import { ERC20_ABI } from "@slabfinance/shared";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 
 export function useUsdcBalance() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const usdc = chainId === hubChain.id ? hubContracts.usdc : undefined;
+  const usdc = isHubEvm(chainId) ? hubContracts.usdc : undefined;
 
   return useReadContract({
     address: usdc,
@@ -18,7 +18,7 @@ export function useUsdcBalance() {
 
 export function useUsdcDecimals() {
   const chainId = useChainId();
-  const usdc = chainId === hubChain.id ? hubContracts.usdc : undefined;
+  const usdc = isHubEvm(chainId) ? hubContracts.usdc : undefined;
 
   return useReadContract({
     address: usdc,

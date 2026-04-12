@@ -1,12 +1,12 @@
 import { useAccount, useChainId, useReadContract } from "wagmi";
 import { LENDING_POOL_ABI } from "@slabfinance/shared";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 
 /** On-chain lending pool metrics on the hub (for connected wallet: also share balance). */
 export function useLendingPoolStats() {
   const chainId = useChainId();
   const { address } = useAccount();
-  const pool = chainId === hubChain.id ? hubContracts.lendingPool : undefined;
+  const pool = isHubEvm(chainId) ? hubContracts.lendingPool : undefined;
   const enabled = Boolean(pool);
 
   const q = { enabled } as const;

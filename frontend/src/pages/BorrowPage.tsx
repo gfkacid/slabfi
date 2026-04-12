@@ -8,7 +8,7 @@ import { TransactionButton } from "@/components/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { HubCollateralSyncCallout } from "@/components/shared/lending/HubCollateralSyncCallout";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 
 export function BorrowPage() {
   const { isConnected, chainId } = useAccount();
@@ -17,7 +17,7 @@ export function BorrowPage() {
 
   const [amount, setAmount] = useState("");
 
-  const isHubChain = chainId === hubChain.id;
+  const isHubChain = isHubEvm(chainId);
   const maxBorrow = availableCredit ?? 0n;
   const amountWei = useMemo(() => {
     try {

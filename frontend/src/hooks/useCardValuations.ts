@@ -48,7 +48,7 @@ export function maxBorrowUsdFromValuation(v: CardValuation): number {
 export function useCardValuations(nfts: SlabCollectible[] | undefined, enabled: boolean) {
   return useQueries({
     queries: (nfts ?? []).map((nft) => ({
-      queryKey: ["card-valuation", nft.collection, nft.tokenId],
+      queryKey: ["card-valuation", nft.chainId ?? "", nft.collection, nft.tokenId],
       queryFn: () => fetchCardValuation(nft.collection as `0x${string}`, nft.tokenId),
       enabled: enabled && !!getApiBase() && !!nft.collection,
       staleTime: 30_000,
