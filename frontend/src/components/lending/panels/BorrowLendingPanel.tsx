@@ -17,7 +17,7 @@ import {
   formatHealthFactor,
 } from "@/hooks";
 import { HubCollateralSyncCallout } from "@/components/shared/lending/HubCollateralSyncCallout";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 import {
   collateralDisplayImageUrl,
   collateralDisplaySubtitle,
@@ -32,11 +32,11 @@ export function BorrowLendingPanel() {
   const { data: credit } = useAvailableCredit();
   const { writeContractAsync, isPending } = useBorrow();
   const { data: items } = useUserCollateral();
-  const hubSlice = useHubExistingCollateral(Boolean(isConnected && chainId === hubChain.id));
-  const outstanding = useHubOutstandingTotal(Boolean(isConnected && chainId === hubChain.id));
+  const hubSlice = useHubExistingCollateral(Boolean(isConnected && isHubEvm(chainId)));
+  const outstanding = useHubOutstandingTotal(Boolean(isConnected && isHubEvm(chainId)));
 
   const poolAddr = hubContracts.lendingPool;
-  const isHub = chainId === hubChain.id;
+  const isHub = isHubEvm(chainId);
 
   const amountWei = useMemo(() => {
     try {

@@ -12,7 +12,7 @@ import { AmountInput } from "@/components/AmountInput";
 import { TransactionButton } from "@/components/TransactionButton";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/Card";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 
 export function RepayPage() {
   const { isConnected, chainId } = useAccount();
@@ -23,7 +23,7 @@ export function RepayPage() {
 
   const [amount, setAmount] = useState("");
 
-  const isHubChain = chainId === hubChain.id;
+  const isHubChain = isHubEvm(chainId);
   const poolAddr = hubContracts.lendingPool;
   const registryAddr = hubContracts.collateralRegistry;
   const usdcAddr = hubContracts.usdc;
@@ -109,7 +109,7 @@ export function RepayPage() {
     <div className="mx-auto max-w-4xl">
       <PageHeader
         title="Repay"
-        description="Repay your USDC debt. After full repayment, you can initiate unlock to retrieve your collateral on Ethereum Sepolia."
+        description="Repay your USDC debt on Solana. After full repayment, you can initiate unlock to retrieve collateral on the EVM chain where it was locked (e.g. Polygon or Base)."
       />
 
       <Card variant="elevated" className="mb-8">

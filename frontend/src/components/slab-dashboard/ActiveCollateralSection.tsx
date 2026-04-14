@@ -14,7 +14,7 @@ import {
   collateralDisplayTitle,
 } from "@/lib/collateralDisplay";
 import { collateralLatestUsdNumber, formatUsdFromSnapshotString, formatUsdNumber } from "@/lib/hubFormat";
-import { sepolia } from "@/lib/chains";
+import { polygonMainnet } from "@/lib/chains";
 
 type ActiveCollateralSectionProps = {
   guest?: boolean;
@@ -151,7 +151,7 @@ export function ActiveCollateralSection({ guest = false }: ActiveCollateralSecti
                     className="h-full w-full object-contain object-center"
                   />
                   <div className="absolute left-2 top-2 rounded bg-black/40 px-1.5 py-0.5 text-[8px] font-bold uppercase text-white backdrop-blur-md">
-                    {sepolia.name}
+                    {polygonMainnet.name}
                   </div>
                 </div>
                 <div className="border-t border-zinc-100 bg-zinc-50/80 p-3">

@@ -8,7 +8,7 @@ import {
   type HubPendingCollateralDetail,
 } from "@/hooks";
 import { Button } from "@/components/ui/Button";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 import { collateralLatestUsdNumber } from "@/lib/hubFormat";
 
 /** Must match `OracleConsumer.PRICE_FRESHNESS_WINDOW` (26 hours). */
@@ -66,7 +66,7 @@ function CatalogVersusOracleHint({
   return (
     <p className="mt-3 text-xs leading-relaxed text-amber-950/90">
       Assets can show <strong>${catalogUsd.toFixed(2)}</strong> from <strong>catalog</strong> data. Borrowing
-      only reads <strong>OracleConsumer</strong> on Arc. If that contract has no fresh price for this NFT,{" "}
+      only reads the <strong>hub oracle</strong>. If there is no fresh on-chain price for this NFT,{" "}
       <strong>Sync</strong> cannot activate collateral.
     </p>
   );
@@ -81,7 +81,7 @@ function PendingOracleDiagnostics({
 }) {
   const chainId = useChainId();
   const oracle =
-    chainId === hubChain.id && hubContracts.oracleConsumer ? hubContracts.oracleConsumer : undefined;
+    isHubEvm(chainId) && hubContracts.oracleConsumer ? hubContracts.oracleConsumer : undefined;
 
   const { data: slotRaw, isFetched: slotFetched } = useReadContract({
     address: oracle,
@@ -182,13 +182,13 @@ Or without API: PRICE_USD_8DEC=7670000000 ORACLE_TIER=2 DEPLOYER_PRIVATE_KEY=0xâ
   );
 }
 
-/** Shown when hub collateral is still `Pending`: activation needs OracleConsumer, not just indexer/catalog. */
+/** Legacy EVM-hub path: hidden while `HUB_IS_SOLANA` (hub oracle is on Solana). */
 export function HubCollateralSyncCallout({ className = "" }: { className?: string }) {
   const { chainId, address } = useAccount();
   const { hasPendingCollateral, firstPendingDetail, isLoading } = useHubPendingCollateralIds();
   const { sync, isPending } = useSyncHubCollateralForBorrow();
 
-  if (chainId !== hubChain.id) return null;
+  if (!isHubEvm(chainId)) return null;
   if (isLoading || !hasPendingCollateral) return null;
 
   return (
@@ -197,8 +197,7 @@ export function HubCollateralSyncCallout({ className = "" }: { className?: strin
     >
       <p className="mb-3 text-sm">
         Your NFT is still <span className="font-semibold">Pending</span> on the registry.{" "}
-        <strong>Sync position</strong> only works after <code className="rounded bg-black/5 px-1 text-xs">OracleConsumer</code>{" "}
-        returns a <span className="font-semibold">fresh</span> price for that Sepolia collection address and token id.
+        <strong>Sync position</strong> only applies when the hub exposes an on-chain oracle for that collection and token id.
       </p>
       <Button type="button" onClick={() => void sync()} disabled={isPending}>
         {isPending ? "Syncingâ€¦" : "Sync position on hub"}

@@ -17,7 +17,7 @@ import { LiquidationPromoCard } from "@/components/liquidation/LiquidationPromoC
 import { ActiveLiquidationsTable } from "@/components/liquidation/ActiveLiquidationsTable";
 import { HistoryLiquidationsTable } from "@/components/liquidation/HistoryLiquidationsTable";
 import type { AuctionRow } from "@/components/liquidation/ActiveQueueTableRow";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 import { PageHeader } from "@/components/PageHeader";
 import {
   formatUsdFromSnapshotString,
@@ -34,7 +34,7 @@ export function LiquidationsPage() {
   const { data: protocol } = useProtocolStats();
   const { data: history } = useAuctionHistory(1, 1);
 
-  const isHubChain = chainId === hubChain.id;
+  const isHubChain = isHubEvm(chainId);
   const managerAddr = hubContracts.liquidationManager;
   const usdcAddr = hubContracts.usdc;
 

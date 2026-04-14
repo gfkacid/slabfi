@@ -1,18 +1,15 @@
 /**
- * Finds the first block where each indexed contract has bytecode (deployment block),
- * then upserts `IndexerCursor` so the next poll starts at that block (`lastBlock = deploy - 1`).
- *
- * Uses `testnetConfig` RPCs and addresses from `@slabfinance/shared` (same as the indexer).
+ * Finds the first block where each indexed contract has bytecode, then upserts `IndexerCursor`.
  *
  *   pnpm db:seed:indexer-cursors
- *   # or: pnpm --filter @slabfinance/indexer exec tsx ../scripts/seed-indexer-cursors.ts
  */
 import { config as loadEnv } from "dotenv";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PrismaClient } from "@prisma/client";
-import { createPublicClient, getAddress, http, isAddress, type Address, type PublicClient } from "viem";
-import { testnetConfig } from "../shared/config/testnet";
+import { protocolConfig } from "@slabfinance/shared";
+import { base as baseChain, polygon as polygonChain } from "viem/chains";
+import { createPublicClient, defineChain, getAddress, http, isAddress, type Address, type Chain, type PublicClient } from "viem";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 loadEnv({ path: resolve(__dirname, "../.env") });
@@ -25,7 +22,6 @@ function reqAddr(v: string | undefined): Address | null {
   return getAddress(v);
 }
 
-/** Minimum block where `address` has non-empty runtime bytecode (proxy or implementation). */
 async function findFirstBytecodeBlock(client: PublicClient, address: Address): Promise<bigint> {
   const latest = await client.getBlockNumber();
   const codeLatest = await client.getBytecode({ address });
@@ -47,62 +43,53 @@ async function findFirstBytecodeBlock(client: PublicClient, address: Address): P
 
 type CursorSpec = { chainId: string; contractKey: string; address: Address };
 
-function hubSpecs(): CursorSpec[] {
-  const id = String(testnetConfig.hub.chainId);
-  const c = testnetConfig.hub.contracts;
+function chainForSource(src: (typeof protocolConfig.evmSources)["polygon"]): Chain {
+  const id = src.chainId;
+  if (id === polygonChain.id) return { ...polygonChain, rpcUrls: { default: { http: [src.rpcUrl] } } };
+  if (id === baseChain.id) return { ...baseChain, rpcUrls: { default: { http: [src.rpcUrl] } } };
+  return defineChain({
+    id,
+    name: src.id,
+    nativeCurrency: { name: "Gas", symbol: "GAS", decimals: 18 },
+    rpcUrls: { default: { http: [src.rpcUrl] } },
+  });
+}
+
+function evmSourceSpecs(): CursorSpec[] {
   const out: CursorSpec[] = [];
-  const lp = reqAddr(c.lendingPool);
-  const reg = reqAddr(c.collateralRegistry);
-  const liq = reqAddr(c.liquidationManager);
-  const oracle = reqAddr(c.oracleConsumer);
-  if (lp) out.push({ chainId: id, contractKey: "hub:lendingPool", address: lp });
-  if (reg) out.push({ chainId: id, contractKey: "hub:collateralRegistry", address: reg });
-  if (liq) out.push({ chainId: id, contractKey: "hub:liquidationManager", address: liq });
-  if (oracle) out.push({ chainId: id, contractKey: "hub:oracleConsumer", address: oracle });
+  for (const src of Object.values(protocolConfig.evmSources)) {
+    const id = String(src.chainId);
+    const c = src.contracts;
+    const vault = reqAddr(c.nftVault?.trim());
+    const adapter = reqAddr(c.collateralAdapterLayerZero?.trim());
+    const prefix = `source:${src.id}`;
+    if (vault) out.push({ chainId: id, contractKey: `${prefix}:nftVault`, address: vault });
+    if (adapter) out.push({ chainId: id, contractKey: `${prefix}:collateralAdapter`, address: adapter });
+  }
   return out;
 }
 
-function sourceSpecs(): CursorSpec[] {
-  const id = String(testnetConfig.source.chainId);
-  const c = testnetConfig.source.contracts;
-  const out: CursorSpec[] = [];
-  const vault = reqAddr(c.nftVault);
-  const adapter = reqAddr(c.collateralAdapter);
-  if (vault) out.push({ chainId: id, contractKey: "source:nftVault", address: vault });
-  if (adapter) out.push({ chainId: id, contractKey: "source:collateralAdapter", address: adapter });
-  return out;
-}
-
-async function main(): Promise<void> {
+async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is required");
   }
 
-  const hubRpc = testnetConfig.hub.rpcUrl;
-  const sourceRpc = testnetConfig.source.rpcUrl;
-  if (!hubRpc || !sourceRpc) {
-    throw new Error("testnetConfig hub/source rpcUrl is missing");
-  }
-
-  const hubClient = createPublicClient({ transport: http(hubRpc) });
-  const sourceClient = createPublicClient({ transport: http(sourceRpc) });
-
-  const hubList = hubSpecs();
-  const sourceList = sourceSpecs();
-  if (hubList.length === 0 && sourceList.length === 0) {
-    throw new Error("No contract addresses configured in testnet.ts for indexer cursors");
+  const list = evmSourceSpecs();
+  if (list.length === 0) {
+    throw new Error("No nftVault / collateralAdapter addresses in shared/config/protocol.ts (evmSources).");
   }
 
   const now = BigInt(Math.floor(Date.now() / 1000));
   const rows: { chainId: string; contractKey: string; lastBlock: bigint; deployBlock: bigint }[] = [];
 
-  for (const spec of hubList) {
-    const deployBlock = await findFirstBytecodeBlock(hubClient, spec.address);
-    const lastBlock = deployBlock > 0n ? deployBlock - 1n : -1n;
-    rows.push({ ...spec, lastBlock, deployBlock });
-  }
-  for (const spec of sourceList) {
-    const deployBlock = await findFirstBytecodeBlock(sourceClient, spec.address);
+  for (const spec of list) {
+    const src = Object.values(protocolConfig.evmSources).find((s) => String(s.chainId) === spec.chainId);
+    if (!src) continue;
+    const client = createPublicClient({
+      chain: chainForSource(src),
+      transport: http(src.rpcUrl),
+    });
+    const deployBlock = await findFirstBytecodeBlock(client, spec.address);
     const lastBlock = deployBlock > 0n ? deployBlock - 1n : -1n;
     rows.push({ ...spec, lastBlock, deployBlock });
   }
@@ -123,7 +110,10 @@ async function main(): Promise<void> {
     );
   }
 
-  console.log(`[seed-indexer-cursors] upserted ${rows.length} IndexerCursor row(s)`);
+  console.log(`[seed-indexer-cursors] upserted ${rows.length} IndexerCursor row(s) (EVM sources)`);
+  console.log(
+    "[seed-indexer-cursors] Solana hub uses slabHubProgramId — run indexer with SLAB_HUB_PROGRAM_ID set; cursors for Solana are updated by solanaHubTick.",
+  );
 }
 
 void main()

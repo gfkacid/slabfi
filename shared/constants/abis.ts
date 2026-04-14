@@ -192,6 +192,23 @@ export const LIQUIDATION_MANAGER_ABI = [
   },
 ] as const;
 
+export const COLLATERAL_ADAPTER_VIEW_ABI = [
+  {
+    inputs: [],
+    name: "collection",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "chainSelector",
+    outputs: [{ name: "", type: "uint64" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
 export const COLLATERAL_ADAPTER_ABI = [
   {
     type: "event",
@@ -214,6 +231,39 @@ export const COLLATERAL_ADAPTER_ABI = [
   },
   { inputs: [{ name: "tokenId", type: "uint256" }, { name: "hubOwner", type: "address" }], name: "lockAndNotify", outputs: [{ name: "", type: "bytes32" }], stateMutability: "payable", type: "function" },
 ] as const;
+
+/** IERC165 + minimal ERC-721 for Courtyard / Beezie and other standard collections. */
+export const ERC721_STANDARD_ABI = [
+  {
+    inputs: [{ name: "interfaceId", type: "bytes4" }],
+    name: "supportsInterface",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "owner", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "index", type: "uint256" },
+    ],
+    name: "tokenOfOwnerByIndex",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  { inputs: [{ name: "tokenId", type: "uint256" }], name: "ownerOf", outputs: [{ name: "", type: "address" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "tokenId", type: "uint256" }], name: "tokenURI", outputs: [{ name: "", type: "string" }], stateMutability: "view", type: "function" },
+] as const;
+
+/** OpenZeppelin IERC721Enumerable — interface id `0x780e9d63`. */
+export const IERC721_ENUMERABLE_INTERFACE_ID = "0x780e9d63" as const;
 
 export const SLAB_COLLECTIBLE_ABI = [
   { inputs: [{ name: "tokenId", type: "uint256" }], name: "ownerOf", outputs: [{ name: "", type: "address" }], stateMutability: "view", type: "function" },

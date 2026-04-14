@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { erc721Abi, formatUnits } from "viem";
 import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
@@ -26,11 +26,11 @@ import {
   useHubOutstandingTotal,
   usePreviewHealthFactorOnHub,
 } from "@/hooks/useHubDepositPreview";
-import { useSepoliaSlabCollectibles } from "@/hooks/useSepoliaSlabCollectibles";
+import { useEvmLockCollectibles, type EvmLockNft } from "@/hooks/useEvmLockCollectibles";
 import { Icon } from "@/components/ui/Icon";
-import { sepolia } from "@/lib/chains";
-import { CCIP_EXPLORER_URL, ccipMessageIdFromLockReceipt } from "@/lib/ccipLock";
-import { CONTRACT_ADDRESSES } from "@/lib/contracts";
+import { baseMainnet, polygonMainnet } from "@/lib/chains";
+import { LAYERZERO_SCAN_URL, ccipMessageIdFromLockReceipt } from "@/lib/ccipLock";
+import { contractsForChainId } from "@/lib/contracts";
 import { hubChain, hubContracts } from "@/lib/hub";
 import { price8ToUsdNumber } from "@/lib/hubFormat";
 import { showToast } from "@/lib/toast";
@@ -64,16 +64,26 @@ function hfToBarPercent(hf: bigint | undefined): number | null {
   return Math.min(100, Math.max(0, (n / 5) * 100));
 }
 
-type ChainTab = "all" | "sepolia" | "polygon";
+type ChainTab = "all" | "polygon" | "base";
+
+function nftKey(n: Pick<EvmLockNft, "chainId" | "tokenId">): string {
+  return `${n.chainId}:${n.tokenId}`;
+}
+
+function chainLabel(cid: number): string {
+  if (cid === polygonMainnet.id) return polygonMainnet.name;
+  if (cid === baseMainnet.id) return baseMainnet.name;
+  return `Chain ${cid}`;
+}
 
 export function CollateralDepositModal({ onClose }: CollateralDepositModalProps) {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
-  const sepoliaClient = usePublicClient({ chainId: sepolia.id });
-  const { data: nfts, isLoading: nftsLoading } = useSepoliaSlabCollectibles(true);
-  const valuationQueries = useCardValuations(nfts, true);
-  const apiConfigured = isPricingApiConfigured();
+  const polyQuery = useEvmLockCollectibles(polygonMainnet.id, true);
+  const baseQuery = useEvmLockCollectibles(baseMainnet.id, true);
+  const polyClient = usePublicClient({ chainId: polygonMainnet.id });
+  const baseClient = usePublicClient({ chainId: baseMainnet.id });
 
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"name" | "price">("price");
@@ -81,8 +91,20 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [locking, setLocking] = useState(false);
 
-  const collectionAddr = CONTRACT_ADDRESSES.sepolia.slabFinanceCollectible;
-  const adapterAddr = CONTRACT_ADDRESSES.sepolia.collateralAdapter;
+  useEffect(() => {
+    setSelected(new Set());
+  }, [chainTab]);
+
+  const nfts = useMemo((): EvmLockNft[] | undefined => {
+    if (chainTab === "polygon") return polyQuery.data;
+    if (chainTab === "base") return baseQuery.data;
+    return [...(polyQuery.data ?? []), ...(baseQuery.data ?? [])];
+  }, [chainTab, polyQuery.data, baseQuery.data]);
+
+  const nftsLoading = polyQuery.isLoading || baseQuery.isLoading;
+
+  const valuationQueries = useCardValuations(nfts, true);
+  const apiConfigured = isPricingApiConfigured();
 
   const { data: existing, isLoading: existingLoading } = useHubExistingCollateral(isConnected);
   const { data: debtTuple } = useHubOutstandingTotal(isConnected);
@@ -98,14 +120,14 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
 
   const nftIndexByToken = useMemo(() => {
     const m = new Map<string, number>();
-    (nfts ?? []).forEach((nft, i) => m.set(nft.tokenId, i));
+    (nfts ?? []).forEach((nft, i) => m.set(nftKey(nft), i));
     return m;
   }, [nfts]);
 
   const valuationByTokenId = useMemo(() => {
     const map = new Map<string, CardValuation | null>();
     (nfts ?? []).forEach((nft, i) => {
-      map.set(nft.tokenId, valuationQueries[i]?.data ?? null);
+      map.set(nftKey(nft), valuationQueries[i]?.data ?? null);
     });
     return map;
   }, [nfts, valuationQueries]);
@@ -122,29 +144,37 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
         )
       : list;
 
-    const priced = (id: string) => {
-      const v = valuationByTokenId.get(id);
+    const priced = (nft: EvmLockNft) => {
+      const v = valuationByTokenId.get(nftKey(nft));
       return v ? maxBorrowUsdFromValuation(v) : 0;
     };
 
     filtered.sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name);
-      return priced(b.tokenId) - priced(a.tokenId);
+      return priced(b) - priced(a);
     });
     return filtered;
   }, [nfts, search, sort, valuationByTokenId]);
 
   const chainFiltered = useMemo(() => {
-    if (chainTab === "polygon") return [];
+    if (chainTab === "polygon") return filteredSorted.filter((n) => n.chainId === polygonMainnet.id);
+    if (chainTab === "base") return filteredSorted.filter((n) => n.chainId === baseMainnet.id);
     return filteredSorted;
   }, [chainTab, filteredSorted]);
 
   const selectedList = useMemo(() => {
-    return (nfts ?? []).filter((n) => selected.has(n.tokenId));
+    return (nfts ?? []).filter((n) => selected.has(nftKey(n)));
   }, [nfts, selected]);
 
+  const lockChainId = selectedList.length ? selectedList[0]!.chainId : polygonMainnet.id;
+  const sameChainSelected = selectedList.length === 0 || selectedList.every((n) => n.chainId === lockChainId);
+  const evmContracts = contractsForChainId(lockChainId);
+  const collectionAddr = evmContracts?.collection;
+  const adapterAddr = evmContracts?.collateralAdapter;
+  const lockClient = lockChainId === baseMainnet.id ? baseClient : polyClient;
+
   const selectedValuations = useMemo(() => {
-    return selectedList.map((n) => valuationByTokenId.get(n.tokenId) ?? null);
+    return selectedList.map((n) => valuationByTokenId.get(nftKey(n)) ?? null);
   }, [selectedList, valuationByTokenId]);
 
   const newCollateralUsd = useMemo(() => {
@@ -213,16 +243,19 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
 
   const canDeposit =
     selectedList.length > 0 &&
+    sameChainSelected &&
     !unpricedSelected &&
     !!address &&
     !!adapterAddr &&
-    !!collectionAddr;
+    !!collectionAddr &&
+    collectionAddr !== "0x0000000000000000000000000000000000000000" &&
+    adapterAddr !== "0x0000000000000000000000000000000000000000";
 
-  const toggle = useCallback((tokenId: string) => {
+  const toggle = useCallback((key: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(tokenId)) next.delete(tokenId);
-      else next.add(tokenId);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }, []);
@@ -231,24 +264,24 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
   const { writeContractAsync: erc721Write, isPending: approvePending } = useWriteContract();
 
   const handleDeposit = async () => {
-    if (!canDeposit || !address || !adapterAddr || !collectionAddr || !sepoliaClient) return;
+    if (!canDeposit || !address || !adapterAddr || !collectionAddr || !lockClient) return;
 
     try {
       setLocking(true);
-      if (chainId !== sepolia.id) {
+      if (chainId !== lockChainId) {
         if (switchChainAsync) {
-          await switchChainAsync({ chainId: sepolia.id });
+          await switchChainAsync({ chainId: lockChainId });
         } else {
           showToast({
             type: "error",
             title: "Wrong network",
-            message: "Switch to Ethereum Sepolia in your wallet, then try again.",
+            message: "Switch to the correct EVM network (Polygon or Base) in your wallet, then try again.",
           });
           return;
         }
       }
 
-      const approved = await sepoliaClient.readContract({
+      const approved = await lockClient.readContract({
         address: collectionAddr,
         abi: erc721Abi,
         functionName: "isApprovedForAll",
@@ -266,37 +299,37 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
 
       const lastCcipIds: string[] = [];
       for (const nft of selectedList) {
-        let ccipFee = 0n;
+        let lzFee = 0n;
         try {
-          ccipFee = await sepoliaClient.readContract({
+          lzFee = await lockClient.readContract({
             address: adapterAddr,
             abi: COLLATERAL_ADAPTER_ABI,
             functionName: "quoteCcipFee",
             args: [BigInt(nft.tokenId), address],
           });
         } catch {
-          // Older adapters without `quoteCcipFee` rely on Sepolia ETH pre-funded on the contract.
+          // Older adapters without `quoteCcipFee` rely on native gas pre-funded on the contract.
         }
         const lockHash = await lockWrite({
           address: adapterAddr,
           abi: COLLATERAL_ADAPTER_ABI,
           functionName: "lockAndNotify",
           args: [BigInt(nft.tokenId), address],
-          value: ccipFee,
+          value: lzFee,
         });
-        const receipt = await sepoliaClient.waitForTransactionReceipt({ hash: lockHash });
+        const receipt = await lockClient.waitForTransactionReceipt({ hash: lockHash });
         const mid = ccipMessageIdFromLockReceipt(receipt, adapterAddr, COLLATERAL_ADAPTER_ABI);
         if (mid) lastCcipIds.push(mid);
       }
 
-      const ccipHint =
+      const lzHint =
         lastCcipIds.length > 0
-          ? ` CCIP: ${lastCcipIds[lastCcipIds.length - 1]!.slice(0, 10)}… — balances update after execution; track ${CCIP_EXPLORER_URL}`
-          : ` Track CCIP at ${CCIP_EXPLORER_URL} until the hub shows your collateral.`;
+          ? ` LayerZero: ${lastCcipIds[lastCcipIds.length - 1]!.slice(0, 10)}… — balances update after execution; track ${LAYERZERO_SCAN_URL}`
+          : ` Track LayerZero at ${LAYERZERO_SCAN_URL} until the hub shows your collateral.`;
       showToast({
         type: "success",
         title: "Deposit transactions sent",
-        message: `Cards locked on Sepolia.${ccipHint}`,
+        message: `Cards locked on-chain.${lzHint}`,
       });
       setSelected(new Set());
       onClose();
@@ -355,7 +388,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
         <div className="min-h-0 flex-1 overflow-y-auto border-b border-outline-variant/15 p-6 lg:border-b-0 lg:border-r lg:pr-8">
           {!isConnected ? (
             <p className="text-sm font-medium text-on-surface-variant">
-              Connect your wallet to see eligible NFTs on Ethereum Sepolia and deposit them as
+              Connect your wallet to see eligible NFTs on Polygon / Base and deposit them as
               collateral.
             </p>
           ) : (
@@ -385,15 +418,14 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                 <div className="flex flex-wrap gap-3">
                   {(
                     [
-                      { id: "all" as const, label: "All Chains" },
-                      { id: "sepolia" as const, label: "Sepolia" },
+                      { id: "all" as const, label: "All chains" },
                       { id: "polygon" as const, label: "Polygon" },
+                      { id: "base" as const, label: "Base" },
                     ] as const
                   ).map((tab) => (
                     <button
                       key={tab.id}
                       type="button"
-                      disabled={tab.id === "polygon"}
                       onClick={() => setChainTab(tab.id)}
                       className={`rounded-xl px-5 py-2 text-sm font-bold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                         chainTab === tab.id
@@ -444,37 +476,33 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                 <div key={k} className="h-72 animate-pulse rounded-xl bg-surface-container" aria-hidden />
               ))}
             </div>
-          ) : chainTab === "polygon" ? (
-            <p className="text-sm font-medium text-on-surface-variant">
-              No assets on Polygon in this build. Switch to Sepolia or All Chains.
-            </p>
           ) : chainFiltered.length === 0 ? (
             <p className="text-sm font-medium text-on-surface-variant">
-              You don&apos;t own any eligible card NFTs on Sepolia in this collection, or nothing
-              matches your search.
+              You don&apos;t own any eligible NFTs in the configured collections on this network, or
+              nothing matches your search.
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {chainFiltered.map((nft) => {
-                const v = valuationByTokenId.get(nft.tokenId);
+                const v = valuationByTokenId.get(nftKey(nft));
                 const priced = !!v;
-                const qi = nftIndexByToken.get(nft.tokenId);
+                const qi = nftIndexByToken.get(nftKey(nft));
                 const loadingV =
                   apiConfigured && qi !== undefined ? valuationQueries[qi]?.isLoading : false;
-                const isSel = selected.has(nft.tokenId);
+                const isSel = selected.has(nftKey(nft));
                 const canSelect = !apiConfigured || priced;
 
                 return (
                   <article
-                    key={nft.tokenId}
+                    key={nftKey(nft)}
                     role="button"
                     tabIndex={canSelect ? 0 : -1}
-                    onClick={() => canSelect && toggle(nft.tokenId)}
+                    onClick={() => canSelect && toggle(nftKey(nft))}
                     onKeyDown={(e) => {
                       if (!canSelect) return;
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        toggle(nft.tokenId);
+                        toggle(nftKey(nft));
                       }
                     }}
                     className={`group relative rounded-xl p-4 transition-all duration-300 ${
@@ -516,8 +544,13 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                               {gradeChip(nft)}
                             </span>
                             <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-700">
-                              {sepolia.name}
+                              {chainLabel(nft.chainId)}
                             </span>
+                            {nft.integrationLabel ? (
+                              <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-violet-800">
+                                {nft.integrationLabel}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
@@ -594,10 +627,10 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                 </p>
               ) : (
                 selectedList.map((nft) => {
-                  const v = valuationByTokenId.get(nft.tokenId);
+                  const v = valuationByTokenId.get(nftKey(nft));
                   return (
                     <div
-                      key={nft.tokenId}
+                      key={nftKey(nft)}
                       className="flex items-center justify-between rounded-xl bg-surface-container-low p-3"
                     >
                       <div className="flex min-w-0 items-center gap-3">
@@ -611,7 +644,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-primary">{nft.name}</p>
                           <p className="text-[10px] font-bold text-on-surface-variant">
-                            {sepolia.name} • {gradeChip(nft)}
+                            {chainLabel(nft.chainId)} • {gradeChip(nft)}
                           </p>
                         </div>
                       </div>
@@ -724,7 +757,7 @@ export function CollateralDepositModal({ onClose }: CollateralDepositModalProps)
               <Icon name="double_arrow" className="!text-xl text-on-primary" aria-hidden />
             </TransactionButton>
             <p className="text-center text-[10px] font-medium text-on-surface-variant">
-              Executes on Sepolia (approve adapter if needed, then lock per card).{" "}
+              Executes on Polygon or Base (approve adapter if needed, then lock per NFT).{" "}
               <Link to="/lock" className="font-bold text-secondary hover:underline" onClick={onClose}>
                 Open full lock page
               </Link>

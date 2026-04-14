@@ -31,3 +31,9 @@ export const POSITION_STATUS_BADGE_CLASSES: Record<number, string> = {
 
 /** Max token id scanned when listing Slab.Finance demo collectibles */
 export const MAX_TOKEN_ID = 100;
+
+/**
+ * When an ERC-721 is not enumerable, `ownerOf` is probed for ids `1..N` (RPC-heavy).
+ * Override in the browser with `VITE_EVM_LOCK_OWNER_SCAN_MAX`.
+ */
+export const MAX_OWNER_SCAN_TOKEN_ID_DEFAULT = 2000;

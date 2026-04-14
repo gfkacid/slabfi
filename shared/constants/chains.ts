@@ -1,2 +1,2 @@
-/** Arc Testnet chain id (hub default) */
-export const ARC_TESTNET_CHAIN_ID = 5042002;
+/** Stable string id for hub rows in Prisma / indexer (Solana cluster). */
+export const SOLANA_HUB_CHAIN_ID = "solana:mainnet-beta";

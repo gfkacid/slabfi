@@ -1,5 +1,6 @@
-import { createPublicClient, http, type Abi, type Address, type PublicClient } from "viem";
-import { assertDatabaseUrl, config } from "./config.js";
+import { base, polygon } from "viem/chains";
+import { createPublicClient, defineChain, http, type Abi, type Address, type Chain, type PublicClient } from "viem";
+import { assertDatabaseUrl, config, type EvmIndexerSource } from "./config.js";
 import { handleAuctionManagerDecoded } from "./hub/auctionManager.js";
 import { handleCollateralRegistryDecoded } from "./hub/collateralRegistry.js";
 import { handleLendingPoolDecoded } from "./hub/lendingPool.js";
@@ -8,6 +9,7 @@ import { writeProtocolSnapshot } from "./hub/protocolSnapshot.js";
 import { prisma } from "./prisma.js";
 import { handleCollateralAdapterDecoded } from "./source/collateralAdapter.js";
 import { handleNftVaultDecoded } from "./source/nftVault.js";
+import { solanaHubTick } from "./solana/hubTick.js";
 import {
   AUCTION_MANAGER_EVENTS_ABI,
   COLLATERAL_ADAPTER_EVENTS_ABI,
@@ -66,11 +68,6 @@ async function hubTick(hubClient: PublicClient): Promise<void> {
           client: hubClient,
           hubChainId,
           registry: config.collateralRegistry!,
-          hubRpcUrl: config.hubRpcUrl,
-          oracle: config.oracleConsumer,
-          healthFactorEngine: config.healthFactorEngine,
-          deployerPrivateKey: config.deployerPrivateKey,
-          oracleFallbackPriceUsd8: config.oracleFallbackPriceUsd8,
           decoded,
           blockTs,
         });
@@ -111,17 +108,30 @@ async function hubTick(hubClient: PublicClient): Promise<void> {
   }
 }
 
-async function sourceTick(sourceClient: PublicClient): Promise<void> {
-  const chainId = config.sourceChainId;
-  const sourceChainId = config.sourceChainId;
+function chainForIndexerSource(src: { id: string; chainId: string; rpcUrl: string }): Chain {
+  const id = Number(src.chainId);
+  if (id === polygon.id) return { ...polygon, rpcUrls: { default: { http: [src.rpcUrl] } } };
+  if (id === base.id) return { ...base, rpcUrls: { default: { http: [src.rpcUrl] } } };
+  return defineChain({
+    id,
+    name: src.id,
+    nativeCurrency: { name: "Gas", symbol: "GAS", decimals: 18 },
+    rpcUrls: { default: { http: [src.rpcUrl] } },
+  });
+}
 
-  if (config.nftVault) {
+async function sourceTickFor(src: EvmIndexerSource, client: PublicClient): Promise<void> {
+  const chainId = src.chainId;
+  const sourceChainId = src.chainId;
+  const prefix = `source:${src.id}`;
+
+  if (src.nftVault) {
     await fetchAndProcessRange({
       prisma,
-      client: sourceClient,
+      client,
       chainId,
-      contractKey: "source:nftVault",
-      address: config.nftVault,
+      contractKey: `${prefix}:nftVault`,
+      address: src.nftVault,
       abi: toAbi(NFT_VAULT_EVENTS_ABI),
       chunkSize: config.chunkSize,
       onDecoded: async ({ decoded, blockTs }) => {
@@ -131,18 +141,18 @@ async function sourceTick(sourceClient: PublicClient): Promise<void> {
     });
   }
 
-  if (config.collateralAdapter) {
+  if (src.collateralAdapter) {
     await fetchAndProcessRange({
       prisma,
-      client: sourceClient,
+      client,
       chainId,
-      contractKey: "source:collateralAdapter",
-      address: config.collateralAdapter,
+      contractKey: `${prefix}:collateralAdapter`,
+      address: src.collateralAdapter,
       abi: toAbi(COLLATERAL_ADAPTER_EVENTS_ABI),
       chunkSize: config.chunkSize,
       onDecoded: async ({ decoded, blockTs }) => {
         if (decoded.length === 0) return;
-        await handleCollateralAdapterDecoded({ prisma, sourceChainId, decoded, blockTs });
+        await handleCollateralAdapterDecoded({ prisma, client, sourceChainId, decoded, blockTs });
       },
     });
   }
@@ -172,27 +182,29 @@ async function main(): Promise<void> {
   if (!config.hubRpcUrl) {
     console.warn("[indexer] INDEXER_HUB_RPC_URL missing — hub polling skipped");
   }
-  if (!config.sourceRpcUrl) {
-    console.warn("[indexer] INDEXER_SOURCE_RPC_URL missing — source polling skipped");
-  }
-
   const hubClient: PublicClient | undefined = config.hubRpcUrl
     ? createPublicClient({ transport: http(config.hubRpcUrl) })
     : undefined;
 
-  const sourceClient: PublicClient | undefined = config.sourceRpcUrl
-    ? createPublicClient({ transport: http(config.sourceRpcUrl) })
-    : undefined;
+  const evmClients = config.evmSources.map((src) => ({
+    src,
+    client: createPublicClient({
+      chain: chainForIndexerSource(src),
+      transport: http(src.rpcUrl),
+    }),
+  }));
 
   const loop = async () => {
     while (!shuttingDown) {
       try {
-        if (hubClient) {
+        if (config.slabHubProgramId) {
+          await solanaHubTick(prisma);
+        } else if (hubClient) {
           await hubTick(hubClient);
           await maybeSnapshot(hubClient);
         }
-        if (sourceClient) {
-          await sourceTick(sourceClient);
+        for (const { src, client } of evmClients) {
+          await sourceTickFor(src, client);
         }
       } catch (e) {
         console.error("[indexer] tick error", e);
@@ -212,7 +224,11 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => void stop());
   process.on("SIGTERM", () => void stop());
 
-  console.log("[indexer] running (hub + source poll)");
+  console.log(
+    config.slabHubProgramId
+      ? "[indexer] running (Solana hub + EVM source poll)"
+      : "[indexer] running (hub + source poll)",
+  );
 }
 
 void main();

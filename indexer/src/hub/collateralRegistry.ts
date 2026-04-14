@@ -1,7 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { COLLATERAL_REGISTRY_ABI } from "@slabfinance/shared";
 import type { Address, PublicClient } from "viem";
-import { seedOraclePriceAndActivate } from "./oracleMockSeed.js";
 import type { DecodedEventLog } from "../utils/poller.js";
 
 const COLLATERAL_PENDING = 0;
@@ -11,27 +10,10 @@ export async function handleCollateralRegistryDecoded(params: {
   client: PublicClient;
   hubChainId: string;
   registry: Address;
-  oracle?: Address;
-  healthFactorEngine?: Address;
-  deployerPrivateKey?: string;
-  oracleFallbackPriceUsd8?: string;
-  hubRpcUrl?: string;
   decoded: DecodedEventLog[];
   blockTs: (bn: bigint) => Promise<bigint>;
 }): Promise<void> {
-  const {
-    prisma,
-    client,
-    hubChainId,
-    registry,
-    oracle,
-    healthFactorEngine,
-    deployerPrivateKey,
-    oracleFallbackPriceUsd8,
-    hubRpcUrl,
-    decoded,
-    blockTs,
-  } = params;
+  const { prisma, client, hubChainId, registry, decoded, blockTs } = params;
 
   for (const ev of decoded) {
     const bn = ev.blockNumber!;
@@ -95,31 +77,9 @@ export async function handleCollateralRegistryDecoded(params: {
       });
 
       const statusNum = Number(item.status);
-      if (
-        statusNum === COLLATERAL_PENDING &&
-        oracle &&
-        healthFactorEngine &&
-        hubRpcUrl &&
-        deployerPrivateKey?.startsWith("0x")
-      ) {
-        await seedOraclePriceAndActivate({
-          prisma,
-          publicClient: client,
-          hubRpcUrl,
-          registry,
-          collateralId: rowId,
-          oracle,
-          healthFactorEngine,
-          deployerPrivateKey: deployerPrivateKey as `0x${string}`,
-          oracleFallbackPriceUsd8,
-          owner: String(item.owner).toLowerCase() as Address,
-          collection: item.collection,
-          tokenId: item.tokenId,
-          collateralStatus: statusNum,
-        });
-      } else if (statusNum === COLLATERAL_PENDING && oracle && healthFactorEngine && hubRpcUrl) {
+      if (statusNum === COLLATERAL_PENDING) {
         console.warn(
-          "[indexer] PENDING collateral: set DEPLOYER_PRIVATE_KEY (OracleConsumer DEFAULT_ADMIN) to auto-call setMockPrice + recomputePosition",
+          "[indexer] PENDING collateral: push oracle price on Solana hub (backend signer) to activate.",
         );
       }
     }
@@ -155,7 +115,7 @@ export async function handleCollateralRegistryDecoded(params: {
           hubChainId,
           kind: "UnlockInitiated",
           actor: collateralId,
-          payloadJson: JSON.stringify({ ccipMessageId: args.ccipMessageId }),
+          payloadJson: JSON.stringify({ messageId: args.ccipMessageId }),
           txHash: tx,
           blockNumber: bn,
           logIndex,

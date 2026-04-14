@@ -1,11 +1,11 @@
 import { useAccount, useReadContract, useChainId } from "wagmi";
 import { COLLATERAL_REGISTRY_ABI } from "@slabfinance/shared";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 
 export function useAvailableCredit() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.collateralRegistry : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.collateralRegistry : undefined;
 
   return useReadContract({
     address: addr,
@@ -18,7 +18,7 @@ export function useAvailableCredit() {
 export function usePosition() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.collateralRegistry : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.collateralRegistry : undefined;
 
   return useReadContract({
     address: addr,
@@ -30,7 +30,7 @@ export function usePosition() {
 
 export function useCollateralItem(collateralId: `0x${string}` | undefined) {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.collateralRegistry : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.collateralRegistry : undefined;
 
   return useReadContract({
     address: addr,

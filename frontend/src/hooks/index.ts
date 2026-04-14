@@ -6,7 +6,7 @@ export * from "./useOracleConsumer";
 export * from "./useLiquidationManager";
 export * from "./useCollateralAdapter";
 export * from "./useSlabCollectibles";
-export * from "./useSepoliaSlabCollectibles";
+export * from "./useEvmLockCollectibles";
 export * from "./useCardValuations";
 export * from "./useHubDepositPreview";
 export * from "./useInitiateUnlock";

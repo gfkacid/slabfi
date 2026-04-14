@@ -1,10 +1,10 @@
 import { useReadContract, useChainId } from "wagmi";
 import { ORACLE_CONSUMER_ABI } from "@slabfinance/shared";
-import { hubChain, hubContracts } from "@/lib/hub";
+import { hubChain, hubContracts, isHubEvm } from "@/lib/hub";
 
 export function useOraclePrice(collection: `0x${string}` | undefined, tokenId: bigint | undefined) {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.oracleConsumer : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.oracleConsumer : undefined;
 
   return useReadContract({
     address: addr,
@@ -16,7 +16,7 @@ export function useOraclePrice(collection: `0x${string}` | undefined, tokenId: b
 
 export function useEffectiveLTV(collection: `0x${string}` | undefined, tokenId: bigint | undefined) {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.oracleConsumer : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.oracleConsumer : undefined;
 
   return useReadContract({
     address: addr,
@@ -32,7 +32,7 @@ export function useTokenTier(
   tokenId: bigint | undefined,
 ) {
   const chainId = useChainId();
-  const addr = chainId === hubChain.id ? hubContracts.oracleConsumer : undefined;
+  const addr = isHubEvm(chainId) ? hubContracts.oracleConsumer : undefined;
 
   return useReadContract({
     address: addr,

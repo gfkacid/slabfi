@@ -1,6 +1,6 @@
 # Slab.Finance Developer Documentation
 
-Protocol reference for developers: repository layout, environment, deployment order, verification, mechanics (CCIP, collateral lifecycle, health factor, lending UI, liquidations), and end-to-end flow.
+Protocol reference for developers: repository layout, environment, deployment order, verification, mechanics (collateral lifecycle, health factor, lending UI, liquidations, LayerZero), and end-to-end flow.
 
 For a focused deployment and local stack walkthrough, see **[SETUP.md](./SETUP.md)**.
 
@@ -10,12 +10,13 @@ The repo is a **pnpm workspace** with these main areas:
 
 | Path | Purpose |
 |------|---------|
-| [`contracts/`](contracts/) | Solidity / Foundry — hub and source deployments, tests |
-| [`frontend/`](frontend/) | **Vite + React** SPA — wallet UI (Reown AppKit, Wagmi, Viem) |
+| [`programs/slab_hub/`](programs/slab_hub/) | **Anchor** — Solana hub program (lending, registry, oracle, vault, LZ entry) |
+| [`contracts/`](contracts/) | Solidity / Foundry — EVM source chain (vault, LayerZero adapter), tests |
+| [`frontend/`](frontend/) | **Vite + React** SPA — Solana wallet adapter + Reown/Wagmi for EVM |
 | [`backend/`](backend/) | **NestJS** REST API — protocol stats, positions, auctions, collateral, activity (reads **MySQL** populated by the indexer) |
 | [`indexer/`](indexer/) | **TypeScript** service — polls hub + source chains, writes events and snapshots to **MySQL** |
 | [`prisma/`](prisma/) | Shared **Prisma** schema for backend + indexer |
-| [`shared/`](shared/) | **`@slabfinance/shared`** — types, constants (ABIs, chain id, status labels), and **[`shared/config/testnet.ts`](shared/config/testnet.ts)** (hub Arc Testnet + source Ethereum Sepolia: RPCs, CCIP, contract addresses) |
+| [`shared/`](shared/) | **`@slabfinance/shared`** — types, constants (ABIs, chain ids, status labels), and **[`shared/config/protocol.ts`](shared/config/protocol.ts)** (Solana hub + **multi-chain EVM sources**: Polygon, Base, LZ endpoint ids, contract addresses) |
 | [`specs/`](specs/) | Product **specs** — e.g. [vault-deposits.md](specs/vault-deposits.md), [lending-page.md](specs/lending-page.md), [liquidation-auctions.md](specs/liquidation-auctions.md) |
 
 Root files:
@@ -31,7 +32,7 @@ Root files:
 pnpm install
 pnpm dev:frontend   # Vite dev server (default http://localhost:3000)
 pnpm dev:backend  # Nest dev server (default http://localhost:3001)
-pnpm dev:indexer  # Chain indexer → MySQL (set `DATABASE_URL`; contract addresses in shared/config/testnet.ts)
+pnpm dev:indexer  # Chain indexer → MySQL (set `DATABASE_URL`; addresses in shared/config/protocol.ts)
 ```
 
 From clone through contract deploy, database seed, and running all services, follow **[SETUP.md](./SETUP.md)**.
@@ -49,7 +50,7 @@ cp .env.example frontend/.env
 pnpm run build   # builds shared, runs prisma generate, backend, indexer, frontend
 ```
 
-Foundry remappings expect Chainlink packages under the **repo root** `node_modules` (installed via root `devDependencies` in [`package.json`](package.json)).
+Foundry remappings use OpenZeppelin and **LayerZero** packages under [`contracts/lib/`](contracts/lib/) (and root `node_modules` where referenced).
 
 ## MySQL (backend + indexer)
 
@@ -73,9 +74,7 @@ There is **no Docker Compose** in this repository. Use a local or hosted **MySQL
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) (forge, cast)
 - [Node.js](https://nodejs.org/) 18+ and [pnpm](https://pnpm.io/)
 - **MySQL 8+** (for backend + indexer; see above)
-- A wallet with testnet funds:
-  - **Arc Testnet** — [Circle faucet](https://faucet.circle.com) (USDC is native gas token)
-  - **Ethereum Sepolia** — [Sepolia faucet](https://sepoliafaucet.com) (ETH for gas)
+- Wallets with **mainnet** funds where you deploy and demo: **SOL** (Solana), **POL** (Polygon), **ETH** (Base)
 
 ## Environment Setup
 
@@ -89,11 +88,11 @@ There is **no Docker Compose** in this repository. Use a local or hosted **MySQL
 
 ### Chain and contract configuration
 
-**Hub chain:** Arc Testnet. **Source chain:** Ethereum Sepolia.
+**Hub:** Solana **mainnet-beta**. **EVM sources:** **Polygon**, **Base**, and any extra entries you add under **`protocolConfig.evmSources`**.
 
-RPC URLs, CCIP routers and selectors, CRE forwarder placeholder, and **all deployed contract addresses** for the frontend, indexer, and backend live in **[`shared/config/testnet.ts`](shared/config/testnet.ts)**. After deploying, paste addresses there (or copy the snippet from `DEPLOYMENTS.md` when using [`scripts/deploy-all.sh`](scripts/deploy-all.sh)).
+RPC defaults, LayerZero endpoint ids, program id, and **deployed contract addresses** live in **[`shared/config/protocol.ts`](shared/config/protocol.ts)**. After Foundry deploys, write **`contracts/deployments/evm/polygon.json`** / **`base.json`** and run **`pnpm sync:protocol`** to patch the `// @slabfi-sync:…` regions (see [DEPLOYMENTS.md](./DEPLOYMENTS.md)).
 
-Forge scripts receive RPCs and CCIP values via **`scripts/print-deploy-env.ts`** (invoked automatically by `deploy-all.sh`).
+**`scripts/print-deploy-env.ts`** emits `export` lines for Solana and each configured source (used by [`scripts/deploy-all.sh`](scripts/deploy-all.sh)).
 
 | Variable | Description |
 |----------|-------------|
@@ -108,138 +107,70 @@ Forge scripts receive RPCs and CCIP values via **`scripts/print-deploy-env.ts`**
 
 The protocol spec in [PRD.md](PRD.md) defines an open **USDC vault** with **`deposit` / `withdraw`**, **share** accounting, and **utilization-based** **`currentBorrowAPR` / `currentSupplyAPR`**. The deployed `LendingPool` in this repo may still expose older names (for example `depositLiquidity`, `totalReserves`, fixed `annualInterestRateBPS`) until contracts are upgraded to match the PRD. After alignment, extend [`shared/constants/abis.ts`](shared/constants/abis.ts) and hooks to include the new view and write methods.
 
-The SPA uses **Arc Testnet** for lending and **Ethereum Sepolia** for locking NFTs (see [`frontend/src/lib/hub.ts`](frontend/src/lib/hub.ts), [`frontend/src/lib/chains.ts`](frontend/src/lib/chains.ts)). Chain metadata and addresses come from **`testnetConfig`** in **`@slabfinance/shared`**.
+The SPA uses **Solana** for hub lending and **Wagmi** on **Polygon** and **Base** for EVM-side locks (see [`frontend/src/lib/chains.ts`](frontend/src/lib/chains.ts), [`frontend/src/lib/contracts.ts`](frontend/src/lib/contracts.ts)). Chain metadata and addresses come from **`protocolConfig`** in **`@slabfinance/shared`**.
 
-**Fund CCIP outbound fees:** On Arc, send native USDC to `CCIPMessageRouter`. On Ethereum Sepolia, pay CCIP fees in ETH (or a supported fee token per [Chainlink CCIP docs](https://docs.chain.link/ccip)).
+**Fees:** Solana transactions pay **SOL**; each EVM `_lzSend` pays that chain’s **native gas token** for LayerZero delivery. Use [LayerZero Scan](https://layerzeroscan.com/) for cross-chain status.
 
-For `cast` examples below, use the hub RPC from **`shared/config/testnet.ts`** (`hub.rpcUrl`) or export it via `eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"` from the `contracts/` directory (sets `ARC_TESTNET_RPC`).
+For shell exports, run `pnpm print:deploy-env` from the repo root.
 
 ## Deployment Order
 
-Hub contracts must be deployed before source chain contracts (the adapter needs the hub router address).
+Deploy the Solana program first, then wire LayerZero peers and deploy **`NFTVault` + `CollateralAdapterLayerZero`** on **each** EVM source chain you support (Polygon, Base, …).
 
-### Step 1: Deploy Hub (Arc Testnet)
+### Step 1: Deploy Solana hub program
 
-```bash
-cd contracts
-eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
-forge script script/Deploy_Hub.s.sol --rpc-url "$ARC_TESTNET_RPC" --broadcast --via-ir
-```
-
-This deploys:
-
-- **USDC** at `hub.contracts.usdc` in **`shared/config/testnet.ts`** (exported as `HUB_USDC_ADDRESS` by `print-deploy-env.ts`); optional seed deposit (default $1,000 raw units) if the deployer holds balance. `OracleConsumer` uses `CRE_FORWARDER_ADDRESS` from the same config (`cre.forwarderAddress` — use real KeystoneForwarder + [`cre/price-oracle/`](cre/price-oracle/) for production paths)
-- OracleConsumer, CollateralRegistry, LendingPool, AuctionLiquidationManager, HealthFactorEngine (UUPS proxies)
-- CCIPMessageRouter, ChainlinkAutomationKeeper
-- May seed initial USDC liquidity (implementation-specific). Anyone can add liquidity afterward via the pool’s public **`deposit`** once that function exists on chain.
-
-**Save the `CCIPMessageRouter` address** — you need it for Step 2.
-
-### Step 2: Deploy Source Chain (Ethereum Sepolia)
-
-Set `HUB_CCIP_ROUTER_ADDRESS` to the CCIPMessageRouter address from Step 1 and `HUB_CHAIN_SELECTOR` to the Arc CCIP selector (same as `ARC_CHAIN_SELECTOR` from `testnetConfig`).
+From the repo root (with Anchor toolchain installed):
 
 ```bash
-eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
-export HUB_CCIP_ROUTER_ADDRESS=<CCIPMessageRouter_address_from_step_1>
-export HUB_CHAIN_SELECTOR=$ARC_CHAIN_SELECTOR
-export SOURCE_CCIP_ROUTER=$CCIP_ROUTER_SEPOLIA
-export SOURCE_CHAIN_SELECTOR=$SEPOLIA_CHAIN_SELECTOR
-export DEPLOYMENT_OUTPUT_FILE=deployments/eth-sepolia.json
-export SOURCE_NETWORK_NAME=ethereum-sepolia
-forge script script/Deploy_SourceChain.s.sol:DeploySourceChain --rpc-url "$SEPOLIA_RPC" --broadcast --via-ir
+cd programs/slab_hub
+anchor build
+anchor deploy --provider.cluster mainnet-beta   # or devnet for mocks
 ```
 
-This deploys:
+Record the deployed **program id** in [`shared/config/protocol.ts`](shared/config/protocol.ts) under `hub.programs.slabHub`. Run `pnpm print:deploy-env` to emit shell exports (`SLAB_HUB_PROGRAM_ID`, `SOLANA_RPC_URL`, LZ ids).
 
-- `CardFiCollectible` demo NFT (Solidity contract name; 3 sample tokens minted and metadata set)
-- NFTVault, CollateralAdapter_CardFiCollectible
+Initialize pool / registry / oracle per program instructions (see [`programs/README.md`](programs/README.md)).
 
-`source.contracts.usdc` in **`shared/config/testnet.ts`** is for the **app** (balances, approvals on Sepolia when needed); this script does **not** deploy USDC.
+### Step 2: Deploy EVM sources (per chain)
 
-### Step 3: Register Adapter on Hub
+Use **`contracts/script/Deploy_EvmSourceLayerZero.s.sol`** on **Polygon**, **Base**, etc. Set **`LZ_ENDPOINT`**, **`LZ_DST_EID=30168`**, **`COLLECTION`**, **`SOURCE_CHAIN_ID`**, and write JSON to **`contracts/deployments/evm/<network>.json`**, then **`pnpm sync:protocol`**.
 
-Register the Sepolia adapter so the hub accepts LOCK_NOTICE messages from it:
+USDC for borrows is the **Solana** hub USDC mint in **`protocol.ts`** (`hub.usdcMint`).
 
-```bash
-cast send $CCIP_MESSAGE_ROUTER_ADDRESS \
-  "registerAdapter(uint64,address)" \
-  $SEPOLIA_CHAIN_SELECTOR \
-  $COLLATERAL_ADAPTER_ADDRESS \
-  --rpc-url $ARC_TESTNET_RPC \
-  --private-key $DEPLOYER_PRIVATE_KEY
-```
+### Step 3: Fund LayerZero / executors
 
-### Step 4: Fund CCIP Router
+Solana pays **rent + executor fees** in **SOL**; each EVM source pays its **native gas token** for `_lzSend`. Use [LayerZero Scan](https://layerzeroscan.com/) to debug stuck messages.
 
-The CCIPMessageRouter on Arc needs native USDC to pay for outbound CCIP messages (UnlockCommand). Arc native USDC uses **6 decimals** (1 USDC = `1000000` smallest units). Prefer:
+### Step 4: Set oracle prices
 
-```bash
-pnpm ccip:fund-message-router
-```
+Collateral becomes **ACTIVE** once the on-chain oracle has a fresh price for that NFT key. In development, call the `slab_hub` oracle instruction (or use the backend **`SolanaOracleService`** stub wired to your authority keypair). Production uses the same program surface with a secured signer.
 
-Or with `cast` (value is in smallest native units):
+### Step 5: Configure the app
 
-```bash
-cast send $CCIP_MESSAGE_ROUTER_ADDRESS \
-  --value 1000000 \
-  --rpc-url $ARC_TESTNET_RPC \
-  --private-key $DEPLOYER_PRIVATE_KEY
-```
-
-If the transfer never confirms, raise gas (see `.env.example`): **`ARC_FUND_CCIP_LEGACY=1`** and **`ARC_FUND_CCIP_GAS_PRICE`** (or **`ARC_FUND_GAS_BUMP_PERCENT`** for EIP-1559). If the deployer’s **`pending` transaction count is ahead of `latest`**, the script **replaces stuck nonces** with high-gas self-transfers before funding (disable with **`ARC_FUND_CCIP_SKIP_UNSTICK=1`**).
-
-### Step 5: Set Oracle Prices
-
-For collateral to become ACTIVE, the OracleConsumer needs prices. Use the mock setter:
-
-```bash
-cast send $ORACLE_CONSUMER_ADDRESS \
-  "setMockPrice(address,uint256,uint256,uint8)" \
-  $SLAB_FINANCE_COLLECTIBLE_ADDRESS \
-  1 \
-  15000000000 \
-  1 \
-  --rpc-url $ARC_TESTNET_RPC \
-  --private-key $DEPLOYER_PRIVATE_KEY
-```
-
-(Price is 8 decimals: 15000000000 = $150.00; last `1` is risk tier.) Repeat for token IDs 2 and 3 if needed.
-
-### Step 6: Configure the app
-
-Add the deployed addresses to **[`shared/config/testnet.ts`](shared/config/testnet.ts)** under `hub.contracts` and `source.contracts` (including `nftVault` for the indexer). Set **`VITE_WALLETCONNECT_PROJECT_ID`** in `.env` / `frontend/.env`.
+Add deployed values to **[`shared/config/protocol.ts`](shared/config/protocol.ts)** (`hub.programs`, `hub.whitelistedCollections`, `evmSources.*.contracts`, `integrations`). Set **`VITE_WALLETCONNECT_PROJECT_ID`** in `.env` / `frontend/.env`.
 
 Restart `pnpm dev:frontend` after changing config or env files.
 
 ## Post-Deployment Verification
 
-Export `ARC_TESTNET_RPC` (and addresses) from **`shared/config/testnet.ts`** via `print-deploy-env.ts`, or paste the hub RPC from that file into `--rpc-url`.
-
 ```bash
-eval "$(pnpm --filter @slabfinance/indexer exec tsx ../scripts/print-deploy-env.ts)"
-# Check pool size (use totalAssets() when implemented; else totalReserves() or USDC balance + borrows per PRD)
-cast call $LENDING_POOL_ADDRESS "totalAssets()" --rpc-url $ARC_TESTNET_RPC
-
-# Check router has registry set
-cast call $CCIP_MESSAGE_ROUTER_ADDRESS "collateralRegistry()" --rpc-url $ARC_TESTNET_RPC
-
-# Check adapter is registered
-cast call $CCIP_MESSAGE_ROUTER_ADDRESS "trustedAdapters(uint64)" $SEPOLIA_CHAIN_SELECTOR --rpc-url $ARC_TESTNET_RPC
+pnpm print:deploy-env
+# Solana: use `solana account <PDA>` / Anchor IDL `account` fetches for pool + registry state.
+# EVM: `cast call` against `NFTVault` / `CollateralAdapterLayerZero` on each chain as needed.
 ```
 
 ## Key Mechanics
 
-### CCIP Messaging
+### LayerZero messaging (EVM → Solana hub)
 
-- **LOCK_NOTICE** (Sepolia → Arc): Sent by CollateralAdapter when an NFT is locked. Payload: `(messageType, sourceChainSelector, collection, tokenId, hubOwner)`. CCIPMessageRouter validates the sender and calls `CollateralRegistry.registerCollateral()`.
-- **UNLOCK_COMMAND** (Arc → Sepolia): Sent by CCIPMessageRouter when a borrower initiates unlock or a liquidation executes. Payload: `(messageType, collateralId, recipient)`. CollateralAdapter receives it and calls `NFTVault.release()`.
+- **Lock notice** (EVM → Solana): Sent by `CollateralAdapterLayerZero` when an NFT is locked; the Solana program’s LZ entry decodes the payload and registers collateral.
+- **Unlock** (Solana → EVM): Delivered to the adapter / vault path per OApp configuration so the NFT can be released on the correct **source chain id**.
 
 ### Collateral Lifecycle
 
 1. **PENDING** — LockNotice received, awaiting first oracle price.
 2. **ACTIVE** — Priced; contributes to borrower’s health factor and available credit.
-3. **UNLOCK_SENT** — UnlockCommand dispatched via CCIP.
+3. **UNLOCK_SENT** — Unlock message dispatched via LayerZero.
 4. **RELEASED** — NFT returned to recipient on source chain.
 
 ### Health Factor
@@ -260,8 +191,8 @@ On-chain and UI enums for status values are aligned in **`@slabfinance/shared`**
 The **Lending** experience is specified in **[specs/lending-page.md](specs/lending-page.md)**. On the hub chain, users should be able to:
 
 1. **Deposit USDC** into the vault (liquidity provision; shares and APR — see [specs/vault-deposits.md](specs/vault-deposits.md)).
-2. **Borrow USDC** against collateral that was registered by **locking NFTs on the source chain** (`lockAndNotify` on Sepolia); borrow amount is capped by **`availableCredit`** on `CollateralRegistry`.
-3. **Repay** active loans (approve USDC, then `repay`); when debt is zero, **initiate unlock** to release NFTs on Sepolia (may live on the same page or **Repay** flow).
+2. **Borrow USDC** against collateral that was registered by **locking NFTs on an EVM source** (`lockAndNotify` on Polygon/Base); borrow amount is capped by hub **`availableCredit`** (per program / API).
+3. **Repay** active loans on Solana; when debt is zero, **initiate unlock** to release NFTs on the source chain (may live on the same page or **Repay** flow).
 
 Implementation may use a single route (e.g. `/lending`) with tabs/sections, or separate routes (`/borrow`, `/repay`, vault deposit) until unified. See [PRD.md](PRD.md) §11.3.
 
@@ -274,30 +205,20 @@ Implementation may use a single route (e.g. `/lending`) with tabs/sections, or s
 
 ### Liquidations (summary)
 
-When **HF &lt; 1.0**, the hub **`AuctionLiquidationManager`** opens a **USDC auction per ACTIVE collateral** (`queueLiquidation`). Bidders call **`placeBid`**; late bids can **extend the deadline** (anti-sniping). If the borrower **cures** (HF ≥ 1), **`cancelAllAuctionsForBorrower`** refunds bids. After the deadline with at least one bid, **`claim`** settles: **debt share** goes to **`LendingPool`** via **`partialClearDebt`**, the **liquidation fee** (BPS of debt share) goes **directly to treasury**, **excess** over debt+fee is split between pool and treasury, and the **NFT** is released to the **winning bidder** via CCIP. Details: [specs/liquidation-auctions.md](specs/liquidation-auctions.md) and [PRD.md](PRD.md) §7.
+When **HF &lt; 1.0**, the hub liquidation module opens a **USDC auction per ACTIVE collateral**. Settlement sends debt proceeds to the pool and routes the NFT to the winning bidder; cross-chain collateral uses **LayerZero** for release on the source chain where applicable. Details: [specs/liquidation-auctions.md](specs/liquidation-auctions.md) and [PRD.md](PRD.md) §7.
 
 ### Card pricing (lock UI)
 
-Before locking an NFT, the app should call **EXTERNAL_PRICE_API** (documented in [PRD.md](PRD.md) §5.1) for **USD value**, **suggested LTV**, and freshness fields. On-chain prices still come from **OracleConsumer** (Chainlink CRE workflow or admin `setMockPrice`).
-
-### Demo collectible NFT (`CardFiCollectible.sol`)
-
-Admin can:
-
-- `mint(to, tokenId)` — mint new tokens
-- `setCardMetadata(tokenId, metadata)` — set/update per-token metadata
-
-Metadata fields: `cardName`, `cardImage`, `setName`, `cardNumber`, `cardRarity`, `cardPrinting`. `tokenURI` returns base64-encoded JSON with these fields and an `attributes` array for marketplaces.
+Before locking an NFT, the app should call **EXTERNAL_PRICE_API** (documented in [PRD.md](PRD.md) §5.1) for **USD value**, **suggested LTV**, and freshness fields. On-chain prices come from the **`slab_hub` oracle** (backend-signed updates in production).
 
 ## Running the Full Flow
 
 1. Start the app: `pnpm dev:frontend` and open the printed URL.
-2. (Liquidity provider path) On the hub chain, approve USDC and call **`LendingPool.deposit(amount)`** when available; confirm shares and supply APR in the UI ([specs/vault-deposits.md](specs/vault-deposits.md)).
-3. Connect wallet to Sepolia. Acquire demo collectible tokens from the deployed `CardFiCollectible` contract (admin mints to you or you receive from deployer).
-4. Use **EXTERNAL_PRICE_API** (or mock) in the lock flow to show value and borrow preview; approve the CollateralAdapter to transfer your NFT, then call `lockAndNotify(tokenId, hubOwner)`. Pay the CCIP fee (ETH on Sepolia).
-5. Wait for CCIP delivery (~few minutes). Check [CCIP Explorer](https://ccip.chain.link).
-6. Set oracle price for the token if not already set (`setMockPrice`, or local CRE simulate + on-chain update via [`cre/price-oracle/`](cre/price-oracle/) / `deploy-all.sh`; forwarder `onReport` when CRE deploy is available).
-7. Switch to **Arc Testnet** (hub). Call `LendingPool.borrow(amount)`.
-8. To unlock: repay full debt with `LendingPool.repay(amount)`, then call `CollateralRegistry.initiateUnlock(collateralId)`.
-9. Wait for UnlockCommand CCIP delivery. NFT is released to your address on Sepolia.
-10. (LP path) **`withdraw(shares)`** when the pool has enough idle USDC.
+2. (Liquidity provider path) On **Solana**, deposit USDC into the pool per program instructions / UI when wired ([specs/vault-deposits.md](specs/vault-deposits.md)).
+3. Connect **Polygon** or **Base** in the wallet UI for EVM collectibles (per integration).
+4. Use **EXTERNAL_PRICE_API** (or mock) in the lock flow; approve the adapter and call **`lockAndNotify`**. Pay the chain’s **native token** for LayerZero fees.
+5. Track delivery on [LayerZero Scan](https://layerzeroscan.com/).
+6. Ensure the **hub oracle** has a price for that collateral (backend signer or dev mock).
+7. On **Solana**, borrow USDC against registered collateral via the hub program / UI.
+8. To unlock: repay on Solana, then complete the unlock path (including LayerZero back to the EVM source chain when collateral is cross-chain).
+9. (LP path) **Withdraw** when the pool has enough idle USDC.

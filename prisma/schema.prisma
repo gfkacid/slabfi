@@ -64,7 +64,7 @@ model CardDailyPrice {
 model CollateralItem {
   id             String @id
   hubChainId     String
-  /// CCIP chain selectors are uint64; decimal string avoids Prisma/i64 serialization limits.
+  /// EVM source: EIP-155 `chainId` as decimal string (e.g. `137`, `8453`). Hub is Solana (`hubChainId`).
   sourceChainId  String @db.VarChar(32)
   collection     String
   tokenId        BigInt
