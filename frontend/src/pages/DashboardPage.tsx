@@ -54,6 +54,12 @@ export function DashboardPage() {
                 >
                   Dashboard (this page)
                 </Link>
+                <Link
+                  to="/icons"
+                  className="inline-flex items-center justify-center rounded-xl border border-outline-variant/20 bg-surface px-4 py-2 text-sm font-semibold text-on-surface/80 shadow-sm transition-colors hover:bg-surface/70 active:bg-surface/60"
+                >
+                  Icons demo
+                </Link>
                 <a
                   href="https://tailwindcss.com/docs"
                   target="_blank"
