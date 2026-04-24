@@ -1,18 +1,10 @@
 import { NavLink, Link } from "react-router-dom";
-import { useAccount } from "wagmi";
 import { Icon } from "@/components/ui/Icon";
 import { SIDEBAR_WIDTH_CLASS } from "@/components/layout/shellConstants";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: "dashboard" as const },
-  { to: "/assets", label: "Assets", icon: "account_balance_wallet" as const },
-  { to: "/lending", label: "Lending Hub", icon: "account_balance" as const },
-  { to: "/liquidations", label: "Liquidation Queue", icon: "list_alt" as const },
 ];
-
-function truncateAddress(addr: string) {
-  return `${addr.slice(0, 5)}…${addr.slice(-4)}`;
-}
 
 /** Cursor MCP–style nav: rounded row, light blue wash, inset left accent bar */
 const linkBase =
@@ -22,8 +14,6 @@ const linkActive =
   "bg-slab-sidebar-active-bg font-semibold text-blue-600 shadow-[inset_3px_0_0_0_theme(colors.blue.500)] ring-1 ring-blue-500/15";
 
 export function Sidebar() {
-  const { address, isConnected } = useAccount();
-
   return (
     <aside
       className={`fixed left-0 top-0 z-[60] hidden h-screen flex-col ${SIDEBAR_WIDTH_CLASS} border-r border-outline-variant/20 bg-zinc-100 md:flex`}
@@ -55,14 +45,14 @@ export function Sidebar() {
       <div className="mt-auto border-t border-outline-variant/10 p-8">
         <div className="flex items-center gap-3 rounded-xl bg-surface-container-high p-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary-fixed/40 font-headline text-xs font-bold text-primary">
-            {isConnected ? address?.slice(2, 4).toUpperCase() ?? "?" : "—"}
+            D
           </div>
           <div className="min-w-0 overflow-hidden">
             <p className="truncate text-xs font-bold text-on-surface">
-              {isConnected && address ? truncateAddress(address) : "Not connected"}
+              Demo mode
             </p>
             <p className="text-[10px] text-on-surface-variant">
-              {isConnected ? "Connected" : "Disconnected"}
+              Hardcoded UI
             </p>
           </div>
         </div>

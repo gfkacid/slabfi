@@ -12,6 +12,7 @@ import { PostConnectHubChainSync } from "./PostConnectHubChainSync";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
 
+const demoMode = String(import.meta.env.VITE_DEMO_MODE || "").toLowerCase() === "true";
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || "YOUR_PROJECT_ID";
 
 const networks = [slabHubPlaceholder, ...evmAppChains];
@@ -30,30 +31,36 @@ const wagmiAdapter = new WagmiAdapter({
   projectId,
 });
 
-createAppKit({
-  adapters: [wagmiAdapter],
-  // @ts-expect-error viem chains are compatible with AppKitNetwork at runtime
-  networks,
-  defaultNetwork: slabHubPlaceholder,
-  projectId,
-  universalProviderConfigOverride: {
-    chains: {
-      eip155: eip155Ids,
+if (!demoMode) {
+  createAppKit({
+    adapters: [wagmiAdapter],
+    // @ts-expect-error viem chains are compatible with AppKitNetwork at runtime
+    networks,
+    defaultNetwork: slabHubPlaceholder,
+    projectId,
+    universalProviderConfigOverride: {
+      chains: {
+        eip155: eip155Ids,
+      },
+      rpcMap,
+      defaultChain: hubCaip,
     },
-    rpcMap,
-    defaultChain: hubCaip,
-  },
-  metadata: {
-    name: "Slab.Finance",
-    description: "Cross-chain lending for tokenized collectibles",
-    url: typeof window !== "undefined" ? window.location.origin : "https://slab.finance",
-    icons: ["https://slab.finance/icon.png"],
-  },
-});
+    metadata: {
+      name: "Slab.Finance",
+      description: "Cross-chain lending for tokenized collectibles",
+      url: typeof window !== "undefined" ? window.location.origin : "https://slab.finance",
+      icons: ["https://slab.finance/icon.png"],
+    },
+  });
+}
 
 const queryClient = new QueryClient();
 
 export function Web3Provider({ children }: { children: React.ReactNode }) {
+  if (demoMode) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  }
+
   const wallets = useMemo(
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
     [],

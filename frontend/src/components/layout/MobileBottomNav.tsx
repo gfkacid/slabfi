@@ -3,9 +3,6 @@ import { Icon } from "@/components/ui/Icon";
 
 const items = [
   { to: "/", label: "Home", icon: "dashboard" as const },
-  { to: "/assets", label: "Assets", icon: "account_balance_wallet" as const },
-  { to: "/lending", label: "Lend", icon: "account_balance" as const },
-  { to: "/", label: "Menu", icon: "settings" as const },
 ];
 
 export function MobileBottomNav() {
