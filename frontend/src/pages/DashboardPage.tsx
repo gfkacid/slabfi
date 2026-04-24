@@ -104,7 +104,11 @@ export function DashboardPage() {
       </section>
 
       <div className="text-xs text-text-primary/50">
-        Tip: try the <Link to="/icons" className="text-brand hover:underline">icons page</Link> to verify hover/active nav states.
+        Tip: try the{" "}
+        <Link to="/collectibles" className="text-gradient-brand hover:opacity-90">
+          Collectibles
+        </Link>{" "}
+        page to verify hover/active nav states.
       </div>
     </div>
   );

@@ -72,9 +72,9 @@ const config: Config = {
         "slab-md": "0 22px 60px rgba(0,0,0,0.55)",
       },
       backgroundImage: {
-        "brand-gradient": "linear-gradient(184deg, rgb(var(--brand)) 10.472%, rgb(var(--brand-soft)) 87.188%)",
-        "danger-gradient": "linear-gradient(184deg, rgb(var(--danger)) 10.472%, rgb(var(--danger-soft)) 87.188%)",
-        "warning-gradient": "linear-gradient(184deg, rgb(var(--warning)) 10.472%, rgb(var(--warning-soft)) 87.188%)",
+        "brand-gradient": "var(--gradient-brand)",
+        "warning-gradient": "var(--gradient-warning)",
+        "danger-gradient": "var(--gradient-danger)",
         "info-gradient": "linear-gradient(184deg, rgb(var(--info)) 10.472%, rgb(var(--info-soft)) 87.188%)",
       },
     },

@@ -24,6 +24,11 @@
     --danger-soft: 255 164 164; /* #FFA4A4 */
     --info: 55 135 255; /* #3787FF */
     --info-soft: 139 179 238; /* #8BB3EE */
+
+    /* Official brand gradients */
+    --gradient-brand: linear-gradient(206deg, #0f2 10.47%, #d8ffdd 87.19%);
+    --gradient-warning: linear-gradient(206deg, #ff7300 10.47%, #ffd0a4 87.19%);
+    --gradient-danger: linear-gradient(206deg, #f00 10.47%, #ffa4a4 87.19%);
   }
 
   html {
@@ -66,24 +71,27 @@
 
 @layer utilities {
   .text-gradient-brand {
-    background-image: linear-gradient(184deg, rgb(var(--brand)) 10.472%, rgb(var(--brand-soft)) 87.188%);
+    background-image: var(--gradient-brand);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    -webkit-text-fill-color: transparent;
   }
 
   .text-gradient-warning {
-    background-image: linear-gradient(184deg, rgb(var(--warning)) 10.472%, rgb(var(--warning-soft)) 87.188%);
+    background-image: var(--gradient-warning);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    -webkit-text-fill-color: transparent;
   }
 
   .text-gradient-danger {
-    background-image: linear-gradient(184deg, rgb(var(--danger)) 10.472%, rgb(var(--danger-soft)) 87.188%);
+    background-image: var(--gradient-danger);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    -webkit-text-fill-color: transparent;
   }
 
   .text-gradient-info {

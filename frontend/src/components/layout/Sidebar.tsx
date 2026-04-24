@@ -4,15 +4,23 @@ import logoFull from "@/assets/svgs/logo-full.svg";
 import hammerCourt from "@/assets/svgs/hammer-court.svg";
 
 import { SIDEBAR_WIDTH_CLASS } from "@/components/layout/shellConstants";
-import { BootstrapIcon } from "@/components/ui/BootstrapIcon";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/utils";
+
+import grid from "bootstrap-icons/icons/grid.svg?url";
+import gridFill from "bootstrap-icons/icons/grid-fill.svg?url";
+import filePost from "bootstrap-icons/icons/file-post.svg?url";
+import filePostFill from "bootstrap-icons/icons/file-post-fill.svg?url";
+import bank from "bootstrap-icons/icons/bank.svg?url";
+import questionCircle from "bootstrap-icons/icons/question-circle.svg?url";
+import gear from "bootstrap-icons/icons/gear.svg?url";
+import boxArrowLeft from "bootstrap-icons/icons/box-arrow-left.svg?url";
 
 type SidebarItem = {
   to: string;
   label: string;
-  icon: string;
-  iconActive?: string;
+  iconUrl: string;
+  iconActiveUrl?: string;
   disabled?: boolean;
 };
 
@@ -20,28 +28,56 @@ const navItems: SidebarItem[] = [
   {
     to: "/",
     label: "Dashboard",
-    icon: "grid",
-    iconActive: "grid-fill",
+    iconUrl: grid,
+    iconActiveUrl: gridFill,
   },
   {
     to: "/collectibles",
     label: "Collectibles",
-    icon: "file-post",
-    iconActive: "file-post-fill",
+    iconUrl: filePost,
+    iconActiveUrl: filePostFill,
   },
   {
     to: "/lending",
     label: "Lending Hub",
-    icon: "bank",
+    iconUrl: bank,
     disabled: true,
   },
   {
     to: "/auctions",
     label: "Auctions",
-    icon: "hammer",
+    iconUrl: hammerCourt,
     disabled: true,
   },
 ];
+
+function MaskIcon({
+  url,
+  className,
+  active,
+}: {
+  url: string;
+  className: string;
+  active: boolean;
+}) {
+  return (
+    <span
+      className={cn(className, active ? "" : "bg-current")}
+      style={{
+        backgroundImage: active ? "var(--gradient-brand)" : undefined,
+        WebkitMaskImage: `url(${url})`,
+        WebkitMaskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        WebkitMaskSize: "contain",
+        maskImage: `url(${url})`,
+        maskRepeat: "no-repeat",
+        maskPosition: "center",
+        maskSize: "contain",
+      }}
+      aria-hidden="true"
+    />
+  );
+}
 
 export function Sidebar() {
   return (
@@ -65,7 +101,7 @@ export function Sidebar() {
         <div className="flex flex-1 flex-col">
           <div className="flex flex-1 flex-col items-center justify-between rounded-[50px] bg-[rgba(255,255,255,0.08)] p-4">
             <div className="flex w-[64px] flex-col items-center gap-5">
-              {navItems.map(({ to, label, icon, iconActive, disabled }) => {
+              {navItems.map(({ to, label, iconUrl, iconActiveUrl, disabled }) => {
                 if (disabled) {
                   return (
                     <div
@@ -75,18 +111,7 @@ export function Sidebar() {
                       title={`${label} (coming soon)`}
                     >
                       <div className="opacity-50">
-                        {icon === "hammer" ? (
-                          <span
-                            className="block size-[28px] bg-current [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
-                            style={{
-                              WebkitMaskImage: `url(${hammerCourt})`,
-                              maskImage: `url(${hammerCourt})`,
-                            }}
-                            aria-hidden="true"
-                          />
-                        ) : (
-                          <BootstrapIcon name={icon} className="block text-[28px] leading-none" />
-                        )}
+                        <MaskIcon url={iconUrl} className="block size-[28px]" active={false} />
                       </div>
                     </div>
                   );
@@ -113,21 +138,11 @@ export function Sidebar() {
                           {({ isActive }) => (
                             <div className="size-[28px] transition-transform group-hover:scale-[1.06]">
                               <div className={cn(isActive ? "opacity-100" : "opacity-50 group-hover:opacity-80")}>
-                                {icon === "hammer" ? (
-                                  <span
-                                    className="block size-[28px] bg-current [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain]"
-                                    style={{
-                                      WebkitMaskImage: `url(${hammerCourt})`,
-                                      maskImage: `url(${hammerCourt})`,
-                                    }}
-                                    aria-hidden="true"
-                                  />
-                                ) : (
-                                  <BootstrapIcon
-                                    name={isActive ? iconActive || `${icon}-fill` : icon}
-                                    className="block text-[28px] leading-none"
-                                  />
-                                )}
+                                <MaskIcon
+                                  url={isActive ? iconActiveUrl || iconUrl : iconUrl}
+                                  className="block size-[28px]"
+                                  active={isActive}
+                                />
                               </div>
                             </div>
                           )}
@@ -142,10 +157,10 @@ export function Sidebar() {
 
             <div className="flex w-[64px] flex-col items-center gap-5">
               {[
-                { label: "Help", icon: "question-circle" },
-                { label: "Settings", icon: "gear" },
-                { label: "Exit", icon: "box-arrow-left" },
-              ].map(({ label, icon }) => (
+                { label: "Help", iconUrl: questionCircle },
+                { label: "Settings", iconUrl: gear },
+                { label: "Exit", iconUrl: boxArrowLeft },
+              ].map(({ label, iconUrl }) => (
                 <TooltipProvider delayDuration={250} key={label}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -159,7 +174,7 @@ export function Sidebar() {
                         aria-label={label}
                       >
                         <div className="size-[28px] opacity-50 transition-opacity group-hover:opacity-80">
-                          <BootstrapIcon name={icon} className="block text-[28px] leading-none" />
+                          <MaskIcon url={iconUrl} className="block size-[28px]" active={false} />
                         </div>
                       </button>
                     </TooltipTrigger>
