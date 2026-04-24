@@ -31,8 +31,15 @@
     background-color: rgb(var(--background));
   }
 
+  html,
   body {
-    @apply antialiased font-sans;
+    font-family: Geologica, system-ui, -apple-system, Segoe UI, Roboto, sans-serif !important;
+  }
+
+  body {
+    /* Force Geologica as the default app typeface. */
+    font-family: Geologica, system-ui, -apple-system, Segoe UI, Roboto, sans-serif !important;
+    @apply antialiased;
     background-color: rgb(var(--background));
     color: rgb(var(--text-primary));
   }

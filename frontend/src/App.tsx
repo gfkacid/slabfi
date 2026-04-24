@@ -6,25 +6,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { IconsPage } from "@/pages/IconsPage";
 
-const demoMode = String(import.meta.env.VITE_DEMO_MODE || "").toLowerCase() === "true";
-
 export default function App() {
-  if (demoMode) {
-    return (
-      <Web3Provider>
-        <ModalProvider>
-          <ModalContainer />
-          <ToastContainer />
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/icons" element={<IconsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </ModalProvider>
-      </Web3Provider>
-    );
-  }
-
   return (
     <Web3Provider>
       <ModalProvider>
@@ -33,7 +15,7 @@ export default function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/icons" element={<IconsPage />} />
+            <Route path="/collectibles" element={<IconsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
