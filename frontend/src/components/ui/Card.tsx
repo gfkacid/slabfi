@@ -4,11 +4,11 @@ type CardVariant = "default" | "elevated" | "muted" | "inverse";
 
 const variantClass: Record<CardVariant, string> = {
   default:
-    "rounded-xl border border-outline-variant/10 bg-white shadow-slab",
+    "rounded-[20px] border border-border/20 bg-surface/0 shadow-card",
   elevated:
-    "rounded-xl border border-outline-variant/5 bg-white p-6 shadow-sm",
+    "rounded-[20px] border border-border/20 bg-surface/0 p-6 shadow-card",
   muted: "rounded-xl bg-surface-container-lowest p-6 shadow-slab",
-  inverse: "rounded-2xl bg-primary p-6 text-white shadow-xl",
+  inverse: "rounded-[20px] border border-border/20 bg-background p-6 text-text-primary shadow-card",
 };
 
 type CardProps = HTMLAttributes<HTMLDivElement> & {

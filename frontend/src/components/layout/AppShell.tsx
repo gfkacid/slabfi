@@ -6,11 +6,11 @@ import { HEADER_TOP_PAD_CLASS, MAIN_OFFSET_CLASS } from "@/components/layout/she
 
 export function AppShell() {
   return (
-    <div className="min-h-screen bg-surface font-sans text-on-surface">
+    <div className="min-h-screen bg-background font-sans text-text-primary">
       <Sidebar />
       <AppHeader />
       <main
-        className={`min-h-screen bg-zinc-50 ${MAIN_OFFSET_CLASS} ${HEADER_TOP_PAD_CLASS} pb-20 md:pb-0`}
+        className={`min-h-screen bg-background ${MAIN_OFFSET_CLASS} ${HEADER_TOP_PAD_CLASS} pb-20 md:pb-0`}
       >
         <div className="mx-auto max-w-[1600px] px-6 py-8 md:px-10">
           <Outlet />

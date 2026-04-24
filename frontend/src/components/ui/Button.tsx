@@ -5,16 +5,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-all active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        primary: "bg-primary px-5 py-2 text-xs text-on-primary hover:bg-primary-container",
+        primary:
+          "rounded-[8px] bg-brand-gradient px-5 py-2 text-xs font-extrabold uppercase tracking-wide text-background shadow-icon hover:brightness-110",
         accent:
-          "rounded-xl bg-secondary-container px-5 py-3 text-sm font-bold text-white hover:bg-secondary",
-        ghost: "p-2 text-on-surface hover:text-slab-accent",
+          "rounded-[100px] bg-surface/10 px-5 py-2 text-xs font-medium text-text-primary shadow-card hover:bg-surface/15",
+        ghost: "rounded-[8px] p-2 text-text-primary/70 hover:bg-surface/10 hover:text-text-primary",
         subtle:
-          "rounded-xl bg-surface-container-high p-4 text-left text-sm hover:bg-secondary-fixed/40",
+          "rounded-[15px] bg-surface/10 p-4 text-left text-sm text-text-primary hover:bg-surface/15",
       },
     },
     defaultVariants: {

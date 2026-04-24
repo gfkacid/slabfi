@@ -6,26 +6,24 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: "dashboard" as const },
 ];
 
-/** Cursor MCP–style nav: rounded row, light blue wash, inset left accent bar */
 const linkBase =
-  "relative mx-1 flex items-center gap-3 rounded-md px-3 py-2.5 font-headline text-sm font-medium tracking-tight transition-[color,background-color,box-shadow] active:scale-[0.98]";
-const linkIdle = "text-zinc-600 hover:bg-zinc-200/70";
-const linkActive =
-  "bg-slab-sidebar-active-bg font-semibold text-blue-600 shadow-[inset_3px_0_0_0_theme(colors.blue.500)] ring-1 ring-blue-500/15";
+  "relative mx-1 flex items-center justify-center rounded-[100px] p-[14px] transition-[filter,transform,background-color,box-shadow] active:scale-[0.98]";
+const linkIdle = "text-text-primary/50 hover:bg-surface/10";
+const linkActive = "bg-surface/10 text-text-primary shadow-card";
 
 export function Sidebar() {
   return (
     <aside
-      className={`fixed left-0 top-0 z-[60] hidden h-screen flex-col ${SIDEBAR_WIDTH_CLASS} border-r border-outline-variant/20 bg-zinc-100 md:flex`}
+      className={`fixed left-0 top-0 z-[60] hidden h-screen flex-col ${SIDEBAR_WIDTH_CLASS} bg-background md:flex`}
     >
-      <div className="p-8 pb-4">
+      <div className="p-10 pb-6">
         <Link
           to="/"
-          className="mb-8 block font-headline text-xl font-extrabold text-primary"
+          className="mb-10 block font-headline text-xl font-extrabold tracking-tight text-text-primary"
         >
-          Slab.Finance
+          <span className="text-gradient-brand">Slab.</span>Fi
         </Link>
-        <nav className="space-y-1">
+        <nav className="flex w-full flex-col items-center gap-5 rounded-[50px] bg-surface/8 p-4">
           {navItems.map(({ to, label, icon }) => (
             <NavLink
               key={to}
@@ -34,9 +32,10 @@ export function Sidebar() {
               className={({ isActive }) =>
                 `${linkBase} ${isActive ? linkActive : linkIdle}`.trim()
               }
+              aria-label={label}
+              title={label}
             >
-              <Icon name={icon} className="!text-xl" />
-              {label}
+              <Icon name={icon} className="!text-[28px]" />
             </NavLink>
           ))}
         </nav>
