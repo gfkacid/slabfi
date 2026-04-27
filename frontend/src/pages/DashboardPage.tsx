@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { BootstrapIcon, type BootstrapIconName } from "@/components/ui/BootstrapIcon";
 
 type StatTone = "green" | "orange";
 
@@ -6,16 +7,17 @@ type Stat = {
   label: string;
   value: string;
   tone: StatTone;
+  icon: BootstrapIconName;
 };
 
 const STATS: Stat[] = [
-  { label: "Net Worth", value: "$470.80", tone: "green" },
-  { label: "Collectibles", value: "$319.10", tone: "green" },
-  { label: "USDC supplied", value: "$250.00", tone: "green" },
-  { label: "Debt", value: "$98.30", tone: "orange" },
+  { label: "Net Worth", value: "$470.80", tone: "green", icon: "wallet2" },
+  { label: "Collectibles", value: "$319.10", tone: "green", icon: "file-post" },
+  { label: "USDC supplied", value: "$250.00", tone: "green", icon: "currency-dollar" },
+  { label: "Debt", value: "$98.30", tone: "orange", icon: "exclamation-triangle" },
 ];
 
-function StatCard({ label, value, tone }: Stat) {
+function StatCard({ label, value, tone, icon }: Stat) {
   const isGreen = tone === "green";
 
   return (
@@ -26,7 +28,7 @@ function StatCard({ label, value, tone }: Stat) {
           "bg-[linear-gradient(206deg,#FF7300_10%,#FFD0A4_87%)]": !isGreen,
         })}
       >
-        <div className="size-7 rounded-[10px] bg-black/30" />
+        <BootstrapIcon name={icon} className="size-7" colorClassName="bg-black/70" />
       </div>
       <div className="flex flex-1 flex-col gap-2">
         <div className="text-[22px] font-normal leading-none text-white">{label}</div>

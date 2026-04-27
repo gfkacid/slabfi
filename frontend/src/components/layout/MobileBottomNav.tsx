@@ -2,18 +2,14 @@ import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 import hammerCourt from "@/assets/svgs/hammer-court.svg";
-
-import grid from "bootstrap-icons/icons/grid.svg?url";
-import gridFill from "bootstrap-icons/icons/grid-fill.svg?url";
-import filePost from "bootstrap-icons/icons/file-post.svg?url";
-import filePostFill from "bootstrap-icons/icons/file-post-fill.svg?url";
-import bank from "bootstrap-icons/icons/bank.svg?url";
+import { BootstrapIcon, type BootstrapIconName, MaskedSvgIcon } from "@/components/ui/BootstrapIcon";
 
 type MobileNavItem = {
   to: string;
   label: string;
-  iconUrl: string;
-  iconActiveUrl?: string;
+  icon?: BootstrapIconName;
+  iconActive?: BootstrapIconName;
+  iconUrl?: string;
   disabled?: boolean;
 };
 
@@ -21,19 +17,19 @@ const items: MobileNavItem[] = [
   {
     to: "/",
     label: "Dashboard",
-    iconUrl: grid,
-    iconActiveUrl: gridFill,
+    icon: "grid",
+    iconActive: "grid-fill",
   },
   {
     to: "/collectibles",
     label: "Collectibles",
-    iconUrl: filePost,
-    iconActiveUrl: filePostFill,
+    icon: "file-post",
+    iconActive: "file-post-fill",
   },
   {
     to: "/lending",
     label: "Lending",
-    iconUrl: bank,
+    icon: "bank",
     disabled: true,
   },
   {
@@ -44,40 +40,12 @@ const items: MobileNavItem[] = [
   },
 ];
 
-function MaskIcon({
-  url,
-  className,
-  active,
-}: {
-  url: string;
-  className: string;
-  active: boolean;
-}) {
-  return (
-    <span
-      className={cn(className, active ? "" : "bg-current")}
-      style={{
-        backgroundImage: active ? "var(--gradient-brand)" : undefined,
-        WebkitMaskImage: `url(${url})`,
-        WebkitMaskRepeat: "no-repeat",
-        WebkitMaskPosition: "center",
-        WebkitMaskSize: "contain",
-        maskImage: `url(${url})`,
-        maskRepeat: "no-repeat",
-        maskPosition: "center",
-        maskSize: "contain",
-      }}
-      aria-hidden="true"
-    />
-  );
-}
-
 export function MobileBottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-[70] md:hidden">
       <div className="mx-auto flex h-16 max-w-[560px] items-center justify-between gap-2 px-4 pb-4">
         <div className="flex w-full items-center justify-around rounded-[999px] border border-outline-variant/10 bg-surface/8 px-3 py-2 shadow-[0_-14px_40px_rgba(0,0,0,0.55)] backdrop-blur-xl">
-          {items.map(({ to, label, iconUrl, iconActiveUrl, disabled }) => {
+          {items.map(({ to, label, icon, iconActive, iconUrl, disabled }) => {
             if (disabled) {
               return (
                 <div
@@ -87,7 +55,11 @@ export function MobileBottomNav() {
                   title={`${label} (coming soon)`}
                 >
                   <div className="text-text-primary/70">
-                    <MaskIcon url={iconUrl} className="block size-[22px]" active={false} />
+                    {icon ? (
+                      <BootstrapIcon name={icon} className="size-[22px]" />
+                    ) : iconUrl ? (
+                      <MaskedSvgIcon url={iconUrl} className="size-[22px]" />
+                    ) : null}
                   </div>
                   <span className="text-[9px] font-bold tracking-tight text-text-primary/70">
                     {label}
@@ -113,11 +85,15 @@ export function MobileBottomNav() {
                 {({ isActive }) => (
                   <>
                     <div className={cn(isActive ? "" : "text-text-primary/60")}>
-                      <MaskIcon
-                        url={isActive ? iconActiveUrl || iconUrl : iconUrl}
-                        className="block size-[22px]"
-                        active={isActive}
-                      />
+                      {icon ? (
+                        <BootstrapIcon
+                          name={isActive ? iconActive || icon : icon}
+                          className="size-[22px]"
+                          gradient={isActive}
+                        />
+                      ) : iconUrl ? (
+                        <MaskedSvgIcon url={iconUrl} className="size-[22px]" gradient={isActive} />
+                      ) : null}
                     </div>
                     <span className="text-[9px] font-bold tracking-tight text-text-primary/70">
                       {label}

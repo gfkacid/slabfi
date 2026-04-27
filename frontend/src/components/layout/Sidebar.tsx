@@ -1,45 +1,38 @@
-import grid from "bootstrap-icons/icons/grid.svg?url";
-import gridFill from "bootstrap-icons/icons/grid-fill.svg?url";
-import filePost from "bootstrap-icons/icons/file-post.svg?url";
-import filePostFill from "bootstrap-icons/icons/file-post-fill.svg?url";
-import bank from "bootstrap-icons/icons/bank.svg?url";
-import questionCircle from "bootstrap-icons/icons/question-circle.svg?url";
-import gear from "bootstrap-icons/icons/gear.svg?url";
-import boxArrowLeft from "bootstrap-icons/icons/box-arrow-left.svg?url";
-
 import { Link, NavLink } from "react-router-dom";
 
 import hammerCourt from "@/assets/svgs/hammer-court.svg";
 import logoFull from "@/assets/svgs/logo-full.svg";
 
 import { SIDEBAR_WIDTH_CLASS } from "@/components/layout/shellConstants";
+import { BootstrapIcon, type BootstrapIconName, MaskedSvgIcon } from "@/components/ui/BootstrapIcon";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/utils";
 
 type SidebarItem = {
   to: string;
   label: string;
-  iconUrl: string;
-  iconActiveUrl?: string;
+  icon?: BootstrapIconName;
+  iconActive?: BootstrapIconName;
+  iconUrl?: string;
 };
 
 const NAV_ITEMS: SidebarItem[] = [
   {
     to: "/",
     label: "Dashboard",
-    iconUrl: grid,
-    iconActiveUrl: gridFill,
+    icon: "grid",
+    iconActive: "grid-fill",
   },
   {
     to: "/collectibles",
     label: "Collectibles",
-    iconUrl: filePost,
-    iconActiveUrl: filePostFill,
+    icon: "file-post",
+    iconActive: "file-post-fill",
   },
   {
     to: "/lending",
     label: "Lending Hub",
-    iconUrl: bank,
+    icon: "bank",
   },
   {
     to: "/auctions",
@@ -48,41 +41,13 @@ const NAV_ITEMS: SidebarItem[] = [
   },
 ];
 
-const UTILITY_ITEMS: Array<{ label: string; iconUrl: string }> = [
-  { label: "Help", iconUrl: questionCircle },
-  { label: "Settings", iconUrl: gear },
-  { label: "Exit", iconUrl: boxArrowLeft },
+const UTILITY_ITEMS: Array<{ label: string; icon: BootstrapIconName }> = [
+  { label: "Help", icon: "question-circle" },
+  { label: "Settings", icon: "gear" },
+  { label: "Exit", icon: "box-arrow-left" },
 ];
 
-function MaskIcon({
-  url,
-  className,
-  active,
-}: {
-  url: string;
-  className: string;
-  active: boolean;
-}) {
-  return (
-    <span
-      className={cn(className, active ? "" : "bg-current")}
-      style={{
-        backgroundImage: active ? "var(--gradient-brand)" : undefined,
-        WebkitMaskImage: `url(${url})`,
-        WebkitMaskRepeat: "no-repeat",
-        WebkitMaskPosition: "center",
-        WebkitMaskSize: "contain",
-        maskImage: `url(${url})`,
-        maskRepeat: "no-repeat",
-        maskPosition: "center",
-        maskSize: "contain",
-      }}
-      aria-hidden="true"
-    />
-  );
-}
-
-function SidebarNavItem({ to, label, iconUrl, iconActiveUrl }: SidebarItem) {
+function SidebarNavItem({ to, label, icon, iconActive, iconUrl }: SidebarItem) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -101,13 +66,17 @@ function SidebarNavItem({ to, label, iconUrl, iconActiveUrl }: SidebarItem) {
           }
         >
           {({ isActive }) => (
-            <div className="size-[28px] bg-white/5 transition-transform group-hover:scale-[1.06]">
+            <div className="size-[28px] transition-transform group-hover:scale-[1.06]">
               <div className={cn(isActive ? "opacity-100" : "opacity-50 group-hover:opacity-80")}>
-                <MaskIcon
-                  url={isActive ? iconActiveUrl || iconUrl : iconUrl}
-                  className="block size-[28px]"
-                  active={isActive}
-                />
+                {icon ? (
+                  <BootstrapIcon
+                    name={isActive ? iconActive || icon : icon}
+                    className="size-[28px]"
+                    gradient={isActive}
+                  />
+                ) : iconUrl ? (
+                  <MaskedSvgIcon url={iconUrl} className="size-[28px]" gradient={isActive} />
+                ) : null}
               </div>
             </div>
           )}
@@ -147,7 +116,7 @@ export function Sidebar() {
               </div>
 
               <div className="flex w-[64px] flex-col items-center gap-5">
-                {UTILITY_ITEMS.map(({ label, iconUrl }) => (
+                {UTILITY_ITEMS.map(({ label, icon }) => (
                   <Tooltip key={label}>
                     <TooltipTrigger asChild>
                       <button
@@ -160,7 +129,7 @@ export function Sidebar() {
                         aria-label={label}
                       >
                         <div className="size-[28px] opacity-50 transition-opacity group-hover:opacity-80">
-                          <MaskIcon url={iconUrl} className="block size-[28px]" active={false} />
+                          <BootstrapIcon name={icon} className="size-[28px]" />
                         </div>
                       </button>
                     </TooltipTrigger>
