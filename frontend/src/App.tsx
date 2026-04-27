@@ -4,7 +4,7 @@ import { ToastContainer } from "@/components/toast/ToastContainer";
 import { ModalProvider, ModalContainer } from "@/components/modal";
 import { AppShell } from "@/components/layout/AppShell";
 import { DashboardPage } from "@/pages/DashboardPage";
-import { IconsPage } from "@/pages/IconsPage";
+import { CollectiblesPage } from "@/pages/CollectiblesPage";
 
 export default function App() {
   return (
@@ -15,7 +15,7 @@ export default function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/collectibles" element={<IconsPage />} />
+            <Route path="/collectibles" element={<CollectiblesPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
