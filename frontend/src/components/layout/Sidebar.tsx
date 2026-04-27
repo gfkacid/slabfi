@@ -1,12 +1,3 @@
-import { Link, NavLink } from "react-router-dom";
-
-import logoFull from "@/assets/svgs/logo-full.svg";
-import hammerCourt from "@/assets/svgs/hammer-court.svg";
-
-import { SIDEBAR_WIDTH_CLASS } from "@/components/layout/shellConstants";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
-import { cn } from "@/lib/utils";
-
 import grid from "bootstrap-icons/icons/grid.svg?url";
 import gridFill from "bootstrap-icons/icons/grid-fill.svg?url";
 import filePost from "bootstrap-icons/icons/file-post.svg?url";
@@ -16,15 +7,23 @@ import questionCircle from "bootstrap-icons/icons/question-circle.svg?url";
 import gear from "bootstrap-icons/icons/gear.svg?url";
 import boxArrowLeft from "bootstrap-icons/icons/box-arrow-left.svg?url";
 
+import { Link, NavLink } from "react-router-dom";
+
+import hammerCourt from "@/assets/svgs/hammer-court.svg";
+import logoFull from "@/assets/svgs/logo-full.svg";
+
+import { SIDEBAR_WIDTH_CLASS } from "@/components/layout/shellConstants";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
+import { cn } from "@/lib/utils";
+
 type SidebarItem = {
   to: string;
   label: string;
   iconUrl: string;
   iconActiveUrl?: string;
-  disabled?: boolean;
 };
 
-const navItems: SidebarItem[] = [
+const NAV_ITEMS: SidebarItem[] = [
   {
     to: "/",
     label: "Dashboard",
@@ -41,14 +40,18 @@ const navItems: SidebarItem[] = [
     to: "/lending",
     label: "Lending Hub",
     iconUrl: bank,
-    disabled: true,
   },
   {
     to: "/auctions",
     label: "Auctions",
     iconUrl: hammerCourt,
-    disabled: true,
   },
+];
+
+const UTILITY_ITEMS: Array<{ label: string; iconUrl: string }> = [
+  { label: "Help", iconUrl: questionCircle },
+  { label: "Settings", iconUrl: gear },
+  { label: "Exit", iconUrl: boxArrowLeft },
 ];
 
 function MaskIcon({
@@ -79,96 +82,79 @@ function MaskIcon({
   );
 }
 
+function SidebarNavItem({ to, label, iconUrl, iconActiveUrl }: SidebarItem) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <NavLink
+          to={to}
+          end={to === "/"}
+          aria-label={label}
+          className={({ isActive }) =>
+            cn(
+              "group relative flex size-[64px] items-center justify-center rounded-[100px] p-[14px]",
+              "transition-[transform,background-color,box-shadow,filter] active:scale-[0.98]",
+              "hover:bg-white/5",
+              isActive && "bg-white/5 shadow-[-4px_4px_30px_0_rgba(0,0,0,0.40)]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            )
+          }
+        >
+          {({ isActive }) => (
+            <div className="size-[28px] bg-white/5 transition-transform group-hover:scale-[1.06]">
+              <div className={cn(isActive ? "opacity-100" : "opacity-50 group-hover:opacity-80")}>
+                <MaskIcon
+                  url={isActive ? iconActiveUrl || iconUrl : iconUrl}
+                  className="block size-[28px]"
+                  active={isActive}
+                />
+              </div>
+            </div>
+          )}
+        </NavLink>
+      </TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function Sidebar() {
   return (
     <aside
-      className={`fixed left-0 top-0 z-[60] hidden h-screen flex-col ${SIDEBAR_WIDTH_CLASS} bg-background md:flex`}
+      className={`sticky top-0 z-[60] hidden h-screen flex-col bg-background md:flex ${SIDEBAR_WIDTH_CLASS}`}
     >
-      <div className="flex h-full flex-col items-center gap-10 p-10 pb-8">
-        <Link
-          to="/"
-          className="flex h-[110px] w-full flex-col items-center justify-center"
-          aria-label="Slab.Fi"
-        >
-          <img
-            src={logoFull}
-            alt="Slab.Fi"
-            className="h-[110px] w-[69px] select-none"
-            draggable={false}
-          />
-        </Link>
+      <TooltipProvider delayDuration={250}>
+        <div className="flex h-full flex-col items-center gap-10 py-10 ">
+          <Link
+            to="/"
+            className="flex h-[110px]  flex-col items-center justify-center"
+            aria-label="Slab.Fi"
+          >
+            <img
+              src={logoFull}
+              alt="Slab.Fi"
+              className="h-[110px] w-[69px] select-none"
+              draggable={false}
+            />
+          </Link>
 
-        <div className="flex flex-1 flex-col">
-          <div className="flex flex-1 flex-col items-center justify-between rounded-[50px] bg-[rgba(255,255,255,0.08)] p-4">
-            <div className="flex w-[64px] flex-col items-center gap-5">
-              {navItems.map(({ to, label, iconUrl, iconActiveUrl, disabled }) => {
-                if (disabled) {
-                  return (
-                    <div
-                      key={`${to}-${label}`}
-                      className="flex size-[64px] items-center justify-center rounded-[100px] p-[14px] opacity-40"
-                      aria-label={`${label} (coming soon)`}
-                      title={`${label} (coming soon)`}
-                    >
-                      <div className="opacity-50">
-                        <MaskIcon url={iconUrl} className="block size-[28px]" active={false} />
-                      </div>
-                    </div>
-                  );
-                }
+          <div className="flex flex-1 flex-col">
+            <div className="flex flex-1 flex-col items-center justify-between rounded-[50px] bg-white/10 px-2 py-4">
+              <div className="flex w-[64px] flex-col items-center gap-5">
+                {NAV_ITEMS.map((item) => (
+                  <SidebarNavItem key={item.to} {...item} />
+                ))}
+              </div>
 
-                return (
-                  <TooltipProvider delayDuration={250} key={`${to}-${label}`}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <NavLink
-                          to={to}
-                          aria-label={label}
-                          className={({ isActive }) =>
-                            cn(
-                              "group relative flex size-[64px] items-center justify-center rounded-[100px] p-[14px]",
-                              "transition-[transform,background-color,box-shadow,filter] active:scale-[0.98]",
-                              isActive
-                                ? "bg-[rgba(255,255,255,0.05)] shadow-[-4px_4px_30px_0px_rgba(0,0,0,0.4)]"
-                                : "hover:bg-[rgba(255,255,255,0.02)]",
-                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                            )
-                          }
-                        >
-                          {({ isActive }) => (
-                            <div className="size-[28px] transition-transform group-hover:scale-[1.06]">
-                              <div className={cn(isActive ? "opacity-100" : "opacity-50 group-hover:opacity-80")}>
-                                <MaskIcon
-                                  url={isActive ? iconActiveUrl || iconUrl : iconUrl}
-                                  className="block size-[28px]"
-                                  active={isActive}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </NavLink>
-                      </TooltipTrigger>
-                      <TooltipContent side="right">{label}</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                );
-              })}
-            </div>
-
-            <div className="flex w-[64px] flex-col items-center gap-5">
-              {[
-                { label: "Help", iconUrl: questionCircle },
-                { label: "Settings", iconUrl: gear },
-                { label: "Exit", iconUrl: boxArrowLeft },
-              ].map(({ label, iconUrl }) => (
-                <TooltipProvider delayDuration={250} key={label}>
-                  <Tooltip>
+              <div className="flex w-[64px] flex-col items-center gap-5">
+                {UTILITY_ITEMS.map(({ label, iconUrl }) => (
+                  <Tooltip key={label}>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         className={cn(
                           "group flex size-[64px] items-center justify-center rounded-[100px] p-[14px]",
-                          "transition-[transform,background-color,filter] hover:bg-[rgba(255,255,255,0.02)] hover:brightness-110 active:scale-[0.98]",
+                          "transition-[transform,background-color,filter] hover:bg-white/[0.04] hover:brightness-110 active:scale-[0.98]",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         )}
                         aria-label={label}
@@ -180,12 +166,12 @@ export function Sidebar() {
                     </TooltipTrigger>
                     <TooltipContent side="right">{label}</TooltipContent>
                   </Tooltip>
-                </TooltipProvider>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </TooltipProvider>
     </aside>
   );
 }

@@ -7,7 +7,7 @@ const demoMode = String(import.meta.env.VITE_DEMO_MODE || "").toLowerCase() === 
 export function AppHeader() {
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 flex ${HEADER_HEIGHT_CLASS} items-center justify-between gap-3 border-b border-outline-variant/10 bg-surface/80 px-4 shadow-sm backdrop-blur-xl md:left-64 md:right-0 md:gap-4 md:px-8`}
+      className={`sticky top-0 z-50 flex ${HEADER_HEIGHT_CLASS} items-center justify-between gap-3 border-b border-outline-variant/10 bg-surface/80 px-10 shadow-sm backdrop-blur-xl`}
     >
       {demoMode ? (
         <div className="flex min-w-0 flex-1 items-center gap-3">
