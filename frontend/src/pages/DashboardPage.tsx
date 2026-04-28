@@ -321,7 +321,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <aside className="sticky top-24 col-span-4 h-[calc(100vh-6rem)] self-start 2xl:col-span-3">
+      <aside className="sticky top-24 col-span-4 h-[calc(100vh-8rem)] self-start 2xl:col-span-3">
         <SectionCard title="My Borrows" className="flex h-full flex-col">
           <div className="flex-1 space-y-4 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {[1, 2].map((idx) => (

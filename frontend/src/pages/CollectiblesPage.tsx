@@ -305,8 +305,8 @@ export function CollectiblesPage() {
         </div>
       </div>
 
-      <aside className="sticky top-24 col-span-4 h-[calc(100vh-6rem)] self-start 2xl:col-span-3">
-        <div className="h-full space-y-6 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      <aside className="sticky top-24 col-span-4 h-[calc(100vh-8rem)] self-start 2xl:col-span-3">
+        <div className="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-6 pr-1">
           <div className="grid grid-cols-2 gap-4">
             <SidebarMetricCard title="TVL" value="$2023.40" />
             <div className="flex flex-col gap-2 rounded-[20px] border border-white/10 bg-black/10 p-5">
@@ -315,16 +315,16 @@ export function CollectiblesPage() {
             </div>
           </div>
 
-          <section className="rounded-[20px] border border-white/10 bg-black/10 p-5">
+          <section className="flex min-h-0 flex-1 flex-col rounded-[20px] border border-white/10 bg-black/10 p-5">
             <div className="mb-4 text-[16px] font-extralight text-white">Tiers Breakdown</div>
-            <div className="space-y-3">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {TIER_ROWS.map((row) => (
                 <TierBreakdownRow key={row.label} {...row} />
               ))}
             </div>
           </section>
 
-          <section className="min-h-[260px] rounded-[20px] border border-white/10 bg-black/10" />
+        
         </div>
       </aside>
     </div>

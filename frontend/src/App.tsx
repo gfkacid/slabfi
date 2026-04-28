@@ -5,6 +5,7 @@ import { ModalProvider, ModalContainer } from "@/components/modal";
 import { AppShell } from "@/components/layout/AppShell";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { CollectiblesPage } from "@/pages/CollectiblesPage";
+import { AuctionsPage } from "@/pages/AuctionsPage";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/collectibles" element={<CollectiblesPage />} />
+            <Route path="/auctions" element={<AuctionsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

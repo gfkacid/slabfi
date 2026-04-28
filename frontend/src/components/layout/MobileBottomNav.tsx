@@ -36,7 +36,6 @@ const items: MobileNavItem[] = [
     to: "/auctions",
     label: "Auctions",
     iconUrl: hammerCourt,
-    disabled: true,
   },
 ];
 

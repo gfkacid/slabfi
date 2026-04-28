@@ -18,11 +18,13 @@ import gridFill from "bootstrap-icons/icons/grid-fill.svg?url";
 import heart from "bootstrap-icons/icons/heart.svg?url";
 import infoCircle from "bootstrap-icons/icons/info-circle.svg?url";
 import list from "bootstrap-icons/icons/list.svg?url";
+import clock from "bootstrap-icons/icons/clock.svg?url";
 import patchCheck from "bootstrap-icons/icons/patch-check.svg?url";
 import questionCircle from "bootstrap-icons/icons/question-circle.svg?url";
 import search from "bootstrap-icons/icons/search.svg?url";
 import sliders2Vertical from "bootstrap-icons/icons/sliders2-vertical.svg?url";
 import starFill from "bootstrap-icons/icons/star-fill.svg?url";
+import tags from "bootstrap-icons/icons/tags.svg?url";
 import trophy from "bootstrap-icons/icons/trophy.svg?url";
 import wallet2 from "bootstrap-icons/icons/wallet2.svg?url";
 import xDiamond from "bootstrap-icons/icons/x-diamond.svg?url";
@@ -34,6 +36,7 @@ export type BootstrapIconName =
   | "arrow-up-right-circle"
   | "bank"
   | "box-arrow-left"
+  | "clock"
   | "currency-dollar"
   | "exclamation-triangle"
   | "file-post"
@@ -53,6 +56,7 @@ export type BootstrapIconName =
   | "search"
   | "sliders2-vertical"
   | "star-fill"
+  | "tags"
   | "trophy"
   | "wallet2"
   | "x-diamond";
@@ -62,6 +66,7 @@ const ICON_URLS: Record<BootstrapIconName, string> = {
   "arrow-up-right-circle": arrowUpRightCircle,
   bank,
   "box-arrow-left": boxArrowLeft,
+  clock,
   "currency-dollar": currencyDollar,
   "exclamation-triangle": exclamationTriangle,
   "file-post": filePost,
@@ -81,6 +86,7 @@ const ICON_URLS: Record<BootstrapIconName, string> = {
   search,
   "sliders2-vertical": sliders2Vertical,
   "star-fill": starFill,
+  tags,
   trophy,
   wallet2,
   "x-diamond": xDiamond,
