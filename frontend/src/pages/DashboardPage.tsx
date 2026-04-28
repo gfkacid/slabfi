@@ -1,324 +1,406 @@
-import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { useAccount } from "wagmi";
-import { useModal } from "@/components/modal";
-import {
-  useAvailableCredit,
-  usePosition,
-  useCollateralItem,
-  useOutstandingDebt,
-  useOraclePrice,
-} from "@/hooks";
-import { HealthFactorBadge } from "@/components/HealthFactorBadge";
-import { CollateralCard } from "@/components/CollateralCard";
-import { LiquidationWarningBanner } from "@/components/LiquidationWarningBanner";
-import { PageHeader } from "@/components/PageHeader";
-import { Card } from "@/components/ui/Card";
-import { Icon } from "@/components/ui/Icon";
-import { Button, LinkButton } from "@/components/ui/Button";
-import { hubChain, isHubEvm } from "@/lib/hub";
-import { HUB_USDC_DECIMALS } from "@slabfinance/shared";
-import { formatUnits } from "viem";
+import { cn } from "@/lib/utils";
+import { BootstrapIcon, MaskedSvgIcon, type BootstrapIconName } from "@/components/ui/BootstrapIcon";
 
-export function DashboardPage() {
-  const { openModal } = useModal();
-  const { isConnected, chainId } = useAccount();
-  const { data: availableCredit } = useAvailableCredit();
-  const { data: position } = usePosition();
-  const { data: debt } = useOutstandingDebt();
+import beezieIcon from "@/assets/pngs/beezie.png";
+import collectorCryptIcon from "@/assets/pngs/collector_crypt.png";
+import courtyardIcon from "@/assets/pngs/courtyard.png";
+import borrowIcon from "@/assets/svgs/borrow.svg";
 
-  const isHubChain = isHubEvm(chainId);
+type StatTone = "green" | "orange";
 
-  if (!isConnected) {
-    return (
-      <div className="mx-auto min-h-full w-full max-w-2xl !bg-zinc-50">
-        <PageHeader title="Dashboard" />
-        <Card variant="muted" className="border border-amber-200/80 bg-amber-50/90 p-6 text-center">
-          <p className="text-sm font-medium text-amber-900">
-            Connect your wallet to view your dashboard.
-          </p>
-        </Card>
-      </div>
-    );
-  }
+type Stat = {
+  label: string;
+  value: string;
+  tone: StatTone;
+  icon: BootstrapIconName;
+};
 
-  if (!isHubChain) {
-    return (
-      <div className="mx-auto min-h-full w-full max-w-2xl !bg-zinc-50">
-        <PageHeader title="Dashboard" />
-        <Card variant="muted" className="border border-amber-200/80 bg-amber-50/90 p-6 text-center">
-          <p className="text-sm font-medium text-amber-900">
-            Switch to {hubChain.name} to view your lending dashboard.
-          </p>
-        </Card>
-      </div>
-    );
-  }
+const STATS: Stat[] = [
+  { label: "Net Worth", value: "$470.80", tone: "green", icon: "wallet2" },
+  { label: "Collectibles", value: "$319.10", tone: "green", icon: "file-post" },
+  { label: "USDC supplied", value: "$250.00", tone: "green", icon: "currency-dollar" },
+  { label: "Debt", value: "$98.30", tone: "orange", icon: "exclamation-triangle" },
+];
 
-  const creditFormatted =
-    availableCredit !== undefined
-      ? `$${Number(formatUnits(availableCredit, HUB_USDC_DECIMALS)).toFixed(2)}`
-      : "—";
-  const principal = debt !== undefined ? Number(formatUnits(debt[0], HUB_USDC_DECIMALS)) : 0;
-  const interest = debt !== undefined ? Number(formatUnits(debt[1], HUB_USDC_DECIMALS)) : 0;
-  const totalDebtFormatted = `$${(principal + interest).toFixed(2)}`;
-  const collateralCount = position?.collateralIds?.length ?? 0;
+type CollectionRow = {
+  name: string;
+  pct: number;
+  value: string;
+  iconSrc: string;
+  gradient: string;
+};
 
+const COLLECTION_ROWS: CollectionRow[] = [
+  {
+    name: "Collector Crypt",
+    pct: 14,
+    value: "$ 300.00",
+    iconSrc: collectorCryptIcon,
+    gradient: "linear-gradient(182.87275577740496deg, rgb(255, 115, 0) 10.472%, rgb(255, 208, 164) 87.188%)",
+  },
+  {
+    name: "Courtyard",
+    pct: 58,
+    value: "$ 1,240.20",
+    iconSrc: courtyardIcon,
+    gradient: "linear-gradient(182.962841064208deg, rgb(55, 135, 255) 10.472%, rgb(139, 179, 238) 87.188%)",
+  },
+  {
+    name: "Beezie",
+    pct: 28,
+    value: "$ 600.00",
+    iconSrc: beezieIcon,
+    gradient: "linear-gradient(182.9171036893286deg, rgb(255, 177, 0) 10.472%, rgb(255, 219, 138) 87.188%)",
+  },
+];
+
+function CollectionProgressRow({ name, pct, value, iconSrc, gradient }: CollectionRow) {
   return (
-    <div className="min-h-full w-full !bg-zinc-50">
-      <PageHeader title="Dashboard" />
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-[16px]">
+        <img src={iconSrc} alt="" className="size-4 shrink-0 object-contain" />
+        <span className="flex-1 bg-clip-text text-transparent" style={{ backgroundImage: gradient }}>
+          {name}
+        </span>
+        <span className="shrink-0 text-white/50">{pct}%</span>
+      </div>
 
-      <LiquidationWarningBanner />
-
-      {/* Top stats — 4 columns on md+ */}
-      <section className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <DashboardStatCard
-          label="Available to borrow"
-          value={creditFormatted}
-          hint="USDC on hub"
-        />
-        <DashboardStatCard
-          label="Health factor"
-          value={<HealthFactorBadge />}
-          hint="Position status"
-        />
-        <DashboardStatCard
-          label="Total debt"
-          value={totalDebtFormatted}
-          hint="Principal + interest"
-        />
-        <DashboardStatCard
-          label="Hub & collateral"
-          value={collateralCount}
-          hint={hubChain.name}
-        />
-      </section>
-
-      <div className="grid grid-cols-12 gap-8">
-        <div className="col-span-12 space-y-8 lg:col-span-8">
-          <section>
-            <h2 className="mb-4 font-headline text-xl font-extrabold text-primary">
-              Position overview
-            </h2>
-            <Card variant="elevated" className="rounded-2xl">
-              <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-                <div>
-                  <p className="mb-3 text-sm font-bold text-on-surface">Borrowing power</p>
-                  <p className="font-headline text-3xl font-extrabold text-primary">
-                    {creditFormatted}
-                  </p>
-                  <p className="mt-2 text-xs text-on-surface-variant">
-                    Available credit reflects collateral posted on the hub chain.
-                  </p>
-                </div>
-                <div className="flex flex-col justify-center border-outline-variant/10 md:border-l md:pl-8">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-                    Outstanding
-                  </p>
-                  <p className="mt-1 font-headline text-3xl font-extrabold text-primary">
-                    {totalDebtFormatted}
-                  </p>
-                  <Link
-                    to="/repay"
-                    className="mt-3 inline-flex text-xs font-bold text-secondary hover:underline"
-                  >
-                    Make a repayment →
-                  </Link>
-                </div>
-              </div>
-            </Card>
-          </section>
-
-          <section>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-headline text-xl font-extrabold text-primary">
-                Active collateral
-              </h2>
-              <button
-                type="button"
-                onClick={() => openModal("collateralDeposit")}
-                className="text-xs font-medium text-secondary hover:underline"
-              >
-                Lock more
-              </button>
-            </div>
-            {position?.collateralIds?.length ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {position.collateralIds.map((cid) => (
-                  <CollateralCardWithPrice key={cid} collateralId={cid as `0x${string}`} />
-                ))}
-              </div>
-            ) : (
-              <Card variant="muted" className="p-8 text-center">
-                <p className="text-sm text-on-surface-variant">
-                  No collateral locked. Lock NFTs on Polygon or Base (per integration) to get started.
-                </p>
-                <Button
-                  type="button"
-                  variant="accent"
-                  className="mt-4"
-                  onClick={() => openModal("collateralDeposit")}
-                >
-                  Lock collateral
-                </Button>
-              </Card>
-            )}
-          </section>
+      <div className="h-[6px] w-full rounded-full bg-white/20">
+        <div className="relative h-[6px] rounded-full" style={{ width: `${pct}%`, backgroundImage: gradient }}>
+          <span className="-translate-y-1/2 absolute right-0 top-1/2 size-1 rounded-full bg-white" />
         </div>
+      </div>
 
-        <aside className="col-span-12 space-y-8 lg:col-span-4">
-          <section>
-            <h2 className="mb-4 font-headline text-xl font-extrabold text-primary">
-              Lending position
-            </h2>
-            <Card variant="inverse" className="relative overflow-hidden rounded-2xl">
-              <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-secondary opacity-10 blur-3xl" />
-              <div className="relative">
-                <div className="mb-6 flex items-start justify-between">
-                  <div>
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-on-primary-container">
-                      {hubChain.name}
-                    </p>
-                    <h3 className="font-headline text-2xl font-extrabold tracking-tight">
-                      USDC loan
-                    </h3>
-                  </div>
-                  <Icon name="account_balance" className="!text-3xl text-secondary-fixed-dim" />
-                </div>
-                <div className="space-y-4 border-b border-white/10 pb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="opacity-70">Total debt</span>
-                    <span className="font-bold">{totalDebtFormatted}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="opacity-70">Collateral items</span>
-                    <span className="font-bold">{collateralCount}</span>
-                  </div>
-                </div>
-                <div className="mt-6 grid grid-cols-1 gap-2">
-                  <LinkButton to="/borrow" variant="accent" className="w-full justify-center">
-                    Borrow
-                  </LinkButton>
-                  <LinkButton
-                    to="/repay"
-                    variant="primary"
-                    className="w-full justify-center bg-white/10 hover:bg-white/20"
-                  >
-                    Repay
-                  </LinkButton>
-                </div>
-              </div>
-            </Card>
-          </section>
-
-          <section>
-            <h2 className="mb-4 font-headline text-xl font-extrabold text-primary">
-              Quick actions
-            </h2>
-            <div className="grid grid-cols-1 gap-3">
-              <button
-                type="button"
-                onClick={() => openModal("collateralDeposit")}
-                className="group flex w-full items-center justify-between rounded-xl bg-surface-container-high p-4 text-left transition-all hover:bg-secondary-fixed/50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
-                    <Icon name="add_moderator" className="!text-xl text-secondary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-primary">Lock collateral</p>
-                    <p className="text-[9px] text-on-surface-variant">Increase borrowing power</p>
-                  </div>
-                </div>
-                <Icon
-                  name="chevron_right"
-                  className="!text-lg opacity-40 transition-all group-hover:translate-x-1 group-hover:opacity-100"
-                />
-              </button>
-              <Link
-                to="/borrow"
-                className="group flex items-center justify-between rounded-xl bg-surface-container-high p-4 transition-all hover:bg-secondary-fixed/50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
-                    <Icon name="payments" className="!text-xl text-secondary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-primary">Borrow USDC</p>
-                    <p className="text-[9px] text-on-surface-variant">Draw against collateral</p>
-                  </div>
-                </div>
-                <Icon
-                  name="chevron_right"
-                  className="!text-lg opacity-40 transition-all group-hover:translate-x-1 group-hover:opacity-100"
-                />
-              </Link>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="mb-4 font-headline text-xl font-extrabold text-primary">Protocol</h2>
-            <Card variant="elevated" className="rounded-2xl">
-              <p className="text-sm text-on-surface-variant">
-                Pool parameters and liquidations are enforced by the protocol. Use the liquidations view to
-                monitor undercollateralized positions.
-              </p>
-              <Link
-                to="/liquidations"
-                className="mt-4 inline-flex text-xs font-bold text-secondary hover:underline"
-              >
-                Open liquidation queue →
-              </Link>
-            </Card>
-          </section>
-        </aside>
+      <div className="text-right text-[12px] bg-clip-text text-transparent" style={{ backgroundImage: gradient }}>
+        {value}
       </div>
     </div>
   );
 }
 
-function DashboardStatCard({
-  label,
+const SET_ICON_VICTINI = "https://www.figma.com/api/mcp/asset/1e3f442e-39c9-4674-82e2-f9480e2add3e";
+const CARD_IMAGE_VICTINI = "https://www.figma.com/api/mcp/asset/3b18a11f-cb8c-4753-81e7-5e4ae2e95c37";
+const CARD_IMAGE_JELLICENT = "https://www.figma.com/api/mcp/asset/1e3f442e-39c9-4674-82e2-f9480e2add3e";
+
+type TierIcon = "trophy" | "award" | "graph-up-arrow" | "x-diamond";
+
+type Collectible = {
+  name: string;
+  setIconSrc: string;
+  cardImageSrc: string;
+  grade: string;
+  tierIcon: TierIcon;
+  appIconSrc: string;
+  status: "Healthy" | "Auction";
+  hf: string;
+  value: string;
+  action: "WITHDRAW" | "BID";
+};
+
+const COLLECTIBLES: Collectible[] = [
+  {
+    name: "Victini (SVP 208)",
+    setIconSrc: SET_ICON_VICTINI,
+    cardImageSrc: CARD_IMAGE_VICTINI,
+    grade: "Promo",
+    tierIcon: "trophy",
+    appIconSrc: courtyardIcon,
+    status: "Healthy",
+    hf: "2.8",
+    value: "$12.97",
+    action: "WITHDRAW",
+  },
+  {
+    name: "Jellicent ex (WHT 045)",
+    setIconSrc: SET_ICON_VICTINI,
+    cardImageSrc: CARD_IMAGE_JELLICENT,
+    grade: "Double rare",
+    tierIcon: "x-diamond",
+    appIconSrc: beezieIcon,
+    status: "Auction",
+    hf: "0.8",
+    value: "$23.40",
+    action: "BID",
+  },
+];
+
+function CollectibleCard({
+  name,
+  setIconSrc,
+  cardImageSrc,
+  grade,
+  tierIcon,
+  appIconSrc,
+  status,
+  hf,
   value,
-  hint,
+  action,
+}: Collectible) {
+  const isAuction = status === "Auction";
+  const statusGradient = isAuction
+    ? "bg-[linear-gradient(184deg,#FF0000_10%,#FFA4A4_87%)]"
+    : "bg-[linear-gradient(184deg,#00FF22_10%,#D8FFDD_87%)]";
+  const valueGradient = isAuction
+    ? "bg-[linear-gradient(191deg,#FF0000_10%,#FFA4A4_87%)]"
+    : "bg-[linear-gradient(191deg,#00FF22_10%,#D8FFDD_87%)]";
+
+  return (
+    <div className="relative flex items-stretch gap-5 rounded-[20px] border border-white/20 p-3">
+      <div className="w-40 h-full shrink-0 self-stretch overflow-hidden rounded-[15px]">
+        <img src={cardImageSrc} alt="" className="block  w-full object-cover" />
+      </div>
+
+      <div className="flex h-full w-full min-w-0 flex-1 flex-col justify-between">
+       
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <img src={setIconSrc} alt="" className="size-5 shrink-0 object-contain" />
+              <div className="min-w-0 flex-1 truncate text-lg text-white">{name}</div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="text-[16px] bg-clip-text text-transparent bg-[linear-gradient(191deg,#00FF22_10%,#D8FFDD_87%)]">
+                {grade}
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <BootstrapIcon name={tierIcon} className="size-[14px]" colorClassName="bg-white" />
+                <span className="h-4 w-px bg-white/20" />
+                <img src={appIconSrc} alt="" className="size-4 shrink-0 object-contain" />
+              </div>
+            </div>
+          </div>
+       
+
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between text-[16px]">
+            <span className={cn("bg-clip-text text-transparent", statusGradient)}>{status}</span>
+            <span className="text-white/50">HF: {hf}</span>
+          </div>
+          <div className="h-[6px] w-full rounded-full bg-white/20">
+            <div className={cn("h-[6px] rounded-full", statusGradient)} style={{ width: isAuction ? "22%" : "70%" }} />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 rounded-[8px] bg-white/[0.08] px-3 py-1.5">
+            <span className="flex-1 text-[12px] font-extralight text-white">Value:</span>
+            <span className={cn("text-[18px] font-extrabold uppercase bg-clip-text text-transparent", valueGradient)}>
+              {value}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className={cn(
+              "h-10 w-full rounded-[8px] px-3 text-[16px] font-bold uppercase transition-[filter,background-color]",
+              action === "BID"
+                ? "bg-[linear-gradient(184deg,#00FF22_10%,#D8FFDD_87%)] text-black hover:brightness-105"
+                : "border border-zinc-400/70 text-zinc-400 hover:bg-white/5",
+            )}
+          >
+            {action}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, tone, icon }: Stat) {
+  const isGreen = tone === "green";
+
+  return (
+    <div className="flex items-center 2xl:gap-4 gap-2 rounded-[20px] border border-white/20 bg-black/20 p-2 2xl:p-4">
+      <div
+        className={cn("flex 2xl:h-14 2xl:w-14 h-10 w-10 aspect-square items-center justify-center 2xl:rounded-2xl rounded-xl", {
+          "bg-[linear-gradient(206deg,#00FF22_10%,#D8FFDD_87%)]": isGreen,
+          "bg-[linear-gradient(206deg,#FF7300_10%,#FFD0A4_87%)]": !isGreen,
+        })}
+      >
+        <BootstrapIcon name={icon} className="2xl:size-7 size-5" colorClassName="bg-black" />
+      </div>
+      <div className="flex flex-1 flex-col 2xl:gap-1 gap-2">
+        <div className="2xl:text-lg text-sm font-normal leading-none text-white">{label}</div>
+        <div
+          className={cn("2xl:text-4xl text-2xl font-extrabold uppercase leading-none", {
+            "text-transparent bg-clip-text bg-[linear-gradient(186deg,#00FF22_10%,#D8FFDD_87%)]": isGreen,
+            "text-transparent bg-clip-text bg-[linear-gradient(186deg,#FF7300_10%,#FFD0A4_87%)]": !isGreen,
+          })}
+        >
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionCard({
+  title,
+  unstyled = false,
+  className,
+  children,
 }: {
-  label: string;
-  value: ReactNode;
-  hint?: string;
+  title?: string;
+  unstyled?: boolean;
+  className?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <Card
-      variant="muted"
-      className="flex flex-col gap-1 transition-transform hover:scale-[1.01] hover:shadow-slab-md"
+    <section
+      className={cn(unstyled ? "" : "rounded-[20px] border border-white/20 bg-black/10 p-5", className)}
     >
-      <p className="text-xs font-medium uppercase tracking-wider text-on-surface-variant">{label}</p>
-      <div className="flex min-h-9 items-center font-headline text-2xl font-extrabold text-primary">
-        {value}
-      </div>
-      {hint ? (
-        <p className="text-[10px] font-medium tracking-tight text-on-surface-variant/70">{hint}</p>
+      {title ? (
+        <div className={cn("text-xl leading-none text-white", unstyled ? "mb-6" : "mb-5")}>{title}</div>
       ) : null}
-    </Card>
+      {children}
+    </section>
   );
 }
 
-function CollateralCardWithPrice({ collateralId }: { collateralId: `0x${string}` }) {
-  const { data: item } = useCollateralItem(collateralId);
-  const { data: priceData } = useOraclePrice(
-    item?.collection as `0x${string}` | undefined,
-    item?.tokenId !== undefined ? BigInt(item.tokenId) : undefined
-  );
-
-  if (!item) return null;
-
-  const priceUSD = priceData?.[0];
+export function DashboardPage() {
   return (
-    <CollateralCard
-      collateralId={collateralId}
-      tokenId={BigInt(item.tokenId)}
-      collection={item.collection as `0x${string}`}
-      status={Number(item.status)}
-      priceUSD={priceUSD}
-    />
+    <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-10">
+      <div className="2xl:col-span-9 col-span-8 lg:sticky lg:top-24 lg:h-[calc(100vh-6rem)] lg:self-start">
+        <div
+          className={cn(
+            "relative space-y-10 pb-16",
+            "lg:h-full lg:overflow-y-auto lg:pr-1",
+            "lg:[&::-webkit-scrollbar]:hidden lg:[-ms-overflow-style:none] lg:[scrollbar-width:none]",
+            "lg:[-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_calc(100%_-_96px),transparent_100%)]",
+            "lg:[mask-image:linear-gradient(to_bottom,#000_0%,#000_calc(100%_-_96px),transparent_100%)]",
+          )}
+        >
+          <header className="space-y-2">
+            <div className="text-5xl font-thin leading-none text-white">Dashboard</div>
+            <div className="text-[18px] font-thin text-white/90">Welcome back, 0x4ac…921a</div>
+          </header>
+
+          <section className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {STATS.map((stat) => (
+              <StatCard key={stat.label} {...stat} />
+            ))}
+          </section>
+
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="lg:col-span-3 flex">
+              <SectionCard title="Assets by Collection" className="flex w-full flex-col">
+                <div className="rounded-[15px] bg-white/10 px-3 py-3 shadow-[-4px_4px_15px_0_rgba(0,0,0,0.40)]">
+                  <div className="text-lg text-white">Total</div>
+                  <div className="text-3xl font-extrabold uppercase text-white">$2,140.20</div>
+                  <div className="text-base text-transparent bg-clip-text bg-[linear-gradient(183deg,#FF7300_10%,#FFD0A4_87%)]">
+                    Debt: -$600.00
+                  </div>
+                </div>
+
+                <div className="mt-12 flex-1 space-y-5">
+                  {COLLECTION_ROWS.map((row) => (
+                    <CollectionProgressRow key={row.name} {...row} />
+                  ))}
+                </div>
+              </SectionCard>
+            </div>
+
+            <div className="lg:col-span-9">
+              <SectionCard title="My Collectibles" unstyled>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {COLLECTIBLES.map((item) => (
+                    <CollectibleCard key={item.name} {...item} />
+                  ))}
+
+                  <button
+                    type="button"
+                    className="flex min-h-[180px] flex-col items-center justify-center gap-4 rounded-[20px] border border-dashed border-white/20 bg-black/10 text-white/70 hover:bg-black/20"
+                  >
+                    <div className="flex size-10 items-center justify-center rounded-full bg-white/10 text-xl">+</div>
+                    <div className="text-[14px]">Add Card</div>
+                  </button>
+                </div>
+              </SectionCard>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <aside className="sticky top-24 col-span-4 h-[calc(100vh-8rem)] self-start 2xl:col-span-3">
+        <SectionCard title="My Borrows" className="flex h-full flex-col">
+          <div className="flex-1 space-y-4 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {[1, 2].map((idx) => (
+              <div
+                key={idx}
+                className="rounded-[15px] flex flex-col gap-4 bg-white/10 p-3 shadow-[-4px_4px_15px_0_rgba(0,0,0,0.40)]"
+              >
+                <div className="flex items-center gap-[18px]">
+                  <div className="flex items-center pr-12">
+                    <div className="flex items-center">
+                      <div className="-mr-12 h-24 w-[68px] overflow-hidden rounded-[8px] border-[3px] border-[#1a1a1a] shadow-[-4px_4px_8px_0_rgba(0,0,0,0.25)]">
+                        <div className="h-full w-full bg-white/10" />
+                      </div>
+                      <div className="-mr-12 h-24 w-[68px] overflow-hidden rounded-[8px] border-[3px] border-[#1a1a1a] shadow-[-4px_4px_8px_0_rgba(0,0,0,0.25)]">
+                        <div className="h-full w-full bg-white/10" />
+                      </div>
+                      <div className="-mr-12 relative flex h-24 w-[68px] items-center justify-center rounded-[8px] bg-black shadow-[-4px_4px_4px_rgba(0,0,0,0.25)] before:pointer-events-none before:absolute before:inset-0.5 before:rounded-[6px] before:border before:border-dashed before:border-[#0f2]">
+                        <span className="text-center text-[18px] uppercase text-transparent bg-clip-text bg-[linear-gradient(206deg,#00FF22_10%,#D8FFDD_87%)]">
+                          +2
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-1 flex-col gap-1.5 text-[14px]">
+                    <div className="flex items-center gap-2">
+                      <span className="flex-1 font-extralight text-white">Borrowed:</span>
+                      <span className="text-[18px] font-extrabold uppercase text-transparent bg-clip-text bg-[linear-gradient(190deg,#00FF22_10%,#D8FFDD_87%)]">
+                        {idx === 1 ? "$85.50" : "$12.80"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-white">
+                      <span className="flex-1 font-extralight">APY:</span>
+                      <span className="font-extrabold uppercase">{idx === 1 ? "5.25%" : "6.50%"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="flex-1 font-extralight text-white">Health Factor:</span>
+                      <span className="font-extrabold uppercase text-transparent bg-clip-text bg-[linear-gradient(198deg,#00FF22_10%,#D8FFDD_87%)]">
+                        {idx === 1 ? "2.10" : "1.30"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-white">
+                      <span className="flex-1 font-extralight">LTV Ratio:</span>
+                      <span className="font-extrabold uppercase">{idx === 1 ? "45%" : "52%"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className=" grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className="flex h-8 items-center justify-center gap-2 rounded-[8px] border border-zinc-400/70 px-3 text-sm font-bold uppercase text-zinc-400 hover:bg-white/5"
+                  >
+                    <span className="text-base leading-none">+</span>
+                    Add Card
+                  </button>
+                  <button
+                    type="button"
+                    className="h-8 rounded-[8px] bg-[linear-gradient(186deg,#00FF22_10%,#D8FFDD_87%)] px-3 text-sm font-bold uppercase text-black hover:brightness-105"
+                  >
+                    REPAY
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              className="flex h-40 w-full flex-col items-center justify-center gap-4 rounded-[20px] border border-dashed border-white/20 bg-black/10 text-white/70 hover:bg-black/20"
+            >
+              <div className="flex size-10 items-center justify-center rounded-full bg-white/10">
+                <MaskedSvgIcon url={borrowIcon} className="size-5" colorClassName="bg-white" />
+              </div>
+              <div className="text-[14px]">Borrow</div>
+            </button>
+          </div>
+        </SectionCard>
+      </aside>
+    </div>
   );
 }
+

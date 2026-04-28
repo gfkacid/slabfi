@@ -1,79 +1,81 @@
 import type { Config } from "tailwindcss";
 
-/**
- * Slab.Finance — zinc-based neutrals.
- * Canvas: zinc-50; primary copy & headings: zinc-900 (via `text-on-surface` / `text-primary`).
- */
 const config: Config = {
   darkMode: "class",
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
-        surface: {
-          DEFAULT: "#fafafa",
-          bright: "#fafafa",
-          dim: "#f4f4f5",
-          container: "#f4f4f5",
-          low: "#f4f4f5",
-          high: "#e4e4e7",
-          variant: "#d4d4d8",
-        },
-        "surface-container": {
-          /** Same as zinc-100 — avoid pure white (#fff) panels on zinc-50 canvas */
-          lowest: "#f4f4f5",
-          low: "#f4f4f5",
-          DEFAULT: "#e4e4e7",
-          high: "#e4e4e7",
-          highest: "#d4d4d8",
-        },
+        // Dashboard MCP-driven semantic tokens (use CSS variables as source of truth).
+        background: "rgb(var(--background) / <alpha-value>)",
+        surface: "rgb(var(--surface) / <alpha-value>)",
+        "surface-2": "rgb(var(--surface-2) / <alpha-value>)",
+        border: "rgb(var(--border) / <alpha-value>)",
+        "text-primary": "rgb(var(--text-primary) / <alpha-value>)",
+        "text-secondary": "rgb(var(--text-secondary) / <alpha-value>)",
+        muted: "rgb(var(--text-muted) / <alpha-value>)",
+        brand: "rgb(var(--brand) / <alpha-value>)",
+        success: "rgb(var(--success) / <alpha-value>)",
+        warning: "rgb(var(--warning) / <alpha-value>)",
+        danger: "rgb(var(--danger) / <alpha-value>)",
+        info: "rgb(var(--info) / <alpha-value>)",
+
+        // Container surface ladder (dark UI, translucent white).
+        // Used widely in existing components; keep consistent with sidebar MCP.
+        "surface-container-lowest": "rgba(255,255,255,0.04)",
+        "surface-container-low": "rgba(255,255,255,0.06)",
+        "surface-container": "rgba(255,255,255,0.08)",
+        "surface-container-high": "rgba(255,255,255,0.10)",
+        "surface-container-highest": "rgba(255,255,255,0.12)",
+
+        // M3-ish aliases used across the app (kept for compatibility).
+        "on-surface": "rgb(var(--text-primary) / <alpha-value>)",
+        "on-surface-variant": "rgb(var(--text-muted) / <alpha-value>)",
+        secondary: "rgb(var(--brand) / <alpha-value>)",
+        "secondary-container": "rgba(0,255,34,0.12)",
+        "secondary-fixed": "rgba(0,255,34,0.28)",
+        "secondary-fixed-dim": "rgba(0,255,34,0.18)",
+        "tertiary-fixed-dim": "rgb(var(--warning) / <alpha-value>)",
+        "outline-variant": "rgb(var(--border) / <alpha-value>)",
+
+        // Sidebar helpers (used by mobile nav/back-compat).
+        "slab-sidebar-bg": "rgba(0,0,0,0.72)",
+        "slab-sidebar-active-bg": "rgba(255,255,255,0.08)",
+
+        // Back-compat aliases used around the app.
         on: {
-          surface: "#18181b",
-          "surface-variant": "#52525b",
-          primary: "#ffffff",
-          secondary: "#ffffff",
-          "primary-container": "#a1a1aa",
-          "tertiary-container": "#16a34a",
+          surface: "rgb(var(--text-primary) / <alpha-value>)",
+          "surface-variant": "rgb(var(--text-muted) / <alpha-value>)",
+          primary: "rgb(var(--background) / <alpha-value>)",
         },
         primary: {
-          DEFAULT: "#18181b",
-          container: "#27272a",
-          fixed: "#e4e4e7",
-          "fixed-dim": "#d4d4d8",
-        },
-        /** Semantic secondary = Tailwind blue-500 scale */
-        secondary: {
-          DEFAULT: "#3b82f6",
-          container: "#2563eb",
-          fixed: "#eff6ff",
-          "fixed-dim": "#dbeafe",
-        },
-        tertiary: {
-          fixed: "#86efac",
-          "fixed-dim": "#4ade80",
+          DEFAULT: "rgb(var(--text-primary) / <alpha-value>)",
+          container: "rgb(var(--text-secondary) / <alpha-value>)",
         },
         outline: {
-          DEFAULT: "#71717a",
-          variant: "#e4e4e7",
-        },
-        error: {
-          DEFAULT: "#dc2626",
-          container: "#fecaca",
-        },
-        slab: {
-          accent: "#3b82f6",
-          "sidebar-bg": "#f4f4f5",
-          /** MCP-style selected row wash */
-          "sidebar-active-bg": "rgba(59, 130, 246, 0.12)",
+          DEFAULT: "rgb(var(--border) / <alpha-value>)",
+          variant: "rgb(var(--border) / <alpha-value>)",
         },
       },
       fontFamily: {
-        sans: ["Poppins", "system-ui", "sans-serif"],
-        headline: ["Poppins", "system-ui", "sans-serif"],
+        sans: ["Geologica", "system-ui", "sans-serif"],
+        headline: ["Geologica", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        slab: "0px 4px 24px rgba(24, 24, 27, 0.06)",
-        "slab-md": "0px 8px 32px rgba(24, 24, 27, 0.08)",
+        // MCP shadows (note negative X offset).
+        card: "-4px 4px 30px 0 rgba(0,0,0,0.4)",
+        "card-sm": "-4px 4px 8px 0 rgba(0,0,0,0.25)",
+        icon: "-2px 2px 8px 0 rgba(0,0,0,0.35)",
+
+        // Legacy names used by existing UI.
+        slab: "0 12px 34px rgba(0,0,0,0.45)",
+        "slab-md": "0 22px 60px rgba(0,0,0,0.55)",
+      },
+      backgroundImage: {
+        "brand-gradient": "var(--gradient-brand)",
+        "warning-gradient": "var(--gradient-warning)",
+        "danger-gradient": "var(--gradient-danger)",
+        "info-gradient": "linear-gradient(184deg, rgb(var(--info)) 10.472%, rgb(var(--info-soft)) 87.188%)",
       },
     },
   },

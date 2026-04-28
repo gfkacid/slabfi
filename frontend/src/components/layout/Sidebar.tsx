@@ -1,69 +1,120 @@
-import { NavLink, Link } from "react-router-dom";
-import { useAccount } from "wagmi";
-import { Icon } from "@/components/ui/Icon";
-import { SIDEBAR_WIDTH_CLASS } from "@/components/layout/shellConstants";
+import { Link, NavLink } from "react-router-dom";
 
-const navItems = [
-  { to: "/", label: "Dashboard", icon: "dashboard" as const },
-  { to: "/assets", label: "Assets", icon: "account_balance_wallet" as const },
-  { to: "/lending", label: "Lending Hub", icon: "account_balance" as const },
-  { to: "/liquidations", label: "Liquidation Queue", icon: "list_alt" as const },
+import hammerCourt from "@/assets/svgs/hammer-court.svg";
+import logoFull from "@/assets/svgs/logo-full.svg";
+
+import { SIDEBAR_WIDTH_CLASS } from "@/components/layout/shellConstants";
+import { BootstrapIcon, type BootstrapIconName, MaskedSvgIcon } from "@/components/ui/BootstrapIcon";
+import { cn } from "@/lib/utils";
+
+type SidebarItem = {
+  to: string;
+  label: string;
+  icon?: BootstrapIconName;
+  iconActive?: BootstrapIconName;
+  iconUrl?: string;
+};
+
+const NAV_ITEMS: SidebarItem[] = [
+  {
+    to: "/",
+    label: "Dashboard",
+    icon: "grid",
+    iconActive: "grid-fill",
+  },
+  {
+    to: "/collectibles",
+    label: "Collectibles",
+    icon: "file-post",
+    iconActive: "file-post-fill",
+  },
+  {
+    to: "/lending",
+    label: "Lending Hub",
+    icon: "bank",
+  },
+  {
+    to: "/auctions",
+    label: "Auctions",
+    iconUrl: hammerCourt,
+  },
 ];
 
-function truncateAddress(addr: string) {
-  return `${addr.slice(0, 5)}…${addr.slice(-4)}`;
+const UTILITY_ITEMS: Array<{ label: string; icon: BootstrapIconName }> = [
+  { label: "Help", icon: "question-circle" },
+  { label: "Settings", icon: "gear" },
+  { label: "Exit", icon: "box-arrow-left" },
+];
+
+function SidebarNavItem({ to, label, icon, iconActive, iconUrl }: SidebarItem) {
+  return (
+    <NavLink
+      to={to}
+      end={to === "/"}
+      aria-label={label}
+      title={label}
+      className={({ isActive }) =>
+        cn(
+          "group relative flex size-[64px] items-center justify-center rounded-[100px] p-[14px]",
+          "transition-[transform,background-color,box-shadow,filter] active:scale-[0.98]",
+          "hover:bg-white/5",
+          isActive && "bg-white/5 shadow-[-4px_4px_30px_0_rgba(0,0,0,0.40)]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        )
+      }
+    >
+      {({ isActive }) => (
+        <div className="size-[28px] transition-transform group-hover:scale-[1.06]">
+          <div className={cn(isActive ? "opacity-100" : "opacity-50 group-hover:opacity-80")}>
+            {icon ? (
+              <BootstrapIcon name={isActive ? iconActive || icon : icon} className="size-[28px]" gradient={isActive} />
+            ) : iconUrl ? (
+              <MaskedSvgIcon url={iconUrl} className="size-[28px]" gradient={isActive} />
+            ) : null}
+          </div>
+        </div>
+      )}
+    </NavLink>
+  );
 }
 
-/** Cursor MCP–style nav: rounded row, light blue wash, inset left accent bar */
-const linkBase =
-  "relative mx-1 flex items-center gap-3 rounded-md px-3 py-2.5 font-headline text-sm font-medium tracking-tight transition-[color,background-color,box-shadow] active:scale-[0.98]";
-const linkIdle = "text-zinc-600 hover:bg-zinc-200/70";
-const linkActive =
-  "bg-slab-sidebar-active-bg font-semibold text-blue-600 shadow-[inset_3px_0_0_0_theme(colors.blue.500)] ring-1 ring-blue-500/15";
-
 export function Sidebar() {
-  const { address, isConnected } = useAccount();
-
   return (
     <aside
-      className={`fixed left-0 top-0 z-[60] hidden h-screen flex-col ${SIDEBAR_WIDTH_CLASS} border-r border-outline-variant/20 bg-zinc-100 md:flex`}
+      className={`sticky top-0 z-[60] hidden h-screen flex-col bg-background md:flex ${SIDEBAR_WIDTH_CLASS}`}
     >
-      <div className="p-8 pb-4">
-        <Link
-          to="/"
-          className="mb-8 block font-headline text-xl font-extrabold text-primary"
-        >
-          Slab.Finance
+      <div className="flex h-full flex-col items-center gap-10 py-10 ">
+        <Link to="/" className="flex h-[110px] flex-col items-center justify-center" aria-label="Slab.Fi">
+          <img src={logoFull} alt="Slab.Fi" className="h-[110px] w-[69px] select-none" draggable={false} />
         </Link>
-        <nav className="space-y-1">
-          {navItems.map(({ to, label, icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : linkIdle}`.trim()
-              }
-            >
-              <Icon name={icon} className="!text-xl" />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-      </div>
 
-      <div className="mt-auto border-t border-outline-variant/10 p-8">
-        <div className="flex items-center gap-3 rounded-xl bg-surface-container-high p-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary-fixed/40 font-headline text-xs font-bold text-primary">
-            {isConnected ? address?.slice(2, 4).toUpperCase() ?? "?" : "—"}
-          </div>
-          <div className="min-w-0 overflow-hidden">
-            <p className="truncate text-xs font-bold text-on-surface">
-              {isConnected && address ? truncateAddress(address) : "Not connected"}
-            </p>
-            <p className="text-[10px] text-on-surface-variant">
-              {isConnected ? "Connected" : "Disconnected"}
-            </p>
+        <div className="flex flex-1 flex-col">
+          <div className="flex flex-1 flex-col items-center justify-between rounded-[50px] bg-white/10 px-2 py-4">
+            <div className="flex w-[64px] flex-col items-center gap-5">
+              {NAV_ITEMS.map((item) => (
+                <SidebarNavItem key={item.to} {...item} />
+              ))}
+            </div>
+
+            <div className="flex w-[64px] flex-col items-center gap-5">
+              {UTILITY_ITEMS.map(({ label, icon }) => (
+                <button
+                  key={label}
+                  type="button"
+                  className={cn(
+                    "group flex size-[64px] items-center justify-center rounded-[100px] p-[14px]",
+                    "transition-[transform,background-color,filter] hover:bg-white/[0.04] hover:brightness-110 active:scale-[0.98]",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  )}
+                  aria-label={label}
+                  title={label}
+                >
+                  <div className="size-[28px] opacity-50 transition-opacity group-hover:opacity-80">
+                    <BootstrapIcon name={icon} className="size-[28px]" />
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -2,20 +2,26 @@ import { Outlet } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
-import { HEADER_TOP_PAD_CLASS, MAIN_OFFSET_CLASS } from "@/components/layout/shellConstants";
+import { MAIN_OFFSET_CLASS } from "@/components/layout/shellConstants";
 
 export function AppShell() {
   return (
-    <div className="min-h-screen bg-surface font-sans text-on-surface">
-      <Sidebar />
-      <AppHeader />
-      <main
-        className={`min-h-screen bg-zinc-50 ${MAIN_OFFSET_CLASS} ${HEADER_TOP_PAD_CLASS} pb-20 md:pb-0`}
-      >
-        <div className="mx-auto max-w-[1600px] px-6 py-8 md:px-10">
-          <Outlet />
+    <div className="min-h-screen bg-background font-sans text-text-primary">
+      <div className="mx-auto min-h-screen w-full max-w-[1920px] bg-background px-10">
+        <div className="flex min-h-screen flex-row gap-14">
+          <Sidebar />
+          <div className={`min-w-0 flex-1 ${MAIN_OFFSET_CLASS}`}>
+            <div className="-mx-10">
+              <AppHeader />
+            </div>
+            <main className="pb-20 md:pb-0">
+              <div className="mx-auto py-8">
+                <Outlet />
+              </div>
+            </main>
+          </div>
         </div>
-      </main>
+      </div>
       <MobileBottomNav />
     </div>
   );
