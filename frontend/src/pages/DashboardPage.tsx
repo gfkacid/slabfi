@@ -260,8 +260,16 @@ function SectionCard({
 export function DashboardPage() {
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-10">
-      <div className="2xl:col-span-9 col-span-8 ">
-        <div className="space-y-10">
+      <div className="2xl:col-span-9 col-span-8 lg:sticky lg:top-24 lg:h-[calc(100vh-6rem)] lg:self-start">
+        <div
+          className={cn(
+            "relative space-y-10 pb-16",
+            "lg:h-full lg:overflow-y-auto lg:pr-1",
+            "lg:[&::-webkit-scrollbar]:hidden lg:[-ms-overflow-style:none] lg:[scrollbar-width:none]",
+            "lg:[-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_calc(100%_-_96px),transparent_100%)]",
+            "lg:[mask-image:linear-gradient(to_bottom,#000_0%,#000_calc(100%_-_96px),transparent_100%)]",
+          )}
+        >
           <header className="space-y-2">
             <div className="text-5xl font-thin leading-none text-white">Dashboard</div>
             <div className="text-[18px] font-thin text-white/90">Welcome back, 0x4ac…921a</div>
@@ -313,9 +321,9 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <aside className="col-span-4 self-stretch 2xl:col-span-3">
-        <SectionCard title="My Borrows" className="flex min-h-[calc(100vh-8rem)] flex-col">
-          <div className="flex-1 space-y-4">
+      <aside className="sticky top-24 col-span-4 h-[calc(100vh-6rem)] self-start 2xl:col-span-3">
+        <SectionCard title="My Borrows" className="flex h-full flex-col">
+          <div className="flex-1 space-y-4 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {[1, 2].map((idx) => (
               <div
                 key={idx}

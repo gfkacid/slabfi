@@ -204,16 +204,19 @@ export function CollectiblesPage() {
 
   return (
     <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-10">
-      <div className="2xl:col-span-9 col-span-8">
-        <div className="space-y-10">
+      <div className="2xl:col-span-9 col-span-8 lg:sticky lg:top-24 lg:h-[calc(100vh-6rem)] lg:self-start">
+        <div
+          className={cn(
+            "relative space-y-10 pb-16",
+            "lg:h-full lg:overflow-y-auto lg:pr-1",
+            "lg:[&::-webkit-scrollbar]:hidden lg:[-ms-overflow-style:none] lg:[scrollbar-width:none]",
+            "lg:[-webkit-mask-image:linear-gradient(to_bottom,#000_0%,#000_calc(100%_-_96px),transparent_100%)]",
+            "lg:[mask-image:linear-gradient(to_bottom,#000_0%,#000_calc(100%_-_96px),transparent_100%)]",
+          )}
+        >
           <header className="space-y-2">
-            <div className="flex flex-wrap items-start justify-between gap-6">
-              <div className="space-y-2">
-                <div className="text-5xl font-thin leading-none text-white">Collectibles</div>
-                <div className="text-[18px] font-thin text-white/90">
-                  Manage your tokenized cards, monitor vault health, and use them as collateral.
-                </div>
-              </div>
+            <div className="flex flex-wrap items-center justify-between gap-6">
+              <div className="text-5xl font-thin leading-none text-white">Collectibles</div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex w-[320px] items-center gap-2 rounded-[200px] border border-white/30 bg-white/[0.05] px-4 py-3">
@@ -222,7 +225,7 @@ export function CollectiblesPage() {
                 </div>
 
                 <div
-                  className="flex items-center gap-1.5 rounded-[50px] bg-white/[0.08] p-2"
+                  className="flex items-center gap-1.5 rounded-[50px] bg-white/[0.08] p-1"
                   role="tablist"
                   aria-label="Collectibles view"
                 >
@@ -233,7 +236,7 @@ export function CollectiblesPage() {
                     aria-selected={view === "cards"}
                     aria-controls={`${viewTabsId}-panel-cards`}
                     className={cn(
-                      "flex size-[52px] items-center justify-center rounded-full transition-[background-color,box-shadow,filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      "flex size-12 items-center justify-center rounded-full transition-[background-color,box-shadow,filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       view === "cards"
                         ? "bg-white/[0.05] shadow-[-4px_4px_15px_0_rgba(0,0,0,0.40)]"
                         : "hover:bg-white/[0.04] active:scale-[0.98]",
@@ -241,8 +244,9 @@ export function CollectiblesPage() {
                     onClick={() => setView("cards")}
                   >
                     <BootstrapIcon
-                      name={view === "cards" ? "grid-fill" : "grid"}
+                      name={view === "cards" ? "grid-3x3-gap-fill" : "grid-3x3-gap"}
                       className="size-5"
+                      gradient={view === "cards"}
                       colorClassName="bg-white"
                     />
                   </button>
@@ -253,7 +257,7 @@ export function CollectiblesPage() {
                     aria-selected={view === "list"}
                     aria-controls={`${viewTabsId}-panel-list`}
                     className={cn(
-                      "flex size-[52px] items-center justify-center rounded-full transition-[background-color,box-shadow,filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      "flex size-12 items-center justify-center rounded-full transition-[background-color,box-shadow,filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       view === "list"
                         ? "bg-white/[0.05] shadow-[-4px_4px_15px_0_rgba(0,0,0,0.40)]"
                         : "hover:bg-white/[0.04] active:scale-[0.98]",
@@ -264,6 +268,7 @@ export function CollectiblesPage() {
                     <BootstrapIcon
                       name="list"
                       className={cn("size-5", view === "list" ? "opacity-100" : "opacity-50")}
+                      gradient={view === "list"}
                       colorClassName="bg-white"
                     />
                   </button>
@@ -271,12 +276,16 @@ export function CollectiblesPage() {
 
                 <button
                   type="button"
-                  className="flex size-12 items-center justify-center rounded-full bg-[linear-gradient(206deg,#00FF22_10%,#D8FFDD_87%)]"
+                  className="flex size-11 items-center justify-center rounded-full bg-[linear-gradient(206deg,#00FF22_10%,#D8FFDD_87%)]"
                   aria-label="Filters"
                 >
-                  <BootstrapIcon name="sliders2-vertical" className="size-[21px]" colorClassName="bg-black" />
+                  <BootstrapIcon name="sliders2-vertical" className="size-5" colorClassName="bg-black" />
                 </button>
               </div>
+            </div>
+
+            <div className="text-[18px] font-thin text-white/90">
+              Manage your tokenized cards, monitor vault health, and use them as collateral.
             </div>
           </header>
 
@@ -296,8 +305,8 @@ export function CollectiblesPage() {
         </div>
       </div>
 
-      <aside className="col-span-4 self-stretch 2xl:col-span-3">
-        <div className="space-y-6">
+      <aside className="sticky top-24 col-span-4 h-[calc(100vh-6rem)] self-start 2xl:col-span-3">
+        <div className="h-full space-y-6 overflow-y-auto pr-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="grid grid-cols-2 gap-4">
             <SidebarMetricCard title="TVL" value="$2023.40" />
             <div className="flex flex-col gap-2 rounded-[20px] border border-white/10 bg-black/10 p-5">

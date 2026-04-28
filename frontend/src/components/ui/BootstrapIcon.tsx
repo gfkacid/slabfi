@@ -11,6 +11,8 @@ import filePostFill from "bootstrap-icons/icons/file-post-fill.svg?url";
 import graphUpArrow from "bootstrap-icons/icons/graph-up-arrow.svg?url";
 import gear from "bootstrap-icons/icons/gear.svg?url";
 import globe2 from "bootstrap-icons/icons/globe2.svg?url";
+import grid3x3Gap from "bootstrap-icons/icons/grid-3x3-gap.svg?url";
+import grid3x3GapFill from "bootstrap-icons/icons/grid-3x3-gap-fill.svg?url";
 import grid from "bootstrap-icons/icons/grid.svg?url";
 import gridFill from "bootstrap-icons/icons/grid-fill.svg?url";
 import heart from "bootstrap-icons/icons/heart.svg?url";
@@ -39,6 +41,8 @@ export type BootstrapIconName =
   | "graph-up-arrow"
   | "gear"
   | "globe2"
+  | "grid-3x3-gap"
+  | "grid-3x3-gap-fill"
   | "grid"
   | "grid-fill"
   | "heart"
@@ -65,6 +69,8 @@ const ICON_URLS: Record<BootstrapIconName, string> = {
   "graph-up-arrow": graphUpArrow,
   gear,
   globe2,
+  "grid-3x3-gap": grid3x3Gap,
+  "grid-3x3-gap-fill": grid3x3GapFill,
   grid,
   "grid-fill": gridFill,
   heart,
